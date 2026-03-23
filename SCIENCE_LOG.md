@@ -12435,3 +12435,100 @@ More precisely: the adapter modifies SAM3's text prompt embedding, which control
 **Saved adapters**: `adapter_seed{42,123,777}.pt` in respective seed dirs
 
 ---
+
+---
+
+## Entry 198 — Exp 28a: Non-Circular Contrastive Geometry Validation + PCA Bridge Analysis
+**Date**: 2026-03-24  
+**Job**: 12166589 (power-general-public-pool, ~3 min, CPU-only)  
+**Status**: ALL FOUR GATES PASSED
+
+### Background
+
+Exp 25 Q3 found that `f_contrastive = mean(CLS[TP]) − mean(CLS[FP])` per image produces delta=+0.704, TP > FP in 100% of 1,440 images. The circularity concern: TP/FP labels came from the MLP gate; the 100% consistency was partly expected. The non-circular finding is the *magnitude*. This experiment breaks the circularity with three independent designs and measures the geometry needed to train the W_← bridge.
+
+**Hypothesis (null)**: f_contrastive direction is (a) a label tautology, (b) image-specific noise, or (c) MLP-dependent. If geometry is real, all three nulls should fail.
+
+**Controls**:
+- Positive: circular baseline should reproduce delta=+0.704 (sanity)
+- Negative: 100 random unit vectors → AUC ≈ 0.50 (chance)
+
+### Results
+
+**Sanity checks**:
+- Circular baseline delta: **+0.704** (TP proj: +0.521±0.080, FP proj: −0.183±0.152) — exact reproduction of Exp 25 ✓
+- Negative control AUC: **0.533 ± 0.255** (expected ~0.50) ✓
+
+**Design A — Leave-One-Out within image** (breaks label tautology)
+- 818 images with ≥2 TP, 2,946 held-out LOO tests
+- **98.3%** of held-out TP masks beat mean-FP projection using f built from the remaining TPs
+- Mean delta (held-out TP vs mean FP): +0.598
+- **Gate PASS (≥90%)** → f_contrastive is not a label tautology; it generalises even when the target mask is excluded from f construction
+
+**Design B — Cross-image species transfer** (breaks image-specificity)
+- 35 species, 16,350 pairs (all pairs, not capped — species have moderate n_images)
+- Cross-image AUC: **0.923 ± 0.145**
+- **Gate PASS (≥0.65)** → The f direction built from one image of species X discriminates TP from FP in a *different* image of species X. The direction is species-stable, not image noise.
+- **Implication for W_←**: `b_species = species_text_embedding` is a valid proxy for `f_contrastive`. W is learnable.
+
+**Design C — MLP-free bootstrap** (breaks MLP dependency)
+- 1,407 images with ≥4 masks; SAM3 raw scores used as pseudo-labels instead of MLP
+- 50/50 split AUC: **0.813** (noisiest pseudo-labels)
+- 25/75 split AUC: **0.839**
+- 10/90 split AUC: **0.856** (cleanest pseudo-labels)
+- **Gate PASS (50/50 ≥ 0.70)** → f_contrastive is accessible from SAM3 raw scores alone. MLP is NOT required as a first-pass labeller. Training-free W pipeline is geometrically viable.
+
+**Sub-test 4a — PCA-256 compression fidelity**
+- 1024-dim AUC: 0.9853 → 256-dim AUC: 0.9848
+- Retention: **100.0%** (99.95%) — no discriminative information is lost projecting to the MLP PCA basis
+
+**Sub-test 4b — PCA knee sweep**
+
+| K | AUC | % of 1024-dim |
+|---|-----|--------------|
+| 2 | 0.927 | 94.1% |
+| **4** | **0.947** | **96.1% ← knee** |
+| 8 | 0.958 | 97.3% |
+| 16 | 0.972 | 98.7% |
+| 32 | 0.978 | 99.2% |
+| 64 | 0.981 | 99.6% |
+| 128 | 0.983 | 99.8% |
+| 256 | 0.985 | 100.0% |
+| 512 | 0.985 | 100.0% |
+| 1024 | 0.985 | 100.0% |
+
+- **Knee at K=4** (first K achieving ≥95% of 1024-dim AUC)
+- → **W ∈ R^{256×4}, only 1,024 parameters**
+
+### Decision Gate Summary
+
+| Gate | Result | Threshold | Outcome |
+|------|--------|-----------|---------|
+| Design A: LOO pass rate | 98.3% | ≥90% | PASS — geometry is real |
+| Design B: cross-image AUC | 0.923 | ≥0.65 | PASS — W_← viable |
+| Design C: 50/50 bootstrap AUC | 0.813 | ≥0.70 | PASS — MLP-free viable |
+| PCA 4b knee K | 4 | — | W is tiny (1,024 params) |
+
+### Interpretation
+
+**All three null hypotheses rejected**:
+1. LOO 98.3%: f is not a tautology — direction survives exclusion of the test sample
+2. Cross-image 0.923: direction is species-stable across images — it encodes species-level morphology, not per-image noise
+3. Bootstrap 0.813: direction is accessible without MLP labels — SAM3 raw scores are sufficient
+
+**The bridge is justified and tiny**: K=4 means W maps 4 PCA dimensions → 256 SAM3 dimensions. The top 4 BioCLIP PCA components already contain 96.1% of the discriminative geometry. W has only 1,024 learnable parameters — essentially a rank-4 update to the SAM3 text prompt. This makes training robust, fast, and interpretable.
+
+**Unexpected finding**: Design C bootstrap AUC (0.813) is substantially above the gate (0.70). This means a training-free two-pass variant is plausible — use SAM3 pass 1 scores to bootstrap pseudo-labels, compute f_contrastive, adapt prompt, re-run SAM3 pass 2. No MLP needed. However, the two-pass cost (+48 min for full VAL) makes the single-pass W_← architecture with species identity more attractive for production.
+
+### Next Step: Exp 28b — Train W
+
+Training data: 444 (image, species, missed_GT_flower_mask) triplets from TRAIN split.  
+Loss: dice(SAM3_adapted_output, missed_GT_mask).  
+W ∈ R^{256×4} — tiny network, stable training expected.  
+Species vector: `b_species = species_text_emb[species_name]` (290×1024 precomputed) → top-4 PCA → W → δ_256.  
+Inference: `prompt_adapted = prompt + α·δ_256`, single SAM3 forward pass, zero extra cost.
+
+**Results**: `/scratch200/leardistel/petal_benchmark/results/contrastive_validation/`  
+**Files**: `results.json` (aggregates), `per_image_details.json` (per-image records for all designs)
+
+---
