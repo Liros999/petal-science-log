@@ -12532,3 +12532,39 @@ Inference: `prompt_adapted = prompt + α·δ_256`, single SAM3 forward pass, zer
 **Files**: `results.json` (aggregates), `per_image_details.json` (per-image records for all designs)
 
 ---
+
+---
+
+## Entry 198 — Addendum: Exp 28b Launched (W_← Bridge Training)
+**Date**: 2026-03-24  
+**Job**: 12166632 (gpu-general-pool, 4h, 1 GPU)
+
+### Exp 28b Design
+
+Trains W ∈ R^{256×4} — the injection bridge from BioCLIP species identity to SAM3 prompt space.
+
+**Training data** (TRAIN split only, verified):
+- 649 images where MLP found fewer flowers than SAM2 GT (1,449 total missed flower masks)
+- TRAIN: 5,548 images, 108 species, 87 genera
+- VAL:   2,294 images, 54 species, 47 genera — used for monitoring only, not training
+- TEST:  untouched
+
+**Split guards** (assertions in script):
+- Image overlap TRAIN/VAL: 0 ✓
+- Genus overlap TRAIN/VAL: 0 ✓  (79 train genera, 38 val genera — completely disjoint families)
+- PCA basis: fitted on TRAIN-only CLS embeddings (MLP checkpoint verified)
+
+**Injection point** (verified from SAM3 source):  
+`backbone_out["language_features"] += alpha * W @ PCA_4(b_species)`  
+shape: language_features `(n_tokens, 1, 256)` — delta broadcast over all text tokens  
+W trained via `forward_grounding()` directly (not through processor, which uses `@inference_mode`)
+
+**Loss**: dice(top-scoring pred_mask, missed_GT_flower_mask)  
+**Optimizer**: Adam, lr=1e-3, 50 epochs, batch=4  
+**W init**: zeros → starts as exact baseline (no shift at epoch 0)  
+**Gradient clipping**: max_norm=1.0 for stability
+
+**Results**: `/scratch200/leardistel/petal_benchmark/results/w_bridge/`  
+→ Entry 199 will contain full training results and VAL evaluation.
+
+---
