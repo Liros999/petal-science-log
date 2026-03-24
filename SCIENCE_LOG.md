@@ -12568,3 +12568,116 @@ W trained via `forward_grounding()` directly (not through processor, which uses 
 → Entry 199 will contain full training results and VAL evaluation.
 
 ---
+
+## Entry 198 — Addendum 2: W_← Theoretical Analysis + Parallel Experiments Launched
+**Date**: 2026-03-24  
+
+### Theoretical Framework: Two MLPs, Two Roles
+
+This session produced a precise theoretical framing of the W_← bridge architecture and its
+relationship to the existing gate MLP. Recorded here as a permanent reference.
+
+#### The Two MLPs in the Pipeline
+
+**Gate MLP** (production, `flower_mlp_pca256_sam3.npz`):
+```
+Input:  PCA_256(CLS_token)  ←  what BioCLIP saw in the MASK PIXELS (visual)
+Output: P(this mask = flower)
+Runs:   AFTER SAM3, once per proposed mask
+Role:   Precision — filters non-flowers from SAM3's proposals
+```
+
+**Bridge MLP** (Exp 28e, training):
+```
+Input:  species_text_emb  ←  what BioCLIP encoded from the SPECIES NAME (linguistic)
+Output: δ_256  ←  shift in SAM3's language_features space
+Runs:   BEFORE SAM3, once per image (same δ for all images of same species)
+Role:   Recall — steers SAM3's attention to find morphologically atypical flowers
+```
+
+These are complementary components at opposite ends of the pipeline. The bridge does NOT
+replace the gate. Together:
+```
+MLP_bridge(b_species) → δ → shift SAM3 prompt
+→ SAM3 proposes better masks  
+→ BioCLIP encodes each mask → CLS  
+→ Gate MLP(PCA_256(CLS)) → P(flower) → keep/discard
+```
+
+#### Why Full 1024 Dimensions Are Required
+
+The PCA knee K=4 from Exp 28a was the minimum to preserve discriminability *within BioCLIP's
+own task* (TP/FP separation). It is NOT the minimum to encode species-specific visual variation
+relevant to SAM3.
+
+Three reasons the mapping requires full 1024 dims:
+1. **Dimensionality mismatch**: BioCLIP 1024 → SAM3 256. Information must be compressed along
+   the dimensions SAM3 cares about, which are different from BioCLIP's top-4 PCs.
+2. **Basis mismatch**: BioCLIP's PC1 (flower/non-flower axis) may be spread across many
+   dimensions in SAM3's language space — no axis-aligned alignment between independently
+   trained models.
+3. **Nonlinear warping**: Contrastive training creates hyperspherical geometry in each space
+   independently. The mapping between two hyperspheres with different dimensionalities, rotations,
+   and local density functions is not linear.
+
+#### What the Bridge Learns (Precise Statement)
+
+The bridge does NOT aim every species toward a fixed "flower" point in SAM3 space. That would
+recover the baseline — the "flower" text prompt is already the baseline. The bridge learns:
+
+> "Given where species S sits in BioCLIP's text space, in which direction should I perturb
+> SAM3's 'flower' concept so that SAM3 fires on S's specific morphology?"
+
+For Malva sylvestris: shift toward funnel-shaped, hairy calyx  
+For Taraxacum officinale: shift toward composite, dense yellow ray florets  
+For Anemone nemorosa: shift toward cup-shaped, white, single  
+
+These are **different directions from "flower"**, not convergent to it. The species-specific
+variation in BioCLIP's text space encodes exactly these morphological distinctions — the bridge
+learns the coordinate transform from BioCLIP's encoding to SAM3's grounding vocabulary.
+
+#### Why This Is Not Circular
+
+Image feature injection (ContentAdapter, Exp 18b) reads the image to modify how SAM3 processes
+that same image → potential circular overfitting.
+
+The bridge reads **species name text** (same input for all images of the same species), never
+pixel content. The generalization test is strict: does the learned shift for "Malva sylvestris"
+work on unseen Malva images in VAL (different genus family from all TRAIN species)?
+
+#### The Normalization Interpretation
+
+The bridge MLP is learning a **nonlinear change of basis** between two independently trained
+hyperspherical spaces:
+```
+MLP_bridge = argmin_f  Σ_{species}  dice(SAM3(image, base_prompt + f(b_species)), GT_mask)
+```
+The hidden layer (1024→128) finds the low-dimensional manifold of species-relevant variation
+in BioCLIP space — the ~rank-20-50 subspace encoding cross-species flower morphology variation.
+The output layer (128→256) projects that manifold into SAM3's coordinate system.
+K=4 was insufficient because it is BioCLIP's own discriminative rank, not the rank of the
+cross-species morphology manifold that matters for SAM3 grounding.
+
+### Parallel Experiments Running (2026-03-24)
+
+Four W_← bridge variants running simultaneously:
+
+| Job | Exp | Architecture | Status |
+|---|---|---|---|
+| 12166874 | 28b | Linear W ∈ R^{256×4}, fixed α=0.1 | RUNNING — epoch 2, loss=0.7956 (flat) |
+| 12167044 | 28c | Linear W ∈ R^{256×4}, adaptive α | RUNNING — epoch 0, loss=0.7995 |
+| 12167045 | 28d | Linear W, K∈{4,16,32,64,256} sweep | RUNNING — K=4 epoch 0, loss=0.7995 |
+| 12167062 | 28e | MLP 1024→128→256, GELU, 163K params | RUNNING — epoch 0, loss=0.7994 |
+
+**28b flat loss diagnosis**: W_norm growing (1.39→4.10) confirms gradients flow, but loss
+stuck at 0.7956. Linear K=4 bridge cannot bridge the BioCLIP→SAM3 space gap.
+
+**Decision gates** (to be evaluated after all jobs complete, ~8h):
+- If 28e < 28b/28d: nonlinearity + full 1024 dims confirmed necessary → MLP bridge is the design
+- If 28d shows K≥32 drops but K=4 flat: rank of cross-space manifold > 4
+- If all flat at 0.79: text injection is wrong lever → investigate alternative injection points
+  (image features, but must re-examine circularity; or a completely different architecture)
+
+→ Entry 199 will contain full training curves + VAL evaluation results.
+
+---
