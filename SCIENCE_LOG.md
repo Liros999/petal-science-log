@@ -12681,3 +12681,119 @@ stuck at 0.7956. Linear K=4 bridge cannot bridge the BioCLIP→SAM3 space gap.
 → Entry 199 will contain full training curves + VAL evaluation results.
 
 ---
+
+## Entry 198 — Addendum 3: The Direction Problem — What W Actually Learns
+**Date**: 2026-03-24  
+
+### The Central Question: What Is W Optimizing Toward?
+
+This is the most important theoretical distinction in the W_← design. It is recorded here
+precisely because it determines how to interpret training loss, evaluate results, and design
+future experiments.
+
+#### What W Is NOT Doing
+
+A naive formulation would train W to map every species toward a fixed "flower" target in
+SAM3's language space:
+
+```
+Loss_naive = ||W @ b_species − flower_direction_SAM3||²
+```
+
+This is wrong for a fundamental reason: the generic "flower" direction in SAM3's space IS the
+baseline. It is already what `forward_text(["flower"])` produces. Training W to point every
+species at the same flower vector would learn to undo its own injection — recovering the
+baseline at best, degrading it at worst.
+
+#### What W IS Doing
+
+W learns a **species-specific perturbation away from the generic flower vector**:
+
+```
+language_features_adapted = language_features_flower + α · W @ b_species
+```
+
+The training signal is purely geometric: "did moving the prompt in this direction help SAM3
+find the specific flower it was missing?" The target is not a fixed point — it is an unknown
+direction in SAM3's 256-dim space that causes SAM3's cross-attention to fire on this species'
+flower pixels.
+
+Geometrically: every species' adapted prompt lives on a sphere of radius α·||W@b_k|| centered
+on the baseline "flower" point. W learns to place each species on a **different point of that
+sphere**, corresponding to the visual morphology that species' flowers actually have.
+
+```
+"flower" (baseline)  →  center of sphere
+"Malva sylvestris"   →  +δ_malva  (toward funnel, hairy calyx region)
+"Taraxacum"          →  +δ_tarax  (toward composite, dense ray floret region)
+"Anemone nemorosa"   →  +δ_anem   (toward cup-shaped, white, solitary region)
+```
+
+These δ vectors are NOT toward "flower" — they are the species-specific corrections that
+make SAM3's generic "flower" concept precise enough to fire on atypical morphologies.
+
+### Circularity Analysis — Rigorous Statement
+
+#### ContentAdapter (Exp 18b) — Image-Level Circularity
+
+```
+Adapter input:  image_features(X)       ← pixel content of training image X
+Training loss:  dice(adapted_SAM3(X), GT_mask(X))
+Test:           adapted_SAM3(X) on same X
+```
+
+Circularity: the adapter learned image-specific modifications. The training signal and the
+evaluation input share the same image. Even with train/val splits, the adapter may have
+learned spurious image-level statistics rather than generalizable visual patterns.
+
+#### W_← Bridge — Species-Level, Non-Circular
+
+```
+Bridge input:  b_species = BioCLIP_text_encoder("Malva sylvestris")  ← text only, no image
+Training loss: dice(adapted_SAM3(X), GT_mask(X))  where X is a TRAIN Malva image
+Test:          adapted_SAM3(Y) where Y is a VAL Malva image (unseen, different image)
+```
+
+The bridge input `b_species` is **identical for all images of the same species** — it is a
+fixed 1024-dim vector from the text encoder, independent of any pixel content. The bridge
+cannot learn image-specific shortcuts. The only generalizable signal is: "which direction in
+SAM3's language space corresponds to this species' flower morphology, as encoded in BioCLIP's
+text representation of its name?"
+
+#### The True Generalization Test
+
+The VAL split uses **different genera entirely** (47 genera, zero overlap with TRAIN's 87
+genera). The bridge must generalize to genera it has never seen in training. The only path
+to generalization is:
+
+1. BioCLIP's text space encodes cross-species morphological similarity continuously
+   (species with similar flowers are geometrically close, verified by Exp 28a Design B: AUC=0.923)
+2. The bridge learned a continuous mapping from that space to SAM3's grounding space
+3. Unseen species in BioCLIP's text space, if morphologically similar to seen TRAIN species,
+   will receive similar corrections via the bridge
+
+This is the bet. Exp 28e (MLP, full 1024 dims) is the maximum-information version of this bet.
+
+### Planned Follow-Up: Exp 29 — Quantifying the Direction Structure
+
+After Exp 28e completes, the directions {δ_s = MLP_bridge(b_s)} for all 290 species should
+be analyzed:
+
+1. **Cosine similarity matrix**: are morphologically similar species getting similar δ vectors?
+   If yes → bridge learned biologically meaningful directions, not noise.
+2. **Angle from "flower" baseline**: do atypical species (far from centroid in BioCLIP space)
+   get larger perturbations? → Tests whether the bridge respects the adaptive-alpha intuition
+   without being explicitly trained to do so.
+3. **PCA of {δ_s}**: what is the effective rank of the learned perturbation manifold?
+   If rank ≤ 10 → bridge compressed species variation into a low-dimensional direction space.
+   This is the geometric structure we expect if the bridge is learning something real.
+4. **Correlation of δ direction with flower trait axes**: do the top PCs of {δ_s} correlate
+   with known morphological traits (color, symmetry, inflorescence type)?
+   → If yes, the bridge is implicitly recovering flower trait geometry in SAM3's space.
+
+This analysis requires no additional training — only a forward pass of MLP_bridge on all 290
+species text embeddings.
+
+→ Full results: Entry 199 (training curves) + Entry 200 (direction structure analysis, Exp 29)
+
+---
