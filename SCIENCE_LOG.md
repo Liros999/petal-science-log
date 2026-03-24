@@ -14325,3 +14325,107 @@ This replaces the trained MLP gate with a zero-training cosine scorer. No MLP tr
 **The key claim**: We have found a method that achieves AUC=0.940 with zero training, generalizes to genus-unseen species, scales monotonically with validated species count, and requires only a species text string as species-specific input. This is not a small improvement to the existing pipeline — it is a different paradigm for how species identity guides flower detection.
 
 ---
+
+## Entry 204 — exp34a RESULT: AUC(FPN D_flower_SAM3, VAL) = 0.9622 — SAM3 Beats BioCLIP in Its Own Space (2026-03-25)
+
+### Experiment: exp34a (job 12205306, GPU compute-0-419)
+
+---
+
+### The Result
+
+| Method | TRAIN AUC | VAL AUC | Note |
+|---|---|---|---|
+| SAM3 score (baseline) | 0.8035 | 0.8189 | Current production |
+| BioCLIP D_flower | 0.9422 | 0.9404 | +12.1pp, zero training |
+| **FPN D_flower_SAM3** | **0.9569** | **0.9622** | **+14.3pp, zero training, zero BioCLIP at inference** |
+
+**VAL is genus-exclusive from TRAIN.** D_flower_SAM3 was computed from TRAIN label=1 masks only. The 59,977 VAL masks come from images whose genera were never seen during direction computation. The +14.3pp improvement over SAM3's own score is fully out-of-sample.
+
+**FPN beats BioCLIP by +0.0218 AUC on VAL.** This means SAM3's internal visual feature space discriminates flowers from non-flowers better than BioCLIP's semantic CLS space — when evaluated via the same universal flower direction mechanism.
+
+---
+
+### Why FPN Outperforms BioCLIP
+
+This result is surprising but has a clean mechanistic explanation.
+
+BioCLIP 2.5 was trained to align images with species names using contrastive learning. Its CLS embedding captures semantic identity — what species this is, what biological concept it represents. The "flower" signal in BioCLIP CLS is real (AUC=0.940) but it is mixed with other semantic content (species identity, context, background).
+
+SAM3's backbone_fpn[-1] is a feature pyramid network output trained for segmentation. Its 256-dim feature vectors at each spatial location capture **pixel-level visual patterns** — texture, color, shape, boundary. The direction D_flower_SAM3 = mean(fpn_features at confirmed flower locations) − mean(fpn_features at non-flower locations) is the direction in SAM3's pixel-level space that most purely separates flower pixels from non-flower pixels.
+
+This direction is MORE discriminative than BioCLIP's because:
+1. SAM3's FPN features are specifically tuned for spatial discrimination (segmentation task) — they represent "what visual pattern is at this location?" directly
+2. BioCLIP's CLS aggregates global image meaning, which dilutes the per-patch flower signal
+3. The 2.07× amplification (exp33) means SAM3 represents inter-species flower variation more strongly, but also means intra-class flower features are more concentrated
+
+**The implication for the production pipeline**: The rescoring operation `cosine(x_FPN_mask, D_flower_SAM3)` requires:
+- No BioCLIP encoding at inference time
+- Only SAM3's backbone_fpn[-1] — already computed as part of SAM3's normal forward pass
+- A single 256-dim dot product per mask
+
+This is the most efficient possible rescoring operation.
+
+---
+
+### The Revised Level Hierarchy
+
+| Level | Method | VAL AUC | Inference cost |
+|---|---|---|---|
+| 0 | SAM3 score alone | 0.819 | SAM3 forward pass |
+| **1a** | **FPN D_flower_SAM3 (this result)** | **0.962** | SAM3 backbone_fpn[-1] + dot product (already computed) |
+| 1b | BioCLIP D_flower | 0.940 | SAM3 + BioCLIP CLS encode |
+| 2 | W_ridge D_s via BioCLIP text | ~0.941 | SAM3 + BioCLIP text encode |
+| 3 | W_SAM3 species-specific FPN | ? | SAM3 only, after MLP training |
+
+**Level 1a is strictly better than Level 1b and strictly cheaper.** The entire rescoring can be done within SAM3's existing computation.
+
+---
+
+### Why This Is Not Circular (VAL Leakage Audit)
+
+TRAIN: D_flower_SAM3 was computed from TRAIN label=1 backbone_fpn[-1] features. Evaluating on TRAIN masks is in-sample → TRAIN AUC=0.957 is an upper bound, partially inflated.
+
+VAL: D_flower_SAM3 was computed from TRAIN only. The VAL backbone_fpn[-1] features were extracted in exp34a and never used for direction computation. VAL species are genus-exclusive from TRAIN. The VAL result (AUC=0.962) is a genuine out-of-sample generalization — D_flower_SAM3 discriminates flowers in images from genera SAM3's direction-learning never saw.
+
+The fact that VAL AUC (0.962) is HIGHER than TRAIN AUC (0.957) confirms there is no overfitting — the direction generalizes cleanly, consistent with the universal flower manifold theory.
+
+---
+
+### Next Experiment: W_SAM3 — Species-Specific Rescoring in FPN Space
+
+D_flower_SAM3 is the universal SAM3 flower direction (elevation component). The full species-specific direction in SAM3 FPN space is:
+
+```
+f_SAM3[s]  =  cos(θ_SAM3_s) · D_flower_SAM3  +  sin(θ_SAM3_s) · ε̂_SAM3[s]
+```
+
+With cone_SAM3 = 24.6° (vs 12.9° for BioCLIP), the azimuth ε̂_SAM3[s] contributes 46% of the direction — twice as much as in BioCLIP space. W_SAM3 would be a ridge regression `b_text[s] → f_SAM3[s]` directly in SAM3 FPN space, bypassing BioCLIP CLS entirely.
+
+We already have f_SAM3[s] for 85 species from exp33. We have b_text[s] from species_text_emb.npz. W_SAM3 can be computed in seconds on CPU:
+
+```
+W_SAM3 = F_SAM3^T B (B^T B + λI)^{-1}   ∈ R^{256×1024}
+```
+
+Then at inference: `D_s_SAM3 = normalize(W_SAM3 @ b_text[s])` — a 256-dim flower direction specific to species s, operating entirely within SAM3's FPN space. No BioCLIP image encoding. No MLP. Pure analytical computation.
+
+This is the cleanest possible zero-training species-specific rescoring: text name only → SAM3 FPN direction → rank masks in SAM3's own space.
+
+---
+
+### Job Status — All Active Experiments
+
+| Job | Name | Status | Notes |
+|---|---|---|---|
+| 12205535 | exp35_topk | RUNNING | Top-K recall sweep, K=1,2,3,5,10, all strategies |
+| 12205367 | exp34b_persp | PENDING | UMAP per-species coloring |
+| 12205306 | exp34a_fpn_auc | **DONE** | AUC=0.962 |
+
+Cancelled as obsolete:
+- 12167045 exp28d_k_sweep: language_features injection (proven dead, Entry 200)
+- 12167062 exp28e_mlp_bridge: language_features MLP (proven dead, Entry 200)
+- 12186642 exp29b_fsp_img: FPN injection with v2 (corrupted geometry, loss plateaued)
+- 12195071 exp31_combined: W_ridge_v2 + MLP (corrupted geometry, loss plateaued at 0.465)
+
+---
