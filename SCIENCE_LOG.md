@@ -14429,3 +14429,72 @@ Cancelled as obsolete:
 - 12195071 exp31_combined: W_ridge_v2 + MLP (corrupted geometry, loss plateaued at 0.465)
 
 ---
+
+## Entry 205 — exp35 Top-K Recall + exp34b Per-Species UMAP + exp36 W_SAM3 Submitted (2026-03-25)
+
+### exp35: Top-K Recall Sweep — All Strategies, VAL Holdout
+
+exp35 measured per-image recall@K for K ∈ {1,2,3,5,10} across five strategies on both TRAIN and fully held-out VAL (1,447 images with GT flowers, 820 multi-flower). All strategies use BioCLIP 2.5 CLS embeddings as the scoring backbone. D_s_Wridge is Level 2 (W_ridge @ b_text[s]) with no image encoding at inference.
+
+**VAL Recall@K results** (most important — genus-exclusive holdout):
+
+| Strategy | @1 | @2 | @3 | @5 | @10 |
+|---|---|---|---|---|---|
+| SAM3_baseline | 0.453 | 0.623 | 0.708 | 0.794 | 0.884 |
+| D_flower | 0.430 | 0.638 | 0.750 | 0.862 | 0.947 |
+| Combo_lam07 | **0.501** | **0.696** | **0.796** | **0.888** | **0.958** |
+| D_s_Wridge (L2) | 0.437 | 0.644 | 0.752 | 0.863 | 0.949 |
+| Combo_Ds_lam07 | **0.503** | **0.698** | **0.799** | **0.889** | **0.958** |
+
+**VAL Multi-flower Recall@K** (820 images with ≥2 GT flowers — the hardest case):
+
+| Strategy | @1 | @2 | @3 | @5 | @10 |
+|---|---|---|---|---|---|
+| SAM3_baseline | 0.238 | 0.449 | 0.574 | 0.697 | 0.827 |
+| D_flower | 0.239 | 0.461 | 0.610 | 0.775 | 0.915 |
+| Combo_lam07 | **0.277** | **0.525** | **0.669** | **0.817** | **0.932** |
+| D_s_Wridge (L2) | 0.241 | 0.471 | 0.613 | 0.779 | 0.918 |
+| Combo_Ds_lam07 | **0.279** | **0.526** | **0.672** | **0.819** | **0.932** |
+
+Global AUC (from exp35, consistent with exp32/exp34): D_flower=0.9404, D_s_Wridge=0.9422, SAM3=0.8189.
+
+**Key findings:**
+- Combo_lam07 = (1-0.7)·sam3_score + 0.7·cosine_A is the best strategy at ALL K values
+- Adding W_ridge species specificity (Combo_Ds) gives a marginal further gain: +0.002 at @1
+- At K=1: Combo rescoring recovers **+4.8 pp** over SAM3 baseline (0.501 vs 0.453)
+- At K=10: nearly saturated — all strategies reach >88%, SAM3 itself gets 88.4%
+- The biggest win from rescoring is at K=2,3 where SAM3 misses multi-flower cases
+- Multi-flower @3: Combo_lam07 = 0.669 vs SAM3 = 0.574 (+9.5 pp) — zero training required
+
+The Combo strategy (λ=0.7) blends SAM3's spatial prior with D_flower's semantic certainty. The fact that this beats pure D_flower at @1 shows SAM3 score carries non-redundant spatial information (mask quality, IoU with likely objects) that pure cosine ranking loses.
+
+---
+
+### exp34b Addendum: Per-Species UMAP Coloring
+
+The per-species UMAP (exp34b_perspecies, job 12205367) projected 85 distinct species colors onto the flower cluster of the UMAP manifold. Key result:
+
+**Mean inter-species UMAP centroid distance = 1.870** (flower/non-flower separation = 6.487, ratio = 0.288).
+
+Species are separated by approximately 29% of the total flower/non-flower gap. This means within the flower cluster there is measurable but modest species structure. The UMAP coloring visualizes this as a rainbow-like spread within the tight 12.9° cone — species fingerprints (azimuth components) are distinguishable in 2D projection despite being nearly orthogonal in 1024D BioCLIP space.
+
+The species direction diamonds (f_v3[s]) cluster tightly together near D_flower in the 2D projection, consistent with the 12.9° cone. Species separation in UMAP space represents the 22% azimuth component projected into 2D — geometrically expected given the 1024D → 2D compression.
+
+---
+
+### exp36 Submitted: W_SAM3 = Ridge(b_text[s] → f_SAM3[s]) in FPN Space
+
+Submitted exp36 (job 12205910, CPU, power-general-public-pool, 30 min). This computes:
+
+**W_SAM3 ∈ R^{256×1024}**: ridge regression from BioCLIP text embeddings (1024-dim) to SAM3 FPN species directions (256-dim), trained on 85 species with both f_SAM3[s] and b_text[s].
+
+This is **Level 2 in SAM3 FPN space** — the SAM3 analogue of W_ridge (which maps b_text → f_1024 in BioCLIP space). Three evaluations:
+- (A) LOO reconstruction cosine at λ ∈ {0.01, 0.1, 1.0, 10, 100}
+- (B) All 290 text species — production mode, no LOO
+- (C) Scaling law: N ∈ {10,20,...,85} → mean held-out cosine
+
+The key question: does W_SAM3 @ b_text[s] predict D_s in SAM3 FPN space accurately enough to improve on D_flower_SAM3 = AUC 0.9622? Since SAM3 amplification = 2.07×, species-specific directions in FPN space are larger — W_SAM3 has a harder regression target but potentially more discriminable directions to fit.
+
+Note: exp36 evaluates AUC only if raw FPN features (fpn_feats_val.npz) were saved by exp34a. If not, evaluation uses reconstruction cosine as proxy. Will check results and log in Entry 206.
+
+---
