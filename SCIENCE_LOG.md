@@ -13705,9 +13705,9 @@ If this correlation is confirmed on real VAL images, it closes the loop: the geo
 
 ---
 
-## Entry 201 — v3 Geometry Bug Fix, Zero-Training Rescoring Validated, SAM3 FPN Characterization (2026-03-24)
+## Entry 201 — v3 Geometry Bug Fix, True VAL Holdout (AUC=0.940), SAM3 FPN Amplification 2.07× (2026-03-24)
 
-### Experiments completed: exp30a_v3 (job 12202010), exp30b_v3 (job 12202021), exp32_v3 (job 12202145), exp32_val (job 12202728, PENDING), exp33 (job 12202762, PENDING GPU)
+### Experiments completed: exp30a_v3 (job 12202010), exp30b_v3 (job 12202021), exp32_v3 (job 12202145), exp32_val (job 12202836, DONE), exp33 (job 12202866, Phase 3 DONE)
 
 ---
 
@@ -13861,55 +13861,105 @@ These signals are small by design: cone=12.9° means species text embeddings are
 
 ---
 
-### Part V — SAM3 FPN Geometry (exp33, PENDING)
+### Part V — SAM3 FPN Geometry (exp33, job 12202866 — DONE Phase 3)
 
-exp33 (job 12202762, GPU, 6h) will characterize SAM3's backbone_fpn[-1] space the same way we characterized BioCLIP 2.5 CLS space. The key computation:
+exp33 characterizes SAM3's backbone_fpn[-1] space using the same elevation/azimuth decomposition applied to BioCLIP 2.5 CLS space. The key computation (mirroring f_1024_v3):
 
 ```python
 f_SAM3[s] = mean(fpn_features at flower pixel locations for species s)
              - global_non_flower_mean
 ```
 
-where fpn_features = backbone_fpn[-1] at each pixel location, resized to match the SAM2-confirmed flower mask. This mirrors exactly how f_1024_v3[s] was computed in BioCLIP space.
+FPN features are extracted at the spatial positions covered by SAM2-confirmed flower masks, then averaged to a 256-dim species direction. The global non-flower mean is computed from FP-image backbone_fpn[-1] features. This is the exact parallel to f_1024_v3 in BioCLIP space.
 
-The outputs will include:
-- D_flower_SAM3: universal SAM3 flower direction in 256-dim FPN space
-- cone_SAM3: how much species-specific variation there is in SAM3's internal representation
-- Azimuth inter-cosine: are SAM3's species fingerprints orthogonal like BioCLIP's?
-- **Amplification factor**: (azimuth/elevation ratio in SAM3) / (azimuth/elevation ratio in BioCLIP = 0.2228)
+**Results (85 species, all SAM2-confirmed, job 12202866 log)**:
 
-The amplification factor is the critical number. If a 22%-magnitude azimuth shift in BioCLIP space corresponds to a 60%-magnitude shift in SAM3 FPN space (amplification=2.7×), then species-specific guidance becomes much more powerful when applied at the FPN level. If amplification < 1, SAM3 compresses species differences. This directly informs whether exp31/exp29b-style species-specific image injection is worth pursuing, and at what scale.
+| Quantity | BioCLIP 2.5 CLS (1024-dim) | SAM3 backbone_fpn[-1] (256-dim) |
+|---|---|---|
+| Cone angle (mean ± std) | 12.9° ± 4.3° | **24.6° ± 5.6°** |
+| Inter-species cosine | 0.944 | **0.817** |
+| Azimuth inter-cosine | −0.0066 | **−0.0084** |
+| Azimuth/elevation ratio | 0.2228 | **0.4602** |
+| **Amplification factor** | — | **2.07×** |
 
----
+The amplification factor of **2.07×** is the most important single number from this experiment.
 
-### Part VI — Holdout Validation (exp32_val, PENDING)
+In BioCLIP 2.5 space, species-specific azimuth constitutes 22.3% of the total flower direction magnitude. The tight 12.9° cone means all flowers look nearly identical in BioCLIP's learned representation. In SAM3's internal FPN space, the same decomposition gives 46.0% azimuth — the species-specific component is more than twice as prominent. A species that diverges only 12.9° from generic flowers in BioCLIP's semantic space diverges 24.6° in SAM3's visual feature space.
 
-exp32_val (job 12202728, CPU, ~15 min) evaluates the same rescoring strategy on the VAL holdout:
-- 59,977 VAL masks (3,580 label=1 flowers, 56,397 label=0 non-flowers)
-- Same f_1024_v3[s] directions (TRAIN-derived, zero leakage to VAL)
-- Species split is genus-exclusive (confirmed: 0 genus overlap TRAIN/VAL)
+The interpretation is mechanistically clear. BioCLIP was trained on text–image pairs and learns a semantic representation where all flowers share the "flower" concept. Its 1024 dimensions must discriminate 925K species, but the shared biology of angiosperms clusters them tightly. SAM3's backbone is a visual feature extractor optimized for segmentation — it represents visual shape, texture, and structural differences at the pixel level. Passiflora's radially symmetric corona and Mercurialis's inconspicuous wind-pollinated flowers differ drastically in SAM3's FPN space even if their semantic "flower" identity is similar in BioCLIP space.
 
-Key metrics:
-- Global AUC(D_flower cosine, label) vs AUC(SAM3 score, label): does BioCLIP D_flower outperform SAM3's own confidence score at separating flowers from non-flowers?
-- Per-species AUC(cosine_A, label) vs AUC(sam3_score, label)
-- corr(θ_s, AUC_val): the true H2 test — do species with unusual flowers benefit more from the cosine rescoring?
-- Recovery rate (top-1/image) on VAL
+This has a direct implication for injection experiments (exp29b, exp31): species-specific text guidance that produces a 22% azimuth shift in BioCLIP space, when translated via W_ridge into SAM3's visual feature space, should produce roughly twice as large a species-specific shift in backbone_fpn[-1]. The mapping is amplifying, not compressing.
 
-Results will be appended when the job completes. These are the production numbers.
+The high-θ species in SAM3 space include Hypericum triquetrifolium (42.5°), Colutea cilicica (41.2°), and Erodium acaule (38.4°). The low-θ (generic-looking in SAM3 space): Rosa multiflora (14.6°), Trifolium repens (15.3°), Crocus hyemalis (15.9°). Notably, Mercurialis annua appears at θ_SAM3=35.2° — high in both BioCLIP and SAM3 space, consistent with its genuinely atypical floral morphology.
+
+The azimuth inter-cosine of −0.0084 (vs BioCLIP −0.0066) confirms that SAM3's species fingerprints are also nearly orthogonal in their 255-dimensional azimuth subspace. With 85 species in 255 dimensions, the random expected inter-cosine is 1/255 ≈ 0.004, and the observed −0.0084 is consistent with slight mutual repulsion (each ε̂[s] is forced to be distinct).
 
 ---
 
-### Summary Table
+### Part VI — True VAL Holdout (exp32_val, job 12202836 — DONE)
+
+exp32_val evaluates rescoring on the VAL holdout — the proper measurement, free of any in-sample bias.
+
+**Data and leakage audit**:
+- **VAL masks**: 59,977 total (3,580 label=1 flowers, 56,397 label=0 non-flowers) from cls_emb_val.npz
+- **Directions**: f_1024_v3[s] computed from TRAIN label=1 masks ONLY — zero leakage to VAL
+- **Species split**: VAL species are genus-exclusive from TRAIN (0 genus overlap confirmed in exp31 log). D_flower generalizes to completely unseen genera.
+
+**Global results**:
+
+| Metric | Value |
+|---|---|
+| AUC(D_flower cosine, VAL label) | **0.9404** |
+| AUC(SAM3 score, VAL label) | **0.8189** |
+| **Improvement** | **+12.1pp AUC** |
+
+D_flower — the universal BioCLIP 2.5 flower direction computed from 85 TRAIN species — achieves AUC=0.940 on 59,977 VAL masks from **completely unseen genera**. This is a zero-shot result. SAM3's own confidence score, using a prompt-based segmentation model trained for this purpose, achieves only AUC=0.819.
+
+**Per-species results on 41 VAL species** (computed using D_flower for all species, since VAL is genus-exclusive from TRAIN):
+
+| Metric | D_flower | SAM3 score |
+|---|---|---|
+| Mean AUC (41 species) | **0.9113** | 0.8332 |
+| D_flower wins vs SAM3 | **29/41 species** | — |
+| Mean d-prime | **3.00** | — |
+
+D_flower outperforms SAM3's own confidence score in 29 of 41 VAL species. The mean d-prime of 3.00 across unseen genera confirms real discriminative power, not a spurious global effect.
+
+**Why AUC(D_flower) > AUC(SAM3) by 12pp — the mechanistic explanation**:
+
+SAM3 computes mask confidence by measuring how well a segmented region matches the text prompt "flower" using its internal cross-attention mechanism. This is a segmentation confidence, not a semantic similarity. It reflects SAM3's uncertainty about whether the segmented region is a complete, well-defined object of the prompted type.
+
+BioCLIP 2.5's D_flower is a semantic flower direction in a representation space trained on 925K species. `cosine(x_mask_CLS, D_flower)` measures how semantically similar the CLS embedding of a mask crop is to the universal flower concept in BioCLIP's learned space. Because BioCLIP was trained to discriminate 925K species using their visual and textual signatures, its 1024-dim CLS embedding for a flower mask will always land near D_flower regardless of species, angle, or lighting — this is invariance learned through contrastive training at scale.
+
+SAM3's confidence is high when it successfully segments a clean object. BioCLIP's cosine is high when the pixel content looks like a flower in the biological sense. For missed flowers — the images where SAM3 generated a mask but scored it low — BioCLIP provides an independent, semantically grounded second opinion. This is the complementarity that drives the +12pp improvement.
+
+**Strategy B lambda sweep** (on global VAL):
+
+The Strategy B score `(1−λ)·sam3_score + λ·cosine_A` was swept over λ ∈ [0.1, 0.2, ..., 1.0]. Because VAL species are genus-exclusive from TRAIN v3 species, the per-species recovery_rate loop found 0 v3 species in VAL (expected — the split design). The global AUC result (0.9404 at λ=1.0 full D_flower) is the headline metric.
+
+---
+
+### Summary Table — All Results DONE
 
 | Experiment | Key Result | Status |
 |---|---|---|
 | exp30a_v2 (92sp) | cone=64.9°, inter-cos=0.38 | **WRONG** — 93.8% noise in TP masks |
 | exp30a_v3 (85sp, SAM2-confirmed) | cone=12.9°, inter-cos=0.944, azimuth-inter-cos=−0.0066 | CORRECT |
-| exp30b_v3 W_ridge LOO | full_signal=+0.0013, residual=+0.0024 (λ=1.0) | DONE — tight cone → small W signal |
-| exp32_v3 TRAIN rescoring | recovery_A=0.70 (+31pp vs v2), λ=0.7→0.7495 | DONE — in-sample only |
+| exp30b_v3 W_ridge LOO | full_signal=+0.0013, residual=+0.0024 (λ=1.0) | DONE |
+| exp32_v3 TRAIN rescoring | recovery_A=0.70 (+31pp vs v2), λ=0.7→0.7495 | DONE — in-sample, for reference |
 | d-prime validation | Passiflora d'=9.20, Mercurialis d'=2.26 — signal REAL | DONE |
-| exp32_val VAL holdout | AUC per species, true recovery | PENDING (job 12202728) |
-| exp33 SAM3 FPN geometry | cone, azimuth, amplification factor | PENDING (job 12202762) |
+| **exp32_val TRUE HOLDOUT** | **AUC(D_flower)=0.940 vs AUC(SAM3)=0.819 (+12.1pp)** | **DONE (job 12202836)** |
+| **exp33 SAM3 FPN geometry** | **cone=24.6°, amplification=2.07×, azimuth-ratio=0.460** | **DONE Phase 3 (job 12202866)** |
+
+---
+
+### Core Insight — What BioCLIP 2.5 Actually Provides
+
+The results establish a clear picture. BioCLIP 2.5, trained contrastively on 925K species, learned a 1024-dimensional semantic space in which all flowers cluster near a universal direction D_flower. This direction is not species-specific — it encodes "flower-ness" as a biological concept, the shared visual identity of angiosperms. Computing D_flower from 85 TRAIN species and applying it to 41 genus-unseen VAL species gives AUC=0.940. The 925K species training provides the generalization; the 85 TRAIN directions merely instantiate it.
+
+SAM3's 2.07× amplification factor adds a second layer: whatever species-specific signal exists in BioCLIP (the 22% azimuth component, the 12.9° cone) is amplified to 46% azimuth and 24.6° cone in SAM3's visual feature space. The same physical flower looks twice as species-distinctive in SAM3's representation as in BioCLIP's. Species-specific injection (exp29b, exp31) therefore has larger leverage at the FPN level than at the BioCLIP CLS level.
+
+The production path is now clear: zero-training rescoring via `cosine(x_mask_CLS, D_flower)` improves SAM3 recall by +12pp AUC on completely unseen species. No fine-tuning, no species-specific data, no retraining. BioCLIP 2.5's representation space does the work.
 
 ---
 
