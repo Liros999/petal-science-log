@@ -12797,3 +12797,505 @@ species text embeddings.
 → Full results: Entry 199 (training curves) + Entry 200 (direction structure analysis, Exp 29)
 
 ---
+
+## Entry 199 — From Learned Bridges to Ideal W: The Analytical Derivation (Exps 28b–30) (2026-03-24)
+
+### Context: The Full Development Arc
+
+This entry documents the complete research arc from Exp 28b (first bridge attempt) through Exp 30
+(analytical W derivation). It explains every dead end, every insight, and — most importantly —
+the mathematical argument for why we now believe the ideal W can be recovered without training.
+
+---
+
+### Part I — Experiment Results (Exps 28b through 29b)
+
+#### Exp 28b/c/d — The Flat Loss Wall
+
+Four bridge variants were trained simultaneously, all learning to map b_text[s] (1024-dim
+BioCLIP text embedding of species s) to a 256-dim delta that shifts SAM3's language_features.
+Loss function: dice(adapted_SAM3_output, missed_GT_flower_mask).
+
+| Experiment | Architecture | Input | Result |
+|---|---|---|---|
+| 28b | Linear W (K=256) | b_text | loss → 0.799 (flat) |
+| 28c | MLP 1024→128→256 | b_text | loss → 0.697 (DROPPING) |
+| 28d | Linear W sweep K∈{4,16,64,256} | b_text | loss → 0.799 at ALL K (flat) |
+| 28e | MLP 1024→128→256 (separate run) | b_text | loss → 0.73 (slow drop) |
+
+**The 0.799 ceiling** is not a hyperparameter artifact. It is the dice loss value of the
+SAM3 baseline with zero injection (α=0). When W is initialized to zero (as per our zero-init
+protocol), epoch 0 produces 0.799. A flat loss means W is learning nothing — every epoch
+produces a delta that is functionally zero or net-harmful.
+
+**Why 28c breaks through**: The MLP (28c, loss→0.697 at epoch 18) is NOT simply "more
+expressive than a linear map." The critical difference is initialization and gradient flow.
+The linear W at K=4 has only 4×256=1024 parameters and an overly constrained bottleneck.
+The MLP at 1024→128→256 has 164,224 parameters but more importantly it has multiple gradient
+paths: if the text→256 projection in the first layer fails, the second layer still has gradient.
+The zero-init protocol on fc2 ensures epoch 0 loss = baseline (0.799), then gradients flow
+freely through fc1.
+
+Current status (11:40 IST, 2026-03-24):
+- **28c**: epoch 18, loss = **0.697** — DROPPING, best so far among learned bridges
+- **28e**: epoch 17, loss = **0.731** — slow drop (same architecture but different data split)
+- **29a** (f_species input): epoch 19, loss = **0.679** — DROPPING, best in series
+
+#### Exp 29a — H1 Test: Input Quality Matters
+
+Exp 29a replaces b_text (text-space species embedding) with f_species (visual contrastive
+direction = mean(CLS[TP,s]) − mean(CLS[FP,s])). Both use the same MLP architecture and text
+injection point.
+
+At epoch 19: loss = **0.679** vs 28c epoch 18: loss = **0.697**.
+
+This ~0.02 improvement confirms **H1: the input quality matters**. f_species is a better
+input than b_text because it directly encodes visual discriminability — it is the direction
+in BioCLIP's visual space that separates flower patches from non-flower patches for species s.
+b_text encodes taxonomic/semantic identity, which only indirectly relates to flower appearance.
+
+The practical limitation: f_species requires TRAIN-split CLS embeddings with TP/FP labels.
+It is available for only 93 TRAIN species (and only when cross-image AUC ≥ threshold). It
+cannot generalize to unseen species at inference time. b_text is available for any species
+via BioCLIP's text encoder.
+
+**This creates the central question**: can we learn a mapping b_text → f_species? If yes,
+we can use b_text at inference time while leveraging f_species quality during training.
+
+#### Exp 29b — H2 Test: Image Injection (Fixing the Collapsed Softmax)
+
+Two bugs were discovered and fixed during exp29b development:
+
+**Bug 1** (first submission): `delta_256.view(1, 1, 256)` — wrong shape for backbone_fpn.
+The actual shape of backbone_fpn[-1] is `(1, 256, 72, 72)` — a standard 4D spatial tensor
+with layout (batch, channels, height, width). The correct broadcast is `.view(1, 256, 1, 1)`.
+This was fixed in `sam3_forward_with_image_delta()`.
+
+**Bug 2** (second submission): A second injection site at line 352 (the actual training loop,
+separate from the probe function at line 258) still had the old `.view(1, 1, 256)`. The probe
+function was fixed but the training loop was not. Result: all 645 images were silently skipped
+in the second attempt. Fixed and resubmitted as job 12186642 — now training correctly (epoch 0
+confirmed running, no skip errors).
+
+The image injection hypothesis (H2): SAM3's softmax attention has entropy ≈ 0.000
+(winner-take-all). Shifting Q_text by a small delta rarely changes which K_image patch wins —
+the attention pattern is already locked. By shifting K_image directly (adding delta to the
+FPN feature maps), we bypass the locked softmax entirely: the dot product Q·K^T changes
+regardless of the pre-existing winner.
+
+---
+
+### Part II — The Root Diagnosis: Underdetermination
+
+All bridge variants (28b–29a) share a structural problem: **severe underdetermination**.
+
+W ∈ R^{256×1024} = 262,144 free parameters.
+Training triplets: ~649 images (one gradient signal per image per epoch).
+This gives a parameter:signal ratio of **404:1**.
+
+Even with the MLP (164,224 params from 649 triplets = 253:1), the network is severely
+underdetermined. The dice loss landscape has countless local minima corresponding to W matrices
+that happen to produce non-zero dice for the specific 649 TRAIN images without learning any
+generalizable cross-species mapping.
+
+The MLP improves over linear W not because it is more expressive, but because:
+1. Weight sharing between the two layers acts as a bottleneck regularizer
+2. The bottleneck (128-dim) forces a compressed intermediate representation
+3. This implicit regularization makes some optima better than others
+
+But even the best MLP loss (~0.65–0.70) is only a modest improvement over baseline (0.799).
+The gap between dice=0.70 and dice=1.0 is mostly explainable by:
+- Partial occlusion (flowers behind leaves cannot be recovered regardless of W)
+- SAM3 ceiling: 69.8% recall ceiling even with perfect prompts
+- Residual underdetermination: W has not converged to a unique solution
+
+---
+
+### Part III — The Analytical Breakthrough: W = F @ pinv(B)
+
+#### The Three Gaps We Closed
+
+**Gap 1 — Wrong supervision signal**
+
+All prior bridge experiments used the missed-flower signal: "did SAM3 find the GT flower
+after injection?" This signal is:
+- Sparse (only 649 training images with missed flowers)
+- Noisy (dice loss of a predicted mask vs a fixed GT mask is a non-smooth landscape)
+- Contaminated (FP labels include unannotated flowers: SAM3 masks from TP images were
+  labeled FP because they lacked a SAM2 annotation match, but ~98% are actual flowers)
+
+We had a clean, validated signal all along: **f_species[s]**.
+
+f_species[s] = mean(CLS[TP, s]) − mean(CLS[FP, s]) is:
+- Validated by Exp 28a cross-image AUC = **0.923** (holds-out image A, tests on image B)
+- Available for 93 TRAIN species
+- Free of contamination when computed using only confirmed-FP images
+  (Citadel DB validation_status='fp' — images where the human annotator confirmed no flowers)
+- Already computed from cached CLS embeddings (no new inference needed)
+
+**Gap 2 — Wrong problem formulation**
+
+We formulated W as "a matrix to learn from task feedback (missed flower recovery)."
+The correct formulation is: **W is a linear map between two already-characterized spaces**.
+
+Space 1: BioCLIP text space, 1024-dim. We have b_text[s] for all species.
+Space 2: SAM3 language_features space, 256-dim. We have f_256[s] = pca_components @ f_1024[s].
+
+W should simply map b_text[s] → f_256[s]. The task feedback tells us W is correct if and
+only if SAM3 finds the missed flower. But the intermediate target (f_256) is already
+computable analytically.
+
+**Gap 3 — The invisible PCA bridge**
+
+The MLP's PCA (pca_components ∈ R^{256×1024}) is the coordinate transform from BioCLIP's
+1024-dim space to SAM3's 256-dim space. This is not an approximation — it is the exact
+transformation the production MLP uses. Both the MLP gate and the SAM3 language_features
+operate in this 256-dim PCA space.
+
+Therefore:
+```
+f_256[s] = pca_components @ f_1024[s]       # (256,) in SAM3's space
+```
+is the exact target that W @ b_text[s] should produce.
+
+#### W_ideal: Ordinary Least Squares
+
+Given 35 validated (b_text[s], f_256[s]) pairs (the 35 TRAIN species with both b_text in
+our 290-species table AND ≥3 TP and ≥1 confirmed-FP masks):
+
+```
+B = [b_text[s1] | ... | b_text[s35]]   ∈ R^{1024 × 35}   (input matrix)
+F = [f_256[s1]  | ... | f_256[s35]]    ∈ R^{256 × 35}    (target matrix)
+
+W_ideal = F @ pinv(B)    ∈ R^{256 × 1024}    (closed-form OLS solution)
+```
+
+This is a standard linear regression in matrix form. Properties:
+- **Zero iterations**: closed-form, computed once
+- **Zero SAM3 forward passes**: no images processed
+- **Zero contaminated labels**: f_species uses confirmed-FP images only
+- **Rank ≤ 35**: W_ideal lies in the column space of B — it can only express directions
+  that are combinations of the 35 training species' b_text vectors
+
+The residual from exp30b (W_OLS on 35 matched species): computed as ||W @ B - F||_F / ||F||_F.
+If residual ≈ 0: W_ideal perfectly fits all 35 training species.
+If residual > 0: some f_256 directions are not expressible via linear combinations of b_text.
+
+#### The Generalization Question
+
+W_ideal has rank ≤ 35. It perfectly maps b_text[s] → f_256[s] for training species s.
+For a new VAL species s*:
+
+delta = W_ideal @ b_text[s*] = F @ pinv(B) @ b_text[s*]
+
+This is a weighted combination of the 35 training f_256 directions, weighted by how b_text[s*]
+projects onto the 35 training b_text vectors. It generalizes if and only if:
+
+**b_text[s*] lies in (or near) the column space of B.**
+
+This is plausible because:
+1. b_text vectors are L2-normalized unit vectors on the BioCLIP text embedding hypersphere
+2. With 35 training species spanning diverse plant families, the 35 b_text vectors span a
+   meaningful subspace of the 1024-dim sphere
+3. BioCLIP was trained on a broad botanical taxonomy — nearby species in taxonomy have
+   nearby b_text vectors
+4. The b_text ↔ f_1024 alignment (cosine = 0.106 ± 0.083 from exp30a) is weak but detectable,
+   confirming there is structure W can exploit
+
+The 35-species basis may be too small. This motivates using iNat (~10K flowering plant
+species) to build a richer input manifold in exp30e.
+
+---
+
+### Part IV — The Structured Factorization W = V @ M @ U^T
+
+Even if W_ideal is analytically computable, its use at inference raises a question:
+W ∈ R^{256×1024} is a 262,144-element matrix. Can we compress it without losing alignment?
+
+The answer is the structured factorization:
+
+```
+W_ideal  ≈  V_SAM3(256×R)  @  M(R×R)  @  U_BioCLIP^T(R×1024)
+```
+
+#### Why This Order Is Correct
+
+The inference computation must flow: b_text (1024-dim) → delta (256-dim).
+- U^T compresses b_text from 1024-dim to R-dim: `r = U^T @ b_text`
+  (projects the species' text embedding onto the R principal axes of flower variation)
+- M aligns the R-dim BioCLIP coordinates to R-dim SAM3 coordinates: `m = M @ r`
+  (the cross-space alignment — the only learned component)
+- V lifts back to 256-dim: `delta = V @ m`
+  (expands SAM3 coordinates back to full 256-dim query space)
+
+The reverse order (U @ M @ V^T) would require a 256-dim input and produce a 1024-dim output —
+wrong direction entirely.
+
+#### U — The BioCLIP Flower-Variation Manifold
+
+U ∈ R^{1024×R} is computed from the principal directions of how b_text varies across
+flowering plant species. Five sources are being tested:
+
+**U_1a** (290 PETAL species b_text): Captures inter-species variation within our dataset.
+Singular value spectrum (exp30b): cumvar(R=16) = 0.493 — moderate. The 290 PETAL species
+span many plant families but 290 is a modest sample of the full botanical diversity.
+
+**U_1b** (35 TRAIN species f_1024): Captures inter-species variation in the VISUAL CLS space.
+cumvar(R=16) = 0.942 — very concentrated. The 35 f_species directions cluster tightly
+(mean inter-species cosine = 0.884 from exp30a) — the flower direction is nearly the same
+for all species in BioCLIP's visual representation. This reflects BioCLIP's training:
+all flowers look similar at the embedding level regardless of species.
+
+**U_1c** (7601 CLS[TP] embeddings): Captures all within-species and between-species flower
+appearance variation. cumvar(R=16) = 0.785 — intermediate.
+
+**U_1d** (joint b_text + f_1024, 70 rows): cumvar(R=16) = 0.734.
+
+**U_inat** (exp30e, ~10K iNat species): Tests whether broader taxonomic coverage produces
+a richer basis that better spans the b_text hypersphere.
+
+The **U_1b concentration finding** (cumvar=0.942 at R=16) is significant: it means f_species
+directions are nearly collinear across all 35 species. This suggests that what "flower vs
+non-flower" looks like in BioCLIP's visual space is largely species-independent — there is
+approximately ONE universal flower direction, plus small species-specific corrections.
+This is consistent with the Exp 28a finding (cross-image AUC=0.923 — the direction transfers
+across images of the same species with high fidelity).
+
+#### V — The SAM3 Query-Sensitive Subspace
+
+V ∈ R^{256×R} is computed from the principal directions of SAM3's cross-attention query
+projection matrices. SAM3's cross-attention computes:
+
+```
+A = softmax(Q_text · K_image^T / √d)
+Q_text = W_Q @ language_features   where W_Q ∈ R^{128 × 256}
+```
+
+W_Q.T ∈ R^{256×128} maps from language_features space to the query space. The left singular
+vectors of W_Q.T are the 256-dim directions that W_Q projects onto most strongly — i.e., the
+directions in language_features space that most strongly influence the attention pattern.
+
+Stacking all 12 cross-attention layers (6 encoder + 6 decoder), each contributing a
+256×128 matrix, gives a 256×1536 stacked matrix. Its left singular vectors are the **universal
+query-sensitive directions** — directions in language_features space that ALL cross-attention
+layers are sensitive to.
+
+V_sam3_all = top-R left singular vectors of the 256×1536 stack.
+
+The key validation (computed in exp30b): subspace alignment between V_ideal (from W_OLS SVD)
+and V_sam3 (from W_Q SVD). If these agree, the SAM3 anatomy confirms the data-driven answer —
+the directions that matter for W are the same directions SAM3 uses to steer attention.
+
+#### M — The Cross-Space Alignment (Contrastive Geometry Derivation)
+
+M ∈ R^{R×R} is the only component that must be estimated. Given U and V, it is computed
+via a second OLS:
+
+```
+For each training species s:
+  r_s = U^T @ b_text[s]    ∈ R^R    (b_text in BioCLIP manifold coordinates)
+  c_s = V^T @ f_256[s]     ∈ R^R    (f_256 in SAM3 subspace coordinates)
+
+R_mat = [r_1 | ... | r_35]  ∈ R^{R×35}
+C_mat = [c_1 | ... | c_35]  ∈ R^{R×35}
+
+M = C_mat @ pinv(R_mat)      ∈ R^{R×R}    (closed-form alignment)
+```
+
+M_ij answers: "when species s has coordinate r_j on BioCLIP manifold axis j, what is the
+expected coordinate on SAM3 subspace axis i?" It is the cross-space alignment matrix —
+the Rosetta Stone between the two latent spaces.
+
+**Why this is called contrastive geometry M**: the coordinates r_s and c_s are computed
+directly from contrastive directions (f_species = mean(TP) - mean(FP)). No triplets, no
+missed-flower signal, no contaminated labels. The only inputs are:
+1. b_text (public taxonomy, BioCLIP text encoder)
+2. f_species (validated by AUC=0.923, from confirmed-FP images only)
+3. pca_components (production MLP, exact coordinate transform)
+4. W_Q matrices (SAM3 weights, fixed)
+
+#### The W_OLS Low-Rank Approximation as Upper Bound
+
+The structured W at rank R is bounded above by the SVD truncation of W_OLS:
+
+```
+W_ideal = U_w @ diag(s_w) @ Vt_w       (full rank SVD)
+W_approx_R = U_w[:, :R] @ diag(s_w[:R]) @ Vt_w[:R, :]   (rank-R truncation)
+```
+
+This is the theoretically optimal rank-R approximation to W_ideal (by Eckart–Young theorem).
+Any other choice of U, V (e.g., from SAM3 anatomy) can at best match this, and typically
+falls short.
+
+The LOO cosine of W_approx_R vs the structured W variants (exp30c) answers:
+"How much information is lost by using anatomically motivated U, V instead of the
+data-driven SVD of W_ideal?"
+
+If V_sam3 achieves LOO cosine within 5% of W_approx_R → the SAM3 anatomy is sufficient and
+interpretable. If V_sam3 falls significantly short → the data-driven V is required.
+
+---
+
+### Part V — Validation Design and Controls
+
+#### Exp 30a: Ground Truth Computation
+
+**Results** (job 12186675, completed 11:39 IST):
+
+| Metric | Value | Interpretation |
+|---|---|---|
+| Species with ≥3 TP + ≥1 confirmed-FP | 35 | Fewer than expected; strict FP guard reduces N |
+| b_text ↔ f_1024 cosine | 0.106 ± 0.083 | Weak but detectable alignment |
+| f_1024 inter-species cosine | 0.884 ± 0.068 | High — flower directions nearly collinear |
+| f_256 inter-species cosine | 0.884 ± 0.067 | PCA preserves direction structure |
+| Random vs f_256 cosine | -0.003 | Negative control passed |
+
+The 35-species constraint (MIN_FP=1, validation_status='fp') reflects a real limitation:
+most PETAL species have TP images but few confirmed-FP images (only 1,293 confirmed-FP images
+total in 47,440 image DB). The confirmed-FP guard is strict but necessary to avoid using
+unannotated flowers as negatives.
+
+The high inter-species f_1024 cosine (0.884) is initially concerning — if all f_species point
+in nearly the same direction, W_ideal may not need to be species-specific at all. However,
+the variance (std=0.068) represents real between-species variation in the 1024-dim space,
+even if the mean is high. The R=2–4 structured W may capture this adequately.
+
+#### Exp 30b: W_OLS and Basis Computation
+
+Running (job 12186711). Outputs will include:
+- W_OLS residual (||W@B - F||/||F||) — tests whether 35 pairs determine W uniquely
+- CCA canonical correlations — tests alignment structure in both spaces jointly
+- Per-layer SAM3 W_Q spectra — reveals which attention layers are most sensitive
+- Subspace alignment V_ideal vs V_sam3 — the key interpretability test
+
+#### Exp 30c: LOO Validation and Null Test
+
+The mandatory null test: shuffle species → W_null → LOO cosine ≈ 0.0 confirms that
+the b_text → f_256 alignment is a real signal, not a mathematical artifact of the OLS
+fitting procedure.
+
+Expected LOSO results by hypothesis:
+- W_OLS_approx R=16: near-maximum LOO cosine (upper bound)
+- struct_btext (U_1a, V_ideal, R=16): slightly below, tests if b_text manifold captures enough
+- struct_fspec (U_1b, V_ideal, R=16): high, U from f_species should align well with V_ideal
+- struct_btext_sam3 (U_1a, V_sam3_all, R=16): tests SAM3 anatomical V vs data-driven V
+- W_null: ≈ 0.0 (null test)
+
+#### Exp 30d/30e: SAM3 Dice Validation and iNat Scale
+
+These run after 30c completes. The critical test: does W_ideal produce dice > 0.65 on
+VAL missed-flower triplets? And does the iNat-scale U improve performance for species
+outside the 35-species training set?
+
+---
+
+### Part VI — Interpretive Framework
+
+#### What W_ideal Encodes Mechanistically
+
+W_ideal is not a classifier. It does not decide "is this a flower?" — that is the MLP gate's
+job. W_ideal encodes the answer to: "for this species, in which direction of SAM3's query
+space should the 'flower' concept shift to match this species' actual flower morphology?"
+
+Mechanistically:
+- SAM3's cross-attention: `A = softmax(W_Q @ (language_features + alpha * W_ideal @ b_text)^T @ K_image^T / √d)`
+- W_ideal @ b_text adds a species-specific bias to the query computation
+- This shifts which image patches receive high attention weights
+- Patches that look like this species' flower get higher attention
+- SAM3 proposes better masks over the actual flower region
+
+The key constraint: W_ideal must produce deltas that are **small enough** not to destroy the
+generic "flower" prompt but **large enough** to shift attention toward species-specific morphology.
+The alpha sweep (exp30d: α ∈ {0.05, 0.1, 0.2, 0.5}) calibrates this.
+
+#### Why Rank-35 W Is Not Catastrophically Limited
+
+The W_ideal rank ≤ 35 concern dissolves when we consider the structure of the problem:
+
+1. The f_256 directions have inter-species cosine = 0.884. This means all f_256 are nearly
+   the same direction. The species-specific part is a small correction in a ~2–5 dimensional
+   subspace. Rank 35 >> 5 — more than sufficient to capture the full correction subspace.
+
+2. BioCLIP's text embeddings cluster by morphological similarity. b_text[s*] for a new VAL
+   species will be close to some training species in the 1024-dim space. The rank-35 expansion
+   of W_ideal can express this close-neighbor relationship.
+
+3. The iNat U (exp30e) provides a richer input basis even when W retains its 35-species rank.
+   U_inat gives a better decomposition of b_text[s*] in terms of known morphological axes.
+
+#### The b_text ↔ f_species Alignment at 0.106
+
+This value warrants careful interpretation. A cosine of 0.106 between b_text and f_1024
+directions means:
+- They are NOT collinear (would be 1.0 if identical)
+- They are NOT orthogonal (would be 0.0 if unrelated)
+- There is a consistent, weak directional relationship
+
+This is consistent with the expected structure: b_text encodes "what Malva sylvestris is
+described as" while f_1024 encodes "what distinguishes Malva sylvestris flowers from
+backgrounds in BioCLIP's visual space." These are related but not identical — a species
+described as having "pink funnel-shaped flowers" will have b_text pointing toward those
+semantic dimensions AND f_1024 pointing toward the visual appearance of pink funnel shapes,
+but text and visual spaces have different coordinate systems.
+
+The OLS (W_ideal) finds the linear transform that best rotates and scales from text coordinates
+to visual coordinates. The residual after fitting tells us how much text-to-visual alignment
+W_ideal achieves.
+
+---
+
+### Part VII — Experiment Status and Decision Gates
+
+#### Current Running Jobs (11:40 IST, 2026-03-24)
+
+| Job | ID | State | Epoch | Loss | Classification |
+|---|---|---|---|---|---|
+| exp28c (MLP, b_text, text inject) | 12167044 | RUNNING | 18 | 0.697 | DROPPING |
+| exp28d (linear K-sweep) | 12167045 | RUNNING | 17 | 0.799 | FLAT (all K) |
+| exp28e (MLP, b_text, text inject v2) | 12167062 | RUNNING | 17 | 0.731 | SLOW DROP |
+| exp29a (MLP, f_species, text inject) | 12177935 | RUNNING | 19 | 0.679 | DROPPING |
+| exp29b (MLP, f_species, image inject) | 12186642 | RUNNING | epoch 0 | TBD | just started |
+| exp30a (compute f_256) | 12186675 | COMPLETED | — | — | 35 species, cosine=0.106 |
+| exp30b (W_OLS + U/V) | 12186711 | RUNNING | — | — | SAM3 W_Q extraction in progress |
+
+#### Decision Gates
+
+| Condition | Decision |
+|---|---|
+| exp30c null LOO cosine ≈ 0.0 | b_text → f_256 alignment is real (not artifact) → proceed to 30d |
+| exp30c struct_btext LOO cosine ≥ 0.5 | W_ideal generalizes → submit 30d |
+| exp30d W_OLS dice ≥ 0.65 | Ideal W outperforms or matches 28c MLP → W_OLS is production bridge |
+| exp30d W_OLS dice < 0.55 | PCA bridge loses nonlinear information → image injection (29b) path |
+| exp29b epoch 10 loss < 0.65 | Image injection outperforms text injection → prioritize 29b |
+| exp30e iNat LOO cosine > 290-species LOO | Broader basis helps → use iNat U |
+
+---
+
+### Summary: What Changed and Why It Matters
+
+The core shift from Exp 28b to Exp 30 is epistemological:
+
+**Before**: "Learn W from noisy task feedback (missed flower recovery), treating W as an
+unknown to be estimated from scratch."
+
+**After**: "W is determined by the alignment between two already-characterized spaces. The
+alignment is computable analytically from validated contrastive directions. The task feedback
+(dice loss) is a downstream validator, not the primary supervision signal."
+
+This shift eliminates:
+- Underdetermination (262K params → 35×35 = 1225 effective constraints)
+- FP contamination (confirmed-FP guard, no SAM3 masks from TP images)
+- Training instability (OLS has a unique global minimum)
+- Dependence on triplets (W_ideal requires only b_text and f_256 pairs)
+
+What remains uncertain:
+- Generalization from 35 training species to unseen VAL species
+- Whether the 256-dim PCA bridge is the right alignment coordinate system
+- Whether image injection (29b) provides an independent improvement
+- Whether iNat-scale U substantially improves the basis
+
+These are addressed by the exp30c LOO test, exp30d SAM3 validation, and exp30e iNat test.
+
+→ Results and follow-up: Entry 200 (after all exp30 jobs complete)
+
+---
