@@ -17096,3 +17096,37 @@ On pass: writes `results/exp_E02_evo2_embeddings/setup_PASSED.flag` → monitor 
 | evo_monitor (12216131) | RUNNING | State 0: waiting for setup flag |
 | exp_E02 (Evo 2 40B embeddings) | Not started | Awaiting setup pass |
 | exp_E03/E03b/E03c/E05 | Scripts ready | Awaiting exp_E02 g_evo2.npz |
+
+---
+
+## Entry 225 — TE Build Diagnosis: nccl.h Missing (2026-03-25)
+
+### TransformerEngine build failure chain (complete root cause)
+
+Previous builds failed in sequence:
+1. `cudnn.h` missing → fixed by pointing to `sam2_env/nvidia/cudnn/include`
+2. `nccl.h` missing → fixed by adding `sam2_env/nvidia/nccl/include` to CPATH
+
+Both headers and libraries confirmed present in `sam2_env`:
+
+| Header | Path | Status |
+|--------|------|--------|
+| `cudnn.h` | `nvidia/cudnn/include/cudnn.h` | EXISTS |
+| `nccl.h` | `nvidia/nccl/include/nccl.h` | EXISTS |
+| `libcudnn.so.9` | `nvidia/cudnn/lib/` | EXISTS |
+| `libnccl.so.2` | `nvidia/nccl/lib/` | EXISTS |
+
+**Root cause**: `petal_env` inherits `sam2_env` via `--system-site-packages` at runtime but the pip build subprocess does not inherit `CPATH`/`LIBRARY_PATH` automatically. Both must be set explicitly as environment variables before the `pip install --no-build-isolation` call.
+
+**Fix applied in `setup_evo2_final.sh`**:
+```bash
+CPATH=$CUDNN_INC:$NCCL_INC
+LIBRARY_PATH=$CUDNN_LIB:$NCCL_LIB
+```
+
+**New job**: 12218574 (A100, status=PENDING(None) — imminent start)
+
+### Monitor state
+- Monitor job 12216131 running on compute-0-297 (10-min polling loop)
+- State file reset to 0 with new job ID 12218574
+- Next: job 12218574 runs → evo2_7b smoke test → PASSED flag → monitor chains exp_E02
