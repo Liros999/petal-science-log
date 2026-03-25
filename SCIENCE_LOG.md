@@ -16165,3 +16165,144 @@ Future (not now):
 - exp42 (47K NextGen): RUNNING (job 12212309), 31,245/~47,491 (66%), ~20min remaining
 - setup_min (12215050): COMPLETE — transformers installed, NT-v2 config confirmed OK
 - Evo2 (gated on HF): deferred to exp_E02b when access available
+
+---
+
+## Entry 219 — Evo 2 40B Confirmed; Theoretical Consolidation: Fitness Landscapes, Epistasis, Directed Evolution Inverse Bridge (2026-03-25)
+
+### Context and Model Correction
+
+Entry 218 logged NT-v2 as the selected model due to TransformerEngine installation difficulties. This entry supersedes that decision. The user provided a HuggingFace authentication token granting access to `arcinstitute/evo2_40b`. All experiments in the Evo series use **Evo 2 40B** (`arcinstitute/evo2_40b`), not NT-v2. The TransformerEngine installation failure was root-caused: the `cudnn.h` header was absent at the system level but present in the `nvidia-cudnn-cu12` pip package (`nvidia/cudnn/include/cudnn.h`). Setup job 12215125 (A100 node) passes `CUDNN_INCLUDE_DIR` to the TE build system to resolve this.
+
+**Model parameters (corrected):**
+- `arcinstitute/evo2_40b`: 40B parameters, StripedHyena architecture, byte-level tokenization
+- Context window: 8,192 tokens (ITS2 ~600bp, rbcL ~1,300bp — all sequences fit)
+- Embedding dim: probed at runtime (not 1,024 — unlike NT-v2; W_evo is NOT necessarily square)
+- Requires: `NVTE_FRAMEWORK=pytorch pip install --no-build-isolation transformer-engine[pytorch]`
+- Token: `/scratch200/leardistel/.hf_auth/token` (chmod 600)
+
+**Experiment notation update:** `g_evo2[s]` is the Evo 2 40B embedding for species s. W_evo: g_evo2 (d_evo-dim) → f_BioCLIP (1,024-dim). W_evo is rectangular if d_evo ≠ 1,024.
+
+---
+
+### Theoretical Development: Fitness Landscapes, Epistasis, and Embedding Geometry
+
+#### 1. Fitness Landscapes in Relation to W_evo
+
+The fitness landscape formalism (Romaro & Arnold 2009, *Nature Reviews MCB*) describes sequence space as a high-dimensional landscape where fitness is a function of sequence position. Two landscape types are canonical:
+
+- **Fujiyama landscape**: smooth, single-peaked — gradient descent always finds the global optimum
+- **Badlands landscape**: rugged, multi-peaked — local optima trap directed evolution
+
+**Connection to our work**: Evo 2 40B was trained on 2.7 million genomes. Its embedding space is an implicit learned compression of sequence fitness correlations. The question is whether the geometry of Evo 2 embedding space resembles a Fujiyama landscape (smooth interpolation paths between species) or a Badlands landscape (rugged, non-monotonic paths between distantly related species).
+
+**What W_evo measures in this context**: if the interpolation `g_interp(t) = (1-t)*g_A + t*g_B` in Evo 2 space maps smoothly to `f_interp(t) = W_evo @ g_interp(t)` in BioCLIP space, the region between species A and B is **Fujiyama-like** — the linear path through sequence embedding space corresponds to a monotonic path through visual embedding space. If the mapping is non-monotonic, the underlying landscape is Badlands in that region.
+
+**Measurable claim**: smoothness score `r(t, cosine(f_interp(t), f_BioCLIP[A]))` is the empirical signature of local landscape topology. Within-family pairs (e.g., Arum palestinum → Arisarum vulgare, same Araceae family) should score near -1.0 (smooth). Cross-family pairs should score closer to 0 (rugged or flat). This is exp_E05.
+
+#### 2. Epistasis and the Limits of Linear W_evo
+
+**Epistasis** (Mackay et al. 2009): the fitness effect of mutation A depends on whether mutation B has already occurred. In sequence space, epistasis creates ridges and valleys that cannot be captured by any linear model. W_evo is explicitly a linear model — it captures the average linear relationship between genomic embedding and visual embedding across training species, integrating over all epistatic interactions.
+
+**What this means for our claims:**
+- W_evo LOO cosine < 1.0 is expected even with a perfect model — epistasis introduces structured non-linearity
+- W_evo LOO cosine > 0.5 means the **linear component** of genome → phenotype is detectable in embedding space
+- W_evo LOO cosine > 0.7 means epistatic non-linearity is small relative to the linear signal for these species/traits
+- Species with low individual LOO cosine are candidates for high epistatic load — the "hardest" morphologies to predict
+
+**Outlier interpretation**: species where LOO cosine is significantly below the family mean are biologically meaningful outliers — candidates for convergent evolution (wrong family) or high within-family epistasis (unusual morphology despite close relationship). These are the Group A edge cases (Banksia, Ophrys) already identified in exp44.
+
+#### 3. Directed Evolution: The Inverse Bridge W_evo†
+
+This is a future experiment, contingent on LOO cosine ≥ 0.7. The mechanism:
+
+**Forward operation** (exp_E03): `f_pred[s] = W_evo @ g_evo2[s]` — given a genome embedding, predict visual appearance.
+
+**Inverse operation** (future exp_E06): `g_target = W_evo† @ f_target` where `W_evo†` is the Moore-Penrose pseudoinverse. This maps a desired visual appearance (e.g., "looks like a Banksia flower") back into genomic embedding space to find the genomic coordinates that would produce that appearance.
+
+**This is strictly linear.** No claim is made that `g_target` corresponds to a synthesizable DNA sequence. What it does tell us:
+- Which direction in Evo 2 genomic embedding space corresponds to "more Banksia-like flowers"
+- Which actual training species is nearest to `g_target` in Evo 2 space — that species is the genomically closest analog to the target visual phenotype
+- What sequence positions, when perturbed along `g_target - g_source`, would move the genome embedding toward the target — these are the **functionally informative sites** for that visual trait
+
+**The "directed evolution computationally" interpretation:**  
+W_evo† does not generate sequences. It identifies, within existing sequence space, which species or sequence regions are relevant to a desired phenotypic direction. This is computationally analogous to what directed evolution does experimentally (select for a phenotype, trace back to sequence changes) — but operating entirely in learned embedding space without biological assay. The claim is constrained: we identify candidate positions, not verified mutations.
+
+**Why this is not a wormhole:**  
+The inverse is valid only within the convex hull of training species. `g_target` outside that hull (e.g., pointing toward bear morphology) has no training data nearby — the prediction is extrapolation, not interpolation, and scientifically meaningless. This is why the scope is: within-family pairs, 85 species, where the embedding space is well-sampled.
+
+#### 4. The Gradient Path and Taxonomic Trees
+
+A deeper consequence: the gradient `∂g/∂position` in Evo 2 space (which sequence positions most affect the embedding) encodes functional importance. If we can map this gradient through W_evo to f_BioCLIP space, we get: **which genomic positions contribute most to visual appearance differences between species**.
+
+This has a direct connection to QTL (Quantitative Trait Loci) mapping in population genetics — the classical method for identifying genomic positions responsible for measurable phenotypic differences. W_evo provides a zero-shot, embedding-space analog of QTL mapping, without any training on phenotype labels.
+
+**The gradient path between two species A and B:**
+```
+direction_g = normalize(g_B - g_A)              # direction in Evo 2 space
+direction_f = normalize(W_evo @ direction_g)     # projected direction in BioCLIP space
+per_position_gradient = Evo2.embedding_jacobian(sequence_A, direction_g)
+                                                 # which positions in seq_A most contribute to direction_g
+```
+The positions with largest Jacobian magnitude are candidates for the "visual divergence loci" between species A and B.
+
+**This is exp_E06 (future, not now).** It requires: LOO ≥ 0.7 + Jacobian computation (backward pass through Evo 2 40B — expensive, ~10min per species pair on A100).
+
+**Note on taxonomic trees**: if the per-position gradient between all species pairs is computed, and the distance matrix of "which positions are activated" is built, it should correlate with the phylogenetic tree. This is a novel cross-modal validation: the genomic positions identified by W_evo as visually relevant should cluster by family, matching the known taxonomic structure. Positive result = W_evo has recovered biologically meaningful loci without any supervision signal about genomic positions.
+
+---
+
+### Refined Experimental Plan (Evo 2 40B, precise)
+
+```
+Immediate:
+  setup_evo2_40b (job 12215125, A100, PENDING):
+    - Build TransformerEngine[pytorch] with CUDNN_INCLUDE_DIR from nvidia-cudnn-cu12 pip pkg
+    - Install evo2 package
+    - Smoke test: evo2_7b forward pass → confirm tokenizer.tokenize() API + return_embeddings=True
+    - Confirm arcinstitute/evo2_40b accessible with token
+
+  exp_E02 (submit after setup passes):
+    - 81 species × ITS2/rbcL/matK → Evo 2 40B forward pass → mean-pool last hidden state
+    - Output: g_evo2.npz (n_species × d_evo), umap_genome_evo2.png
+    - Key: d_evo probed at runtime; W_evo will be (d_evo, 1024)
+
+Sequential (CPU after exp_E02):
+  exp_E03:  W_evo ridge regression + LOO cosine (Claim 1)
+  exp_E03b: Mantel test D_evo2 vs D_BioCLIP (Claim 2)
+  exp_E05:  UMAP alignment + within-family interpolation smoothness
+
+Conditional on LOO ≥ 0.5:
+  exp_E04:  Genomic injection on 4 Group A edge case images (Claim 3)
+
+Conditional on LOO ≥ 0.7 (future, not now):
+  exp_E06:  Jacobian gradient path — sequence positions responsible for visual divergence
+  exp_E07:  Cross-family interpolation boundary mapping
+```
+
+**Decision gates (unchanged from Entry 217):**
+- LOO < 0.3 → null result; publish negative finding
+- LOO 0.3–0.5 → partial signal; report Mantel + interpolation only
+- LOO 0.5–0.7 → claim valid; run exp_E04 injection test
+- LOO > 0.7 → publication-worthy; initiate exp_E06 gradient path + begin framing for paper
+
+---
+
+### Scientific Integrity Constraints
+
+Every result in the Evo series is interpreted against two baselines:
+1. **Phylogenetic null**: Mantel r expected to be positive by Felsenstein 1985 — finding r > 0 in embedding space is expected. Finding r > 0.5 with p < 0.01 in embedding space would be novel.
+2. **Within-family smoothness null**: interpolation between random species (any family) should be rough (score ~ 0). Within-family pairs (same family) should be smooth. If within-family and cross-family smoothness are identical, W_evo captures only gross-level structure (family-level) rather than fine-grained morphological signal.
+
+The Mantel test (exp_E03b) is the most defensible single result because:
+- It is non-parametric (permutation-based, no normality assumption)
+- It is published methodology with 50+ years of use in comparative biology
+- It directly tests the Felsenstein 1985 claim in a novel modality (embedding space)
+- It requires no W_evo — only pairwise distance matrices, which are parameter-free
+
+---
+
+### Jobs Running
+- exp42 nextgen inference: job 12212309, RUNNING, ~35,500/47,491 processed (~75%), ETI ~1h
+- setup_evo2_40b: job 12215125, PENDING (A100 queue)
+- exp_E02 submit script ready: `/scratch200/leardistel/petal_benchmark/experiments/submit_exp_E02_evo2.sh`
