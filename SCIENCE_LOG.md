@@ -16306,3 +16306,221 @@ The Mantel test (exp_E03b) is the most defensible single result because:
 - exp42 nextgen inference: job 12212309, RUNNING, ~35,500/47,491 processed (~75%), ETI ~1h
 - setup_evo2_40b: job 12215125, PENDING (A100 queue)
 - exp_E02 submit script ready: `/scratch200/leardistel/petal_benchmark/experiments/submit_exp_E02_evo2.sh`
+
+---
+
+## Entry 220 — Bidirectional Bridge Theory: W_evo and W_BioCLIP, Epistasis Profiling, Inverse Bridge Depth, Experimental Constraints (2026-03-25)
+
+### Context
+
+This entry documents the theoretical deepening that emerged from discussion of fitness landscapes, bidirectional bridging, and the epistasis/Jacobian connection. Every claim here is logged with its corresponding validation strategy and the constraint it operates under. No drift — every idea is pinned to a concrete experiment or explicitly labeled "future / conditional."
+
+---
+
+### 1. The Bidirectional Bridge: Two Independent Scientific Claims
+
+We have one bridge W_evo so far (genome → visual). But the inverse raises a separate and equally important question.
+
+**Direction A — Forward: g_evo2[s] → f_BioCLIP[s]**
+```
+W_evo: R^d_evo → R^1024
+f_pred[s] = W_evo @ g_evo2[s]
+```
+*Scientific claim*: DNA encodes enough visual variation that a linear map can predict visual appearance in embedding space. Validated by LOO cosine (exp_E03).
+
+**Direction B — Backward: b_text[s] → g_evo2_pred[s]**
+```
+W_BioCLIP: R^1024 → R^d_evo
+g_pred[s] = W_BioCLIP @ b_text[s]
+```
+*Scientific claim*: A species' visual or textual description in BioCLIP space encodes enough genomic information to predict where that species sits in Evo 2 genomic embedding space. Validated by LOO cosine in the reverse direction (exp_E03c, planned).
+
+**Why these are different scientific claims:**
+
+Direction A (genome → visual) asks: does evolutionary history determine morphology? This is expected — Felsenstein 1985 says yes.
+
+Direction B (visual → genome) asks: does morphological description alone, without any genomic data, constrain which genome produced it? This is a much harder claim. It would mean the visual embedding carries phylogenetic signal — that BioCLIP 2.5, trained on iNaturalist photographs, has implicitly learned to encode taxonomic structure from appearance alone.
+
+**Connection to current production pipeline**: `b_text[s]` is already computed in production for 290 species (zero-shot text bridge). If W_BioCLIP @ b_text[s] predicts genomic position with LOO cosine > 0.3, it means: the text prompts we already use in production carry implicit genomic information. Every injection we do with delta = W @ b_text is — unknowingly — genome-informed. This would be a retroactive scientific explanation for why text-based injection works better for phylogenetically typical species and fails for unusual ones (Banksia, Ophrys): the text embedding of unusual species is phylogenetically displaced from its true genomic position.
+
+**Experiment**: exp_E03c (CPU, <30min, same framework as exp_E03 but transposed):
+```python
+W_BioCLIP = RidgeCV(alphas).fit(F_norm, G_norm)  # F → G instead of G → F
+loo_cosine_reverse = LOO_validation(W_BioCLIP, F_norm, G_norm)
+```
+This runs immediately after exp_E02 with the same data. No additional GPU needed.
+
+---
+
+### 2. What W_evo Represents in Each Space
+
+When we fit W_evo (genome → visual) and W_BioCLIP (visual → genome), we are characterizing the **geometry of the mutual information** between the two spaces. Specifically:
+
+**What W_evo represents in BioCLIP space:**
+The columns of W_evo are directions in BioCLIP 1024-dim space. The k-th column corresponds to the k-th Evo 2 dimension. If two species differ primarily in Evo 2 dimension k, W_evo predicts they differ primarily along column k of W_evo in BioCLIP space. In other words, W_evo maps Evo 2 axes to BioCLIP directions — it defines which visual directions correspond to which genomic variation axes.
+
+**What W_BioCLIP represents in Evo 2 space:**
+The columns of W_BioCLIP are directions in Evo 2 d_evo-dim space. They map BioCLIP axes (visual variation dimensions) to Evo 2 axes (genomic variation dimensions). The first principal component of W_BioCLIP is the direction in Evo 2 space most correlated with visual variation across the 85 training species.
+
+**The shared subspace:**
+If W_evo and W_BioCLIP† (pseudoinverse) align — that is, if `W_BioCLIP ≈ W_evo†` — then the two spaces share a common subspace. The SVD of W_evo reveals the principal axes of this shared subspace: the singular vectors are the directions of maximum mutual prediction between the two models. High singular values = high mutual information in that direction. Low singular values = that genomic variation axis has no visual correlate (or vice versa).
+
+This SVD analysis (4 lines of numpy) is exp_E05b — it is free once W_evo is fitted.
+
+---
+
+### 3. Epistasis and the Jacobian — Deeper Explanation
+
+**The simplest possible explanation of epistasis in this context:**
+
+Imagine species A has flower color gene X. In isolation, mutating X from blue to red makes the flower red. But if gene Y (petal shape) is also unusual (e.g., tubular), then mutating X has no visible effect — the flower is so unusual that color doesn't change how it looks in BioCLIP space. Gene Y has "suppressed" gene X's effect. That is epistasis: the effect of one mutation depends on the state of another.
+
+**What W_evo cannot see:**
+W_evo fits a single linear matrix. It finds the average linear relationship: "on average across 85 species, this genomic direction predicts this visual direction." But epistasis creates species where the average doesn't apply — species where gene interactions produce visual effects that are not predictable from linear superposition.
+
+**Low LOO cosine = high local epistasis:**
+A species with LOO cosine = 0.1 is a species whose visual appearance is NOT predictable from its genome using the linear map trained on all other species. The linear W_evo trained on 84 species cannot predict species 85. This could mean:
+- Convergent evolution: species 85 looks like species from a different family (visual neighbor but genomic outlier)
+- High epistatic load: species 85 has unusual gene interactions that change how its genome maps to appearance
+- Barcode failure: the ITS2/rbcL sequence for species 85 doesn't capture the genomic variation responsible for its visual traits
+
+**The Jacobian: separating additive from epistatic loci**
+
+The Jacobian `J = ∂Evo2_embedding(seq)/∂seq_position` measures: how much does the Evo 2 embedding change when we flip one nucleotide at position i? This is computed by a backward pass through Evo 2 40B.
+
+```
+J[i] = ||∂g_evo2/∂seq[i]||   (magnitude of embedding change per nucleotide flip at position i)
+```
+
+**Positions with high J[i] (additive loci candidates):**
+Flipping this nucleotide strongly changes the Evo 2 embedding → strongly changes the predicted visual appearance via W_evo. These positions are candidates for: coding regions with direct phenotypic effect, regulatory elements controlling visible traits, positions under strong purifying selection for visual phenotype.
+
+**Positions with low J[i] but high J[i]*J[j] cross-terms (epistatic loci candidates):**
+Flipping position i alone does little, but flipping i AND j together causes a large embedding change. These are epistatic pairs. The second-order Jacobian (Hessian) reveals them. This is computationally expensive (O(n^2) positions) but only needs to be done for the specific pair of species we're interrogating.
+
+**Why this matters for the bridge:**
+If W_evo LOO cosine is high for most species but low for Banksia serrata (a known edge case), the Jacobian for Banksia serrata sequences will show: which specific positions in the Banksia ITS2/rbcL are responsible for its genomic unusualness, and what visual directions those positions correspond to via W_evo. This is a targeted diagnosis of WHY text injection fails for Banksia — the answer is encoded in the Jacobian.
+
+**Experimental design for exp_E06 (conditional on LOO ≥ 0.7):**
+```python
+# For a species pair (Arum palestinum → Arisarum vulgare):
+direction_g = normalize(g_vulgare - g_palestinum)     # direction in Evo2 space
+direction_f = normalize(W_evo @ direction_g)           # projected in BioCLIP space
+
+# Jacobian: backward pass through Evo2 for Arum palestinum ITS2 sequence
+seq = load_sequence('Arum palestinum')
+seq_tensor = tokenize(seq).requires_grad_(True)
+g_embed = evo2_model(seq_tensor, return_embeddings=True)
+loss = torch.dot(g_embed.mean(0), torch.tensor(direction_g))
+loss.backward()
+J = seq_tensor.grad.abs().sum(-1)  # (seq_len,) — sensitivity per position
+
+# Report: top-10 positions by Jacobian magnitude → candidates for visual divergence loci
+top_positions = J.argsort(descending=True)[:10]
+```
+The positions reported here are the predicted "visual divergence loci" between Arum palestinum and Arisarum vulgare. No wet-lab validation — this is a computational prediction that would require experimental genetics to confirm. We label them clearly as predictions, not findings.
+
+---
+
+### 4. Interpolation Path Between Two Species — Full Experimental Design
+
+**What we measure in exp_E05:**
+
+For every within-genus species pair (A, B) in the 81-species dataset:
+
+```python
+t_vals = np.linspace(0, 1, 20)    # 20 interpolation steps
+smooth_scores = []
+detour_flags  = []
+
+for t in t_vals:
+    g_interp = (1-t)*g_A + t*g_B           # linear path in Evo2 space
+    f_interp = W_evo @ normalize(g_interp)  # projected to BioCLIP
+    cos_to_A = cosine(f_interp, f_A)
+    smooth_scores.append(cos_to_A)
+
+# Smoothness: r(t_vals, smooth_scores) should be ≈ -1.0 for Fujiyama path
+r = pearsonr(t_vals, smooth_scores)[0]
+
+# Detour detection: is there a local maximum in cos_to_A at some intermediate t?
+# A local maximum means the path first moves toward A, then away — a detour
+detour = has_local_maximum(smooth_scores[1:-1])
+```
+
+**Three classes of paths emerge:**
+1. **Smooth paths** (r ≈ -1.0, no detour): the intermediate species exist biologically. The path through Evo 2 space is a real evolutionary trajectory.
+2. **Flat paths** (r ≈ 0): the projection through W_evo is insensitive to the genomic direction between A and B — these genomic differences have no visual correlate.
+3. **Detour paths** (r < -0.5 but with local max): the path initially moves toward a third species C before continuing to B. The identity of C (nearest neighbor in f_BioCLIP at the detour point) is biologically meaningful — C is the "intermediate morphology" that evolution passed through.
+
+**Correlating detours with known phylogenetic events:**
+After exp_E05, for each detour pair (A, B) where the path passes near species C, we compare:
+- Is C in the same family as A or B?
+- Does the known phylogenetic tree have A → C → B as an ancestral sequence?
+- Is there documented hybridization between A and C or C and B?
+
+If the detour species C consistently matches known phylogenetic intermediaries, this is strong evidence that W_evo has learned real evolutionary geometry — not just statistical correlation.
+
+---
+
+### 5. Scope Constraints — What We Will NOT Do (logged as permanent constraints)
+
+These constraints are not provisional — they apply for the entire Evo series until explicitly revised by the user:
+
+1. **No diffusion models.** The visual output of W_evo is a 1024-dim vector in BioCLIP space. We do NOT attempt to decode this vector into pixels (no stable diffusion, no DALL-E). The scientific claim is in embedding space. Pixel-level visualization is future work, contingent on a funded collaboration with a diffusion model group. Reason: diffusion decoding introduces a second model with its own biases; any visual output would be the diffusion model's interpretation, not a scientific measurement.
+
+2. **No wet-lab claims.** Predicted "visual divergence loci" from the Jacobian are computational predictions. We do not claim these are functionally validated. A paper from this work would label them "candidate loci" requiring experimental genetics confirmation.
+
+3. **No cross-clade interpolation.** W_evo is trained on 81 plant species. Any prediction for a species not in the training set (or in a family not represented) is extrapolation. We report extrapolation radius explicitly: the convex hull radius in Evo 2 space of the 81 training species.
+
+4. **Linear only through W_evo.** All W_evo operations are strictly linear. We do not stack nonlinear layers on top of W_evo without a new experiment designed for that. The value of the linear claim is precisely its interpretability.
+
+5. **All claims quantified against permutation null.** Every r-value, every LOO cosine, every smoothness score gets a permutation baseline. "r = 0.4 is good" only means something if the permutation null is r ≈ 0. We always report: observed / permutation mean / permutation p-value.
+
+---
+
+### 6. Full Experiment Registry for the Evo Series
+
+| Exp | Description | Input | Output | GPU? | Trigger |
+|-----|-------------|-------|--------|------|---------|
+| exp_E01 | ITS2/rbcL/matK sequences (NCBI) | Species list | species_sequences.json | No | DONE |
+| exp_E02 | Evo 2 40B embeddings | sequences.json | g_evo2.npz | Yes (A100) | After setup |
+| exp_E03 | W_evo ridge + LOO cosine (Claim 1) | g_evo2 + f1024 | W_evo.npz, loo_results.json | No | After exp_E02 |
+| exp_E03b | Mantel test D_evo2 vs D_BioCLIP (Claim 2) | g_evo2 + f1024 | mantel_result.json | No | After exp_E02 |
+| exp_E03c | Reverse bridge W_BioCLIP LOO (Claim 2b) | f1024 + g_evo2 | W_BioCLIP.npz, loo_reverse.json | No | After exp_E02 |
+| exp_E04 | Genomic injection on 4 Group A images (Claim 3) | W_evo + SAM3 | recall_comparison.json | Yes | LOO ≥ 0.5 |
+| exp_E05 | Interpolation paths + detour detection | W_evo + g_evo2 | path_smoothness.json, umap | No | After exp_E03 |
+| exp_E05b | SVD of W_evo — shared subspace analysis | W_evo | singular_values.png | No | After exp_E03 |
+| exp_E06 | Jacobian gradient path per species pair | W_evo + Evo2 model | jacobian_positions.json | Yes (A100) | LOO ≥ 0.7 |
+
+---
+
+### 7. The Two-Way Bridge as a New Type of Scientific Instrument
+
+To summarize the full bidirectional picture:
+
+```
+BioCLIP 2.5 (visual) ←──W_BioCLIP──── Evo 2 40B (genomic)
+      ↑                                        ↑
+b_text[s] or f_1024[s]              g_evo2[s] = mean(hidden states of ITS2/rbcL)
+(290 species, production)           (81 species, experimental)
+
+W_evo   maps: genome → visual  (genome predicts appearance)
+W_BioCLIP maps: visual → genome  (appearance predicts genomic position)
+W_evo†  maps: visual → genome coords  (desired appearance → target genome)
+J = ∂g/∂seq  maps: sequence → embedding gradient  (positions → genomic directions)
+W_evo @ J  maps: sequence positions → visual directions  (QTL in embedding space)
+```
+
+Each of these mappings is a separate scientific claim, each requires a separate validation, and each illuminates a different aspect of the genome-phenotype relationship. We are building this instrument one validated layer at a time.
+
+---
+
+### 8. Jobs Running
+
+- exp42 nextgen inference: job 12212309, RUNNING, ~41,500/47,491 (~87%), iNat phase active, ETI ~25min
+- setup_evo2_40b: job 12215125, PENDING (A100 priority queue)
+- exp_E02 submit script: `/scratch200/leardistel/petal_benchmark/experiments/submit_exp_E02_evo2.sh`
+- exp_E03 script: `/scratch200/leardistel/petal_benchmark/experiments/exp_E03_W_evo_bridge.py`
+- exp_E03b script: `/scratch200/leardistel/petal_benchmark/experiments/exp_E03b_mantel.py`
+- exp_E03c script: NOT YET WRITTEN (add reverse ridge + LOO to exp_E03 as second pass)
+- exp_E05 script: NOT YET WRITTEN (path smoothness + detour detection)
