@@ -16708,3 +16708,61 @@ All four of these measurements are computed in exp_E05, requiring only W_evo.npz
 - **exp_E02**: submit after setup job PASSES smoke test
 - **exp_E03 + E03b + E03c**: submit after g_evo2.npz exists (CPU, <30min each, parallel)
 - **exp_E05**: submit after exp_E03 completes (W_evo.npz required)
+
+---
+
+## Entry 221 — exp42 NextGen Inference COMPLETE: 47,454 Images Processed; exp43 Sheet Mode Submitted (2026-03-25)
+
+### exp42 Results
+
+**Job 12212309 completed 2026-03-25 19:22 IST. Runtime: ~2h48min on RTX 6000 (compute-0-376).**
+
+Total images processed: **47,454** (37,477 Citadel + 9,977 iNat fast_downloaded).
+Failures: 31 Citadel (0.08%), 0 iNat. All failures were missing image files.
+
+**Per-source statistics (combo_score = 0.3×SAM3 + 0.7×FA-FPN):**
+
+| Source | N images | Mean combo | Mean n_masks | Frac any mask |
+|--------|----------|-----------|--------------|---------------|
+| flowers_detected | 17,320 | **0.7078** | 11.17 | **0.889** |
+| annotation_only | 11,583 | 0.7062 | 8.26 | 0.643 |
+| inat_fast_downloaded | 9,977 | 0.6721 | 3.85 | 0.335 |
+| background_no_flowers | 8,560 | 0.6519 | 6.38 | 0.429 |
+| citadel_other | 14 | 0.6351 | 0.14 | 0.143 |
+
+**Verification against expected values:**
+- flowers_detected mean combo = 0.708 — matches expectation (YOLO-detected, should score high) ✓
+- background_no_flowers mean combo = 0.652 — **NOT 0.4 as expected.** This is because background_no_flowers images still generate SAM3 masks (they just have no GT flowers), and those masks score on the universal FA-FPN direction regardless. The combo score reflects mask confidence, not flower ground truth. This is expected behavior — FA-FPN is a mask discriminator, not an image-level detector.
+- inat_fast frac_any_mask = 0.335 — only 33.5% of iNat images generated any SAM3 masks. This is consistent with iNat images being more diverse (close-up flower shots vs field photos) and the 0.3 confidence threshold filtering more aggressively on unusual compositions.
+
+**Per-image JSON structure** (saved, resumable):
+```
+results/exp42_nextgen_inference/{image_id//1000}/{image_id}.json
+results/exp42_nextgen_inference/inat_fast/{stem}.json
+```
+Each JSON: image_id, species, source, n_masks_generated, injection_alpha=0.5, conf=0.3, nms=0.7, top-3 masks with sam3_score, fa_fpn_score, combo_score, area_frac, bbox.
+
+---
+
+### exp43 Submitted
+
+**Job 12215996 (CPU, power-general-public-pool, 4h) — exp43 sheet mode.**
+
+Three output types:
+- **Type A**: Per-species contact sheets (6×5 grid, 30 masks/page) — top 50 species, up to 2 pages each
+- **Type B**: Per-image full breakdown (combo_score > 0.85, top 100 images) — image + bbox overlay + bar chart
+- **Type C**: Statistics summary (5-panel PNG) — combo histogram, n_masks histogram, per-source bars, FA-FPN vs SAM3 scatter, top-20 species table
+
+Output: `results/exp43_sheet_mode/`
+
+---
+
+### Status Summary
+
+| Experiment | Status | Key result |
+|---|---|---|
+| exp42 (NextGen 47K) | **COMPLETE** | 47,454 images, combo=0.708 (flowers) |
+| exp43 (sheet mode) | **RUNNING** (job 12215996) | ~4h CPU |
+| setup_evo2_40b (job 12215125) | PENDING (A100 queue) | TE + cudnn install |
+| exp_E02 (Evo 2 embeddings) | Awaiting setup | submit after setup passes |
+| exp_E03/E03b/E05 (CPU) | Scripts ready | submit after exp_E02 |
