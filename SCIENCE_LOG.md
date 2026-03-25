@@ -17263,3 +17263,48 @@ Look at evo2_model.model.state_dict().keys() to see available layers.
 - 12221360 `probe_layers`: layer name discovery, RUNNING on compute-0-420 (A6000)
 
 Both loading `evo2_7b.pt` (~13 min expected). `setup_PASSED.flag` will trigger monitor → E02 → E03/E03b → E05 chain.
+
+---
+
+## Entry 230 — Evo2 7B PASSED: Full Dependency Chain Resolved (2026-03-26)
+
+### Setup Complete
+
+After resolving 8 sequential dependency failures over ~8 hours, Evo2 7B is now running on the cluster.
+
+**Complete Fix Chain:**
+1. `crt/host_defines.h` missing → CUDA 12.6 module toolkit ✅
+2. `cudnn.h` missing → sam2_env cuDNN include headers ✅  
+3. TransformerEngine build failed → NVTE_FRAMEWORK=pytorch + all headers ✅
+4. `libcudnn.so` (unversioned) not found → symlink `libcudnn.so → libcudnn.so.9` ✅
+5. `libnvrtc.so` not found → symlink `libnvrtc.so → libnvrtc.so.12` ✅
+6. `flash_attn_2_cuda` ModuleNotFoundError → GPU compilation: `flash-attn 2.8.3` ✅
+7. `Evo2.eval()` AttributeError → use `model.model.eval()` (inner nn.Module) ✅
+8. `layer_names must be specified` ValueError → API requires `layer_names=['blocks.31']` ✅
+9. `ByteTensor` type error → cast tokenizer output: `.long()` ✅
+
+**Smoke Test Result (job 12221766, compute-0-293 L40S):**
+```
+GPU: NVIDIA RTX 6000 Ada Generation, VRAM: 51.0GB
+flash_attn: 2.8.3
+OK: from evo2 import Evo2
+Forward pass OK: shape=torch.Size([20, 4096]), embed_dim=4096
+PASSED: evo2_7b smoke test
+```
+
+**Key architectural finding**: Evo2 7B uses 4096-dim hidden states in `blocks.31` (last transformer block). This is the embedding space for genomic sequences.
+
+**lib_symlinks/ directory** (all CUDA libraries resolved):
+`libcudnn.so`, `libnccl.so`, `libnvrtc.so`, `libnvrtc-builtins.so`, `libcublas.so`, `libcublasLt.so`, `libcurand.so`, `libcudart.so`
+
+### Experiment Chain Now Running
+
+| Job | Name | State |
+|-----|------|-------|
+| 12222333 | exp_E02_evo2 | RUNNING (GPU, any) |
+| 12222346 | evo_monitor | RUNNING (state=2) |
+| 12218574 | setup_evo2_final (A100) | PENDING (2026-03-28) |
+
+Monitor state machine: E02 → E03+E03b (parallel CPU) → E05 (CPU) → Science Log entry
+
+**Note on NFS I/O**: `evo2_7b.pt` (13GB) consistently takes 10-15 minutes to load from `/scratch200/` over NFS on cluster compute nodes. Model inference for 81 sequences should take ~20-30 minutes once loaded.
