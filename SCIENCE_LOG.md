@@ -16524,3 +16524,187 @@ Each of these mappings is a separate scientific claim, each requires a separate 
 - exp_E03b script: `/scratch200/leardistel/petal_benchmark/experiments/exp_E03b_mantel.py`
 - exp_E03c script: NOT YET WRITTEN (add reverse ridge + LOO to exp_E03 as second pass)
 - exp_E05 script: NOT YET WRITTEN (path smoothness + detour detection)
+
+---
+
+## Entry 221 — W_evo Series: Five Precise Scientific Claims, Bidirectional Instrument, Fitness Landscape Topology, Epistasis Profiling (2026-03-25)
+
+### Context and Constraint Statement
+
+This entry records the theoretical consolidation session for the W_evo experimental series. Every claim below is pinned to a specific experiment, a specific metric, and a prior-knowledge anchor. No claim is made beyond what the linear bridge W_evo can support. All future extensions (nonlinear, Jacobian, diffusion) are labeled explicitly as conditional on LOO ≥ 0.7 and as separate program decisions.
+
+**Permanent scope constraint (user-confirmed):** The diffusion model step is optional and purely for visualization — the scientific claim lives in embedding space. We do not pursue pixel-space visualization until a separate collaboration is established. This constraint applies to all entries in the Evo series.
+
+---
+
+### Claim 1 — Forward Bridge: Genome Predicts Visual Appearance (exp_E03)
+
+```
+W_evo: g_evo2[s] → f_BioCLIP_pred[s]
+Validation: LOO cosine, threshold ≥ 0.4
+```
+
+If a species' DNA barcode (ITS2/rbcL/matK), embedded by Evo 2 40B, can be linearly projected to within cosine = 0.4 of its visual centroid in BioCLIP 1024-dim space — this proves the genome encodes enough morphological information for a linear map to recover it. Prior anchor: Felsenstein 1985 (morphology tracks phylogeny within families). Decision gates: < 0.3 null, 0.3–0.5 partial, ≥ 0.5 full, ≥ 0.7 publication-worthy.
+
+---
+
+### Claim 2 — Reverse Bridge: Visual Appearance Predicts Genomic Position (exp_E03c)
+
+```
+W_BioCLIP: f_BioCLIP[s] → g_evo2_pred[s]
+Validation: LOO cosine in reverse direction
+```
+
+This is a strictly separate and harder claim than Claim 1. Direction: given only what a species looks like (its BioCLIP embedding), can we predict where it sits in Evo 2 genomic space?
+
+**Why this is harder:** W_evo asks whether phylogenetic distance predicts morphological distance — Felsenstein 1985 says yes. W_BioCLIP asks the converse: does morphological description constrain genomic identity? This is not guaranteed by any known prior. If it holds, it means BioCLIP 2.5, trained exclusively on photographs, has implicitly learned to encode taxonomic structure from visual appearance — a property that emerges from the visual statistics of biodiversity photography without any explicit genomic supervision.
+
+**Connection to production pipeline:** Every b_text[s] we compute for zero-shot production inference is a BioCLIP embedding. If W_BioCLIP achieves LOO cosine > 0.3, it means our zero-shot text embeddings carry implicit genomic signal. This retroactively explains why text injection fails for phylogenetically unusual species: their text embedding is visually displaced from their genomic position. The W_BioCLIP LOO cosine for each species is a direct measure of how "genomically coherent" its visual appearance is.
+
+**Symmetry diagnostic:** Compare LOO_forward vs LOO_reverse:
+- LOO_forward > LOO_reverse: genome is more informative about appearance than appearance about genome. Expected under phylogenetic comparative methods.
+- LOO_reverse > LOO_forward: BioCLIP has learned richer genomic signal than Evo 2 has learned visual signal. Would indicate a surprising emergent property of vision foundation models.
+- Symmetric: mutual information is balanced. The two spaces are equally predictive of each other.
+
+The SVD of W_evo quantifies the shared subspace dimensionality: how many effective dimensions do the genomic and visual spaces share? High effective rank = many independent visual-genomic axes. Low effective rank = a small number of principal genomic axes account for most visual variation.
+
+---
+
+### Claim 3 — Mantel Test: Distance Structures Correlate Across Modalities (exp_E03b)
+
+```
+Mantel r(D_evo2, D_visual) > 0, p < 0.05, 1000 permutations
+```
+
+This is the most defensible claim because it requires no learned mapping. It tests directly: do species that are farther apart genomically also look farther apart visually? Prior anchor: Cavalli-Sforza & Edwards 1967 (genetic distance and morphological distance correlate), Felsenstein 1985. The permutation null gives an honest p-value without parametric assumptions. This claim survives regardless of W_evo quality — it is a property of the distance matrices, not the bridge.
+
+---
+
+### Claim 4 — Fitness Landscape Topology from Path Smoothness (exp_E05)
+
+**The key insight from Romaro & Arnold (2009):** Fitness landscapes have two extreme types:
+- **Fujiyama** (smooth, single-peaked): mutations additively improve fitness. The path from A to B is monotone in embedding space.
+- **Badlands** (rugged, multi-peaked): epistasis creates local maxima. The path from A to B must detour through fitness valleys.
+
+**Our novel measurement:** By interpolating `g_interp(t) = (1-t)*g_A + t*g_B` in Evo 2 space and projecting through W_evo to BioCLIP space, we measure the path topology directly:
+
+```
+smoothness_r = Pearson r(t_vals, cosine(f_interp(t), f_A))
+
+Smooth (Fujiyama): r ≈ -1.0 — cosine to A decreases monotonically as we move toward B
+Flat:              r ≈  0.0 — this genomic direction has no visual correlate (null)
+Detour (Badlands): r ≈ -0.7 with local maximum — path through visual space detours via a third species C
+```
+
+**The detour species C** is the nearest training species in BioCLIP space at the path's local maximum. If C is phylogenetically intermediate between A and B (e.g., same family, different genus), this constitutes evidence that the detour traces a real evolutionary intermediate — a species whose morphology is "on the way" from A to B.
+
+**Broader implication (carefully stated):** If detour species consistently correspond to known phylogenetic intermediaries, the geometry of Evo 2 space — as measured through W_evo — reflects macroevolutionary history. Detours in embedding space would correspond to fitness valleys in sequence space that evolution had to navigate around. This is an empirical test of the Sewall Wright adaptive landscape hypothesis (Wright 1932) applied to cross-modal foundation model embeddings. This is a novel measurement — no prior work has measured fitness landscape topology via cross-modal embedding projection.
+
+**Scope constraint:** This is exploratory for the POC. We report landscape types, smoothness distributions, and detour identities. We do NOT claim to have discovered specific fitness valleys in real evolution — we claim to have found structural correlates in embedding space that are consistent with known landscape theory. Wet-lab confirmation would require separate genetics experiments.
+
+---
+
+### Claim 5 — Epistasis Profiling via Jacobian (exp_E06, conditional on LOO ≥ 0.7)
+
+**The simplest possible explanation:**
+
+W_evo is a linear model. It fits the average relationship: "this genomic direction → this visual direction." But evolution is not always additive. Some species' appearances are controlled by gene interactions (epistasis): gene A's effect depends on the state of gene B. W_evo cannot see this — it sees only the average.
+
+**Low LOO cosine as an epistasis signal:** A species with low LOO cosine is a species where the linear prediction fails. This failure can have three causes:
+1. **Convergent evolution** — the species looks like a different phylogenetic group (visual outlier)
+2. **Barcode inadequacy** — ITS2/rbcL doesn't capture the genomic variation responsible for appearance
+3. **High epistatic load** — gene interactions create visual effects not predictable from linear superposition
+
+The Jacobian separates cause 3 from causes 1 and 2:
+
+```python
+J[position_i] = ||∂g_evo2 / ∂seq[position_i]||   # per-nucleotide gradient magnitude
+```
+
+Positions with **high J** (additive loci candidates): flipping this nucleotide strongly shifts the embedding → strongly shifts the visual prediction through W_evo. These are functionally informative positions for the morphological trait.
+
+Positions with **low J** but **high cross-term J[i]*J[j]** (epistatic loci candidates): flipping position i alone has little effect; flipping i AND j together has large effect. These are interacting pairs — candidates for epistatic loci underlying visual divergence.
+
+**What this gives us in practice:** For the Arum palestinum → Arisarum vulgare pair (within-family, valid regime), the top-10 Jacobian positions in the Arum palestinum ITS2 sequence are the predicted positions whose mutation would most move the visual appearance toward Arisarum vulgare. These are computational predictions, labeled as such, requiring wet-lab confirmation. They are candidate targets for directed evolution experiments — but that step is explicitly outside our scope.
+
+**Computational requirement:** Backward pass through Evo 2 40B is O(seq_len × embed_dim) ≈ O(600 × embed_dim_40B). This needs A100 GPU time and is not run unless LOO ≥ 0.7 because it is only scientifically meaningful if W_evo is reconstructing the visual space accurately.
+
+---
+
+### The Two-Way Bridge as a Scientific Instrument — Summary Diagram
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                    BIDIRECTIONAL BRIDGE                             │
+│                                                                     │
+│  Evo 2 40B space (d_evo dim)     BioCLIP 2.5 space (1024 dim)      │
+│                                                                     │
+│  g_evo2[s]  ──── W_evo ────►  f_pred[s]   (Claim 1: genome→visual) │
+│                                                                     │
+│  g_pred[s]  ◄─── W_BioCLIP ── f_BioCLIP[s] (Claim 2: visual→genome)│
+│                                                                     │
+│  g_target   ◄─── W_evo†  ──── f_target    (Inverse: desired→genome)│
+│                                                                     │
+│  J = ∂g/∂seq ── W_evo ──►  ∂f/∂seq       (exp_E06: seq positions   │
+│                                             → visual directions)    │
+│                                                                     │
+│  SVD(W_evo): shared subspace rank (exp_E05b, free after E03)       │
+└─────────────────────────────────────────────────────────────────────┘
+
+Each arrow = one validated (or planned) scientific claim.
+Each claim = one experiment. Each experiment = one result file.
+No claim is made beyond what the linear model supports.
+```
+
+---
+
+### What "The Path Between Two Points Unveils" — Precise Statement
+
+The interpolation `g_interp(t) = (1-t)*g_A + t*g_B` is a straight line in Evo 2 space. Via W_evo, it traces a curve in BioCLIP space. The shape of that curve reveals:
+
+1. **Smooth → Additive genetics dominates** the visual divergence between A and B. Intermediate genomes produce intermediate phenotypes. The path is biologically traversable.
+
+2. **Flat → These genomic differences are visually silent.** The ITS2/rbcL region distinguishes A from B genomically, but the visual difference is driven by other loci not captured in the barcode. This is a mapping failure, not a biology failure — it means we need longer or different barcodes for these species pairs.
+
+3. **Detour → A fitness valley exists.** No intermediate genome produces an intermediate phenotype. The path must go around. The detour species C is the predicted "way around the valley." If C is a known phylogenetic intermediate (ancestor or relative), this is strong evidence the embedding geometry reflects real evolutionary history.
+
+4. **The distance from A to B in BioCLIP space (via W_evo) may differ from the straight-line distance in Evo 2 space.** This discrepancy measures how much visual divergence is "hidden" in genomic directions that W_evo cannot capture — the shadow of epistasis on the linear bridge.
+
+All four of these measurements are computed in exp_E05, requiring only W_evo.npz + g_evo2.npz (no additional GPU).
+
+---
+
+### Validation Hierarchy (in order of required evidence)
+
+| Level | What it proves | Experiment | Required for |
+|-------|---------------|------------|-------------|
+| 0 | Genomic and visual distances correlate (Mantel) | exp_E03b | Minimum publishable claim |
+| 1 | Linear bridge has LOO cosine ≥ 0.4 | exp_E03 | "Genome predicts appearance" |
+| 2 | Reverse bridge has LOO cosine > 0 | exp_E03c | "Appearance constrains genome" |
+| 3 | Path smoothness tracks family-level phylogeny | exp_E05 | Novel landscape topology claim |
+| 4 | Genomic injection beats text injection on edge cases | exp_E04 | Applied bridge claim |
+| 5 | Jacobian identifies visual divergence loci | exp_E06 | Epistasis profiling claim |
+
+**We build upward through this hierarchy.** Each level requires the level below it to be positive. We stop at the first negative result and publish what we have — a negative Mantel test is also a publishable result (it would mean Evo 2 and BioCLIP are independent, which is unexpected and interesting).
+
+---
+
+### Scripts Status
+
+| Script | Status | Notes |
+|--------|--------|-------|
+| `exp_E01_its2_sequences.py` | DONE (ran) | 81/85 species, ITS2=69, rbcL=10, matK=2 |
+| `exp_E02_evo2_embeddings.py` | Written, pending setup job | Requires evo2 package on A100 |
+| `exp_E03_W_evo_bridge.py` | Written + exp_E03c appended | Ridge + LOO forward + reverse + SVD |
+| `exp_E03b_mantel.py` | Written | Mantel test D_evo2 vs D_BioCLIP |
+| `exp_E05_path_smoothness.py` | Written | Requires W_evo.npz + g_evo2.npz |
+| `exp_E04_genomic_injection.py` | Not yet written | Conditional on LOO ≥ 0.5 |
+| `exp_E06_jacobian.py` | Not yet written | Conditional on LOO ≥ 0.7 |
+
+### Jobs Running
+
+- **exp42**: job 12212309, RUNNING ~89% complete (~42,500/47,491), ETI ~15min
+- **setup_evo2_40b**: job 12215125, PENDING (A100 queue). Script updated with cudnn header resolution.
+- **exp_E02**: submit after setup job PASSES smoke test
+- **exp_E03 + E03b + E03c**: submit after g_evo2.npz exists (CPU, <30min each, parallel)
+- **exp_E05**: submit after exp_E03 completes (W_evo.npz required)
