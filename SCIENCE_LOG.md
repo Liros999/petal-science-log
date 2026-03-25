@@ -17224,3 +17224,42 @@ libcudart.so  → nvidia/cuda_runtime/lib/libcudart.so.12
 | 12218574 | setup_evo2_final (A100, 40B-capable) | PENDING | 2026-03-28 |
 | 12216131 | evo_monitor (state machine) | RUNNING | — |
 
+
+---
+
+## Entry 229 — evo2 API Correction: layer_names Required (2026-03-26)
+
+### Error Chain Step 7 — `ValueError: layer_names must be specified`
+
+After flash-attn was installed (job 12220931), the smoke test correctly loaded the model but failed with:
+```
+ValueError: layer_names must be specified when return_embeddings=True.
+Look at evo2_model.model.state_dict().keys() to see available layers.
+```
+
+**Root cause**: The public evo2 API changed from the setup_evo2_40b.sh version. Current API (vtx 1.0.8):
+- `model(input_ids, return_embeddings=True, layer_names=[...])` → `(logits, {layer_name: tensor})`
+- `layer_names` is REQUIRED when `return_embeddings=True`
+- Return type is `(logits, dict)`, NOT a bare tensor
+
+**Additional API quirk**: `Evo2` wrapper does not expose `.eval()`. Must use `model.model.eval()` (inner `nn.Module`).
+
+**Fixes applied:**
+
+1. `exp_E02_evo2_embeddings.py` — Updated:
+   - `N_BLOCKS = 49 if '40b' in MODEL_ID else 31`
+   - `LAST_LAYER = f'blocks.{N_BLOCKS}'` (last transformer block)
+   - `_, emb_dict = model(input_ids, return_embeddings=True, layer_names=[LAST_LAYER])`
+   - `hidden = emb_dict[LAST_LAYER]` + shape handling for 3D/2D tensors
+
+2. `setup_evo2_gpu_smoketest.sh` — Updated with correct API + all CUDA lib paths
+
+3. `install_flash_attn.sh` (active smoke test) — Updated
+
+**Remaining observation**: `evo2_7b.pt` (13GB) takes 10-15 minutes to load from `/scratch200` NFS storage on compute nodes. This is a cluster I/O bottleneck. Once cached in OS page cache on a node, subsequent loads are instant (was 4s on second run).
+
+**Jobs running (01:20 IST 2026-03-26)**:
+- 12221678 `evo2_gpu_smoke`: correct API smoke test, RUNNING on compute-0-102 (L40S)
+- 12221360 `probe_layers`: layer name discovery, RUNNING on compute-0-420 (A6000)
+
+Both loading `evo2_7b.pt` (~13 min expected). `setup_PASSED.flag` will trigger monitor → E02 → E03/E03b → E05 chain.
