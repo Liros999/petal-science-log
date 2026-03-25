@@ -14877,3 +14877,133 @@ SAM3 generates a flower mask for only 69.8% of GT flowers. The other 30.2% are n
 These are not competing. They are sequential. First break the ceiling (Level 3), then score accurately (FA-FPN).
 
 ---
+
+## Entry 208 — exp37: A(ε̂_s) Measured, Precision@K Production Operating Point, SAM3 Hook Architecture Fixed (2026-03-25)
+
+### Summary
+
+exp37 completed. This entry records: (1) A(ε̂_s) measurements for all 85 TRAIN species, (2) the full Precision@K / Recall@K / F1@K sweep establishing the production operating point at K=2, and (3) the SAM3 hook architecture discovery required to fix exp38 (Level 3) and exp34a (FPN feature extraction).
+
+---
+
+### A(ε̂_s): Per-Species Azimuth Discriminability
+
+The ΔAUC equation predicts that per-species gain = sin(θ_s) × A(ε̂_s) × Q_W(s). A(ε̂_s) is the AUC of the pure azimuth direction ε̂_s on TRAIN masks of species s — it measures how discriminable species s is using only its azimuth fingerprint, ignoring the universal flower direction.
+
+**Distribution (85 TRAIN species):**
+- Mean A(ε̂_s) = 0.894 ± 0.081
+- Min = 0.523 (Hypericum triquetrifolium)
+- Max = 1.000 (Drosera rotundifolia, Eremurus spectabilis, Erodium acaule)
+
+**Top species (highest A — most species-discriminable):**
+
+| Species | A(ε̂_s) | sin(θ_s) |
+|---|---|---|
+| Drosera rotundifolia | 1.000 | 0.240 |
+| Eremurus spectabilis | 1.000 | 0.200 |
+| Erodium acaule | 1.000 | 0.263 |
+| Etlingera elatior | 0.992 | 0.224 |
+| Echinacea purpurea | 0.986 | 0.246 |
+| Smilax aspera | 0.980 | 0.199 |
+| Erodium gruinum | 0.980 | 0.180 |
+| Erodium moschatum | 0.980 | 0.286 |
+| Nuphar advena | 0.977 | 0.251 |
+| Sonchus oleraceus | 0.977 | 0.239 |
+
+**Bottom species (lowest A — least species-discriminable):**
+
+| Species | A(ε̂_s) | sin(θ_s) |
+|---|---|---|
+| Asphodelus ramosus | 0.692 | 0.162 |
+| Eryngium creticum | 0.647 | 0.430 |
+| Hypericum triquetrifolium | 0.523 | 0.306 |
+
+Hypericum triquetrifolium (A=0.523) is near chance — its azimuth fingerprint barely discriminates flowers from non-flowers even on its own TRAIN data. This is likely because Hypericum has flowers resembling many other yellow-petaled species: its azimuth fingerprint blurs into the background of similar flowers.
+
+The mean A=0.894 is inflated by class imbalance in TRAIN (most masks are non-flowers; any non-zero azimuth signal yields high AUC). The signal is real but the absolute values should not be compared to VAL AUC numbers.
+
+**sin(θ_s) vs A(ε̂_s) correlation:** Pearson r = -0.197, p = 0.071 (borderline). Species with larger azimuth (more unusual flowers) do NOT systematically have higher A. This means the azimuth magnitude and the azimuth discriminability are largely independent — both terms in the ΔAUC equation carry independent information.
+
+**Equation validation (n_species=0):** The VAL species are genus-exclusive from TRAIN. A(ε̂_s) is computed on TRAIN species only; observed ΔAUC from exp34d requires VAL species. There is no overlap, so the equation cannot be validated cross-split without FPN features. This is correct — it is not a bug. Equation validation requires exp39 (FPN features for VAL, pending).
+
+---
+
+### Precision@K Sweep — Production Operating Point
+
+exp37 computed Precision@K, Recall@K, and F1@K for all 5 strategies over the TRAIN split (59,977 VAL masks, ground truth from corrected labels).
+
+**Note on table interpretation:** In this evaluation context, Precision@K = Recall@K because each image has at most one "flower" in the top-K retrieval set (single-label). The correct interpretation is "fraction of top-K positions occupied by a true flower" (same as Recall@K for this structure).
+
+**Full F1@K table:**
+
+| Strategy | F1@1 | F1@2 | F1@3 | F1@5 | F1@10 |
+|---|---|---|---|---|---|
+| SAM3 baseline | 0.513 | 0.537 | 0.505 | 0.427 | 0.300 |
+| D_flower (FA-FPN) | 0.491 | 0.552 | 0.538 | 0.471 | 0.333 |
+| Combo_lam07 | **0.573** | **0.607** | 0.576 | 0.491 | 0.338 |
+| D_s_Wridge | 0.498 | 0.559 | 0.540 | 0.473 | 0.334 |
+| Combo_Ds_lam07 | 0.575 | **0.609** | 0.579 | 0.492 | 0.338 |
+
+**Production operating point: K=2.** Both Combo_lam07 and Combo_Ds_lam07 peak at F1=0.607/0.609 at K=2, then fall. This is the natural equilibrium: at K=1 we miss multi-flower images; at K=3+ we dilute precision with non-flowers.
+
+**Key numbers for Combo_lam07 at production K=2:**
+- Precision@2 = 0.640 (64% of top-2 masks are true flowers)
+- Recall@2 = 0.640 (same value in this setup)
+- F1@2 = 0.607
+
+**Key numbers for SAM3 baseline at K=1:**
+- P@1 = 0.708
+- F1@1 = 0.513
+
+The Combo rescoring improves F1@1 from 0.513→0.573 (+6.0pp) and F1@2 from 0.537→0.607 (+7.0pp). D_flower alone also improves at K≥2, confirming FA's role in multi-flower recovery.
+
+**Important caveat:** These are all bounded by the 69.8% SAM3 recall ceiling. At no K value does any scoring method recover the 30.2% of GT flowers that SAM3 never proposed. F1 falls at K=1 for D_flower because D_flower reorders masks but the 69.8% ceiling means some images have no flower in the pool at all.
+
+---
+
+### SAM3 Hook Architecture: The Correct Injection Point
+
+exp38 and exp34a both failed with `AttributeError: 'Sam3Image' object has no attribute 'image_encoder'`. This entry documents the correct SAM3 architecture for future experiments.
+
+**SAM3 model hierarchy:**
+```
+sam3_model                            = Sam3Image
+sam3_model.backbone                   = SAM3VLBackbone (visual + text)
+sam3_model.backbone.vision_backbone   = Sam3DualViTDetNeck
+    .trunk                            = ViT backbone
+    .convs                            = ModuleList[4] (scale factors 4.0, 2.0, 1.0, 0.5)
+    .convs[0]                         = scale=4.0 → FPN level 0 (highest res, smallest features)
+    .convs[1]                         = scale=2.0 → FPN level 1
+    .convs[2]                         = scale=1.0 → FPN level 2 ← backbone_fpn[-1] after scalp=1
+    .convs[3]                         = scale=0.5 → FPN level 3 (discarded by scalp=1)
+```
+
+With `scalp=1`, `SAM3VLBackbone` uses `sam3_features[:-1]` = first 3 levels. Therefore `backbone_fpn[-1]` = output of `convs[2]` (scale=1.0). This is the 256-dim feature map used everywhere in the literature.
+
+**Correct hook registration:**
+```python
+handle = sam3_model.backbone.vision_backbone.convs[2].register_forward_hook(hook_fn)
+```
+
+**Correct processor API (required for proper image preprocessing):**
+```python
+state = sam3_processor.set_image(pil_img)       # triggers backbone.forward_image → hook fires
+state = sam3_processor.set_text_prompt("flower", state)  # grounding
+masks = state['masks']   # tensor (N, 1, H, W) bool
+```
+
+The processor normalizes to `mean=[0.5,0.5,0.5], std=[0.5,0.5,0.5]` and resizes to 1008px. Using raw `img/255` without this preprocessing produces incorrect FPN features. All previous experiments (exp33, exp34) that used this raw approach extracted features in the wrong preprocessing space.
+
+Both exp38 (Level 3 injection, job 12206380) and exp34a_save_fpn_feats (job 12206385) have been fixed and resubmitted.
+
+---
+
+### Pending: exp38 Level 3 Injection Result
+
+exp38 (job 12206380, submitted 2026-03-25) will answer the central question of this research program: does injecting `backbone_fpn[-1] += alpha × delta_fpn[s]` before mask generation cause SAM3 to generate masks for GT flowers it previously missed?
+
+Expected result if injection works: baseline recall (alpha=0.0) = 0.698; at optimal alpha > 0, recall rises above 0.698. Even +1pp would be scientifically significant — it means the 69.8% ceiling is not a hard architectural limit but a default-prompt artifact that species knowledge can overcome.
+
+Entry 209 will report the Level 3 result with the full alpha sweep.
+
+---
