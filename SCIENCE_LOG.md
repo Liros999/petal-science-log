@@ -14856,3 +14856,24 @@ Runs automatically once exp34a_save_fpn_feats (job 12205916) completes. Uses raw
 This closes the loop: exp37 predicts which species benefit from TIB-FPN. exp39 measures whether the prediction was correct.
 
 ---
+
+## CRITICAL CLARIFICATION — Never Confuse These Again (2026-03-25)
+
+### The One Problem That Matters: The 69.8% Recall Ceiling
+
+SAM3 generates a flower mask for only 69.8% of GT flowers. The other 30.2% are never proposed — no scoring strategy (Level 1a, 2a, 2b) can find them because they do not exist in the candidate pool.
+
+**Every AUC number, every top-K recall improvement, every precision@K — all of these operate WITHIN the 69.8% ceiling.** They improve ranking of existing masks. They do not recover missing masks.
+
+**The only solution is Level 3: inject species knowledge into SAM3 BEFORE mask generation.** This is why BioCLIP 2.5 is critical — not for scoring, but for providing species knowledge that changes what SAM3 generates.
+
+### The Two Completely Different Questions
+
+| Question | Method | Ceiling |
+|---|---|---|
+| "Is this mask a flower?" | FA-FPN scoring (D_flower_SAM3) | Limited to 69.8% |
+| "Generate a flower mask here" | Level 3 FPN injection | Can break 69.8% |
+
+These are not competing. They are sequential. First break the ceiling (Level 3), then score accurately (FA-FPN).
+
+---
