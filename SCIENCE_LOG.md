@@ -16969,3 +16969,66 @@ All of these are exp_E07 sub-analyses, enabled entirely by existing data.
 - Root cause of all previous TE build failures: `cudnn.h` was in `sam2_env` but the script was looking in `petal_env`. Fixed in current scripts.
 - Success flag written to: `/scratch200/leardistel/petal_benchmark/results/exp_E02_evo2_embeddings/setup_PASSED.flag`
 - Next: when flag exists → submit exp_E02 (7B prelim or 40B depending on VRAM)
+
+---
+
+## Entry 224 — Autonomous Evo Series Execution Plan (2026-03-25)
+
+### Monitor job submitted: 12216131 (CPU, 12h, power-general-public-pool)
+
+The monitor script (`monitor_evo_series.sh`) runs autonomously with a 10-minute polling loop.
+It chains all 5 experiments in order, handles failures with resubmission, and writes
+Science Log Entry 225 automatically when all experiments complete.
+
+### State Machine
+
+```
+State 0: Wait for setup_evo2 (A100 job 12216062 / H100 job 12216063) → PASSED flag
+State 1: Submit exp_E02 (Evo2 embeddings, GPU)
+State 2: Wait for exp_E02 summary.json → submit exp_E03 + exp_E03b in parallel (CPU)
+State 3: Wait for W_evo.npz + mantel_result.json → submit exp_E05 (CPU)
+State 4: Wait for exp_E05 summary.json → parse all results → write Entry 225 → git push
+State 5: DONE
+```
+
+### Race Jobs Active
+
+| Job | GPU | Status |
+|-----|-----|--------|
+| 12216062 | A100 (80GB) | PENDING (Resources) |
+| 12216063 | H100 (80GB) | PENDING (Priority) |
+
+Root cause of all previous TE failures confirmed and fixed:
+`cudnn.h` lives in `sam2_env`, not `petal_env`. Scripts now hardcode:
+`CUDNN_INC=/groups/itay_mayrose/leardistel/.conda/envs/sam2_env/lib/python3.10/site-packages/nvidia/cudnn/include`
+
+### Model Selection (auto at runtime)
+
+exp_E02 selects model by VRAM:
+- VRAM ≥ 75GB → `evo2_40b` (production, final results)
+- VRAM < 75GB → `evo2_7b` (preliminary, labeled as such, 40B rerun triggered separately)
+
+### Hourly heartbeats logged to
+
+`/scratch200/leardistel/petal_benchmark/results/monitor_evo_series.log`
+
+### Expected Timeline
+
+| Event | Expected |
+|-------|---------|
+| Setup job starts (A100 or H100) | ~30-60min queue wait |
+| TransformerEngine build | ~15-20min compile |
+| evo2_7b smoke test | ~5min |
+| exp_E02 (7B embeddings, 81 species) | ~30min |
+| exp_E03 + E03b (CPU, parallel) | ~20-30min each |
+| exp_E05 (path smoothness, CPU) | ~20min |
+| Entry 225 written + pushed | ~3-4h from now |
+
+### Decision Gate (applied automatically)
+
+| LOO cosine | Gate outcome |
+|------------|-------------|
+| < 0.3 | NULL — stop series, investigate pooling (exp_E02b) |
+| 0.3–0.5 | PARTIAL — weak signal, note limitations |
+| 0.5–0.7 | FULL — submit exp_E04 genomic injection |
+| ≥ 0.7 | PUBLICATION — submit exp_E06 Jacobian |
