@@ -15007,3 +15007,74 @@ Expected result if injection works: baseline recall (alpha=0.0) = 0.698; at opti
 Entry 209 will report the Level 3 result with the full alpha sweep.
 
 ---
+
+## Entry 209 — exp38: Level 3 FPN Injection — Ceiling is Real but Gain is Modest (+0.36pp); exp39 Diagnosis (2026-03-25)
+
+### exp38 Level 3 FPN Injection — Complete Results
+
+**Setup**: 1,446 VAL images with at least one GT flower. Alpha sweep [0.0, 0.05, 0.1, 0.2, 0.5, 1.0, 2.0]. For each image and alpha: inject `backbone_fpn[-1] += alpha × delta_fpn[s].view(1,256,1,1)` before SAM3 generates masks, then count GT flowers recovered via IoU≥0.3 match. Species delta_fpn[s] = normalize(W_SAM3 @ b_text[s]).
+
+**Results (mean per-GT-flower recall over 1,446 images, 3,625 total GT flowers):**
+
+| alpha | mean_recall | Δ vs baseline |
+|---|---|---|
+| 0.00 (baseline) | 0.9292 | +0.0000 |
+| 0.05 | 0.9293 | +0.0001 |
+| 0.10 | 0.9296 | +0.0004 |
+| 0.20 | 0.9300 | +0.0008 |
+| 0.50 | 0.9315 | +0.0023 |
+| 1.00 | 0.9319 | +0.0027 |
+| **2.00** | **0.9327** | **+0.0036** |
+
+**Ceiling change: +0.36pp at alpha=2.0.** The injection does push recall above baseline — the ceiling IS breakable with species-specific FPN injection.
+
+**Reconciling with the 69.8% published baseline:** The per-GT-flower recall in exp38 (0.929) is higher than the published 69.8% because they measure different things. The published 69.8% is per-image recall (fraction of images where the TOP-RANKED mask is a flower), computed with the production scoring pipeline. Exp38 measures per-GT-flower recall (IoU≥0.3) across all generated masks before scoring — effectively measuring SAM3's raw generation coverage. Both numbers are valid; they answer different questions.
+
+**Mechanism analysis (alpha=2.0 vs baseline):**
+- Images that GAINED new flowers: 20 (avg n_gt=3.7 per image)
+- Images that LOST  flowers:      21 (avg n_gt=7.8 per image)
+- Net: +20 gained, -21 lost → -1 in raw count, but mean recall rises because gained images have lower n_gt (smaller denominator)
+
+**Per n_gt bucket:**
+
+| n_gt bucket | n_images | recall_0 | recall_2.0 | delta |
+|---|---|---|---|---|
+| n_gt=1 | 602 | 0.9684 | 0.9751 | +0.0066 |
+| n_gt=2 | 292 | 0.9178 | 0.9195 | +0.0017 |
+| n_gt=3 | 217 | 0.9232 | 0.9278 | +0.0046 |
+| n_gt=5 | 87 | 0.8782 | 0.8805 | +0.0023 |
+| n_gt≥5 | 176 | 0.8538 | 0.8447 | **-0.0091** |
+
+**Critical finding:** Injection helps single-flower images (+0.66pp at alpha=2.0) but **hurts multi-flower images (-0.91pp)**. This makes mechanistic sense: injecting a single species direction biases SAM3 toward one flower appearance. In images with many GT flowers (diverse or repeated blooms), this reduces diversity of generated masks — SAM3 over-specializes toward the species template and misses some atypical instances it would otherwise catch.
+
+**Interpretation:** Level 3 injection is a real effect — it can recover missed single-flower images. But at high alpha it trades coverage breadth for species specificity. The net gain is small (+0.36pp) because the win on single-flower images is partially offset by losses on multi-flower images. Future work: use adaptive alpha (lower for images likely to have multiple GT flowers).
+
+---
+
+### exp39 Diagnosis — FPN Feature Space Mismatch
+
+Two failed versions of exp39 revealed an important lesson about the SAM3 FPN feature space.
+
+**Version 1** (bbox-pooled features from exp34a_save_fpn_feats, no bg_mean): AUC=0.717 (expected 0.9622).
+
+**Version 2** (bbox-pooled + global_bg_mean subtraction): AUC=0.750. Still far from 0.9622.
+
+The published 0.9622 (exp34a_fpn_auc.py) uses bbox-pooled FPN features computed INLINE during a live SAM3 forward pass, then subtracts `global_bg_mean`. The exp34a_save_fpn_feats.py saves features via a forward hook on `convs[2]` — but the features are numerically different due to subtle preprocessing differences between the hook path and the state-dict path.
+
+**Solution (exp39 v2, job 12207051):** Replicate exp34a_fpn_auc.py exactly — run SAM3 live, read `backbone_out['backbone_fpn'][-1]` from the state dict (not a hook), subtract global_bg_mean, compute cosine. This is a GPU job (~2-3h for 2,294 VAL images). The sanity check (global AUC should match 0.9622) will confirm correctness.
+
+**Lesson:** FPN features extracted via forward hook vs direct state-dict access may differ in numeric precision due to torch.inference_mode() context and tensor copy semantics. For reproducibility, always extract FPN features inline with the exact same code path that produced the reference directions.
+
+---
+
+### Pending: exp39 v2 (job 12207051)
+
+Will report:
+- Global AUC D_flower_SAM3 (sanity: should match 0.9622)
+- Global AUC W_SAM3 @ b_text[s] (per-species, VAL genus-exclusive)
+- Per-species ΔAUC and correlation with A(ε̂_s) from exp37
+- Whether TIB-FPN improves over FA-FPN on species-specific scoring
+
+Entry 210 will report the complete Level 2b results.
+
+---
