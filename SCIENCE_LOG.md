@@ -15941,3 +15941,103 @@ After exp_E03:
 - exp43 (sheet overhaul): after exp42
 - exp49 (FA-FPN-only AUC on TEST): next GPU experiment
 - exp_E01 (ITS2 sequences): next CPU experiment — start Evo 2 series
+
+
+## Entry 217 — Evo 2 Bridge: Two Scientific Programs, Precise Claims, Decision Gates (2026-03-25)
+
+### Context
+
+exp_E01 completed (81/85 species, 95.3% coverage: 69 ITS2, 10 rbcL, 2 matK). Evo 2 setup job running (job 12214362). This entry documents, with scientific precision, the two research directions opened by the W_evo bridge hypothesis before any results exist. Logging the hypothesis space rigorously now prevents post-hoc rationalization after results come in.
+
+---
+
+### The W_evo Bridge: What It Is and Is Not
+
+**What it is:**
+A ridge-regression linear map W_evo: g_Evo2[s] (4,096-dim Evo 2 genomic embedding) → f_BioCLIP[s] (1,024-dim BioCLIP 2.5 visual centroid, from SAM2-confirmed flower crops). Trained on 81 species with both genomic sequences and visual centroids. LOO validation measures per-species reconstruction cosine.
+
+**What it is not:**
+- Not a mechanistic model of how DNA encodes morphology
+- Not a claim that morphogenesis is linear
+- Not a guarantee that it generalizes beyond plants, or beyond the 85-species scale
+- Not a replacement for experimental genetics
+
+**Why it might work:**
+Both Evo 2 and BioCLIP 2.5 independently learned representations that encode taxonomic/phylogenetic structure. Evo 2: PCA of embeddings reconstructs the tree of life from sequence alone. BioCLIP: visual centroids cluster by family/genus. The co-organization hypothesis: since morphology and genome are both downstream of species identity, and both models learned species identity implicitly, their embedding spaces are co-organized in the same way. W_evo reads out the linear component of this co-organization.
+
+**Fragility conditions:**
+- W_evo is linear. Morphological convergence (distantly related species look similar) and divergence (closely related species look different) are nonlinear phenomena that a linear map cannot capture.
+- The bridge operates in embedding space, not sequence space directly. Sequence edits are valid only insofar as Evo 2 encodes them linearly (which Evo 2's own geometry suggests is largely true within a clade, less so across domains of life).
+- 81 training species is small. LOO reconstruction cosine may be inflated by within-family similarity (train on 80 family members, predict the 81st → trivially high cosine). Must report within-family vs cross-family LOO cosines separately.
+
+---
+
+### Program A: Genotype-to-Phenotype Prediction (Scientific / Exploratory)
+
+**Core claim (pre-result):** A linear map from Evo 2 genomic embeddings to BioCLIP 2.5 visual centroids captures measurable morphological signal, enabling prediction of what an unseen species' flowers look like from its DNA alone.
+
+**Testable prediction:** LOO reconstruction cosine ≥ 0.5 for cross-genus held-out species (i.e., held-out species from genera not represented in the 80 training species). Within-family cosine ≥ 0.7 is the weaker claim (phylogenetic smoothness).
+
+**The DNA manipulation insight:**
+Interpolation in Evo 2 embedding space (g_hybrid = (1-t)×g_A + t×g_B) and projection through W_evo produces a continuous morphological interpolation in BioCLIP visual space. This is a genotype-to-phenotype interpolation in embedding space. The positions in sequence space where small edits produce large shifts in f_BioCLIP predicted space are candidate genomic determinants of the visual traits discriminating the two species. This is embedding-space morphological QTL mapping.
+
+**Validity scope:** Valid in the linear regime — within-clade comparisons (same family or genus). Breaks down across distant clades where morphological convergence or Evo 2 representation changes dominate.
+
+**The generative direction:**
+f_BioCLIP_predicted[s] → CLIP-conditioned diffusion model → synthetic image of "what this species' flower looks like"
+- For species with no photos: predict visual centroid from genome → generate
+- For sequence-edited genomes: predict how the morphology would change → generate
+- This is NOT a mechanistic prediction of actual development — it is a statistical prediction of visual appearance in the BioCLIP embedding space that the model learned
+
+**Decision gate (exp_E03 outcome):**
+- Cross-genus LOO cosine < 0.3: null result. Linear bridge does not generalize. Investigate within-family signal.
+- Cross-genus LOO cosine 0.3–0.7: partial bridge. Publishable as proof-of-concept. Restrict claims to within-clade prediction.
+- Cross-genus LOO cosine > 0.7: strong bridge. Full program valid. Proceed to DNA manipulation experiments and generative direction.
+
+---
+
+### Program B: Zero-Shot Segmentation for Unseen Species (Production / Applied)
+
+**Core claim (pre-result):** For species where BioCLIP text embedding provides weak SAM3 injection guidance (morphologically unusual species, exp44 edge cases), Evo 2 genomic embedding routed through W_evo provides stronger guidance because genome encodes actual visual morphology rather than a name.
+
+**The production path:**
+```
+NCBI ITS2 sequence[s] → Evo 2 → g_Evo2[s] → W_evo → f_BioCLIP_predicted[s]
+                                                          ↓
+                                            W_visual → f_SAM3_predicted[s]
+                                                          ↓
+                                            FPN injection → SAM3 mask generation
+```
+
+For the ~200,000 plant species with NCBI sequences but few/no photos, this enables species-specific SAM3 injection where currently only the universal D_flower direction is available.
+
+**The direct test (exp_E04 extension):** The 4 Group A images from exp41 (Banksia serrata and others — recall=0 at conf=0.5 with text injection) are the most sensitive test case. These are images where `delta_text[s]` failed to produce any valid flower mask. Does injection with `delta_genome[s] = W_visual @ W_evo @ g_Evo2[s]` recover any of these 4 images? If yes: proof that genome carries morphological information the text embedding does not.
+
+**Scale implication:**
+iNaturalist has observations for ~80,000 plant species. NCBI has ITS2 sequences for ~200,000 plant species. For the overlap (~60,000 species), W_evo would provide species-specific injection directions, replacing the universal D_flower fallback. Expected recall improvement: largest for morphologically unusual species (Proteaceae, Orchidaceae, Araceae families were the worst-performing in exp44).
+
+**Decision gate (exp_E03 outcome):**
+- LOO cosine < 0.3: W_evo directions are too noisy to improve over universal D_flower. Production application invalid.
+- LOO cosine 0.3–0.5: directions are partially valid. Use only for species where text embedding is known to be weak (low Q_W_loo from exp36).
+- LOO cosine > 0.5: W_evo is a valid production component. Proceed to W_visual fitting and full W_chain evaluation on exp44 edge case species.
+
+---
+
+### exp_E01 Results
+
+- **Coverage**: 81 / 85 species (95.3%)
+- **Breakdown**: ITS2=69, rbcL=10, matK=2, not_found=4
+- **Missing**: Capparis zoharyi, Lomelosia prolifera, Orchis galilaea, Papaver umbonatum (rare/recently renamed taxa with limited NCBI coverage)
+- **Anomalies**: Carnegiea gigantea (113,064bp — full chloroplast genome fetched), Iris atropurpurea (153,267bp — same). Will truncate to first 2,048bp (ITS2-length equivalent) for Evo 2 input, or use Evo 2's native 131K context window.
+- **Sequence lengths**: mean 3,977bp (dominated by anomalies), median ~630bp (standard barcode length)
+
+**Sequences saved**: `/scratch200/leardistel/petal_benchmark/results/exp_E01_evo2_seqs/species_sequences.json`
+
+---
+
+### Pending
+- setup_evo2_env job (12214362): installing evo2 package in petal_env
+- exp_E02 (Evo 2 embedding): GPU job, after evo2 installed
+- exp_E03 (W_evo ridge + LOO): CPU job, after exp_E02
+- exp_E04 (zero-shot generalization): CPU, after exp_E03
+- exp_E05 (cross-modal UMAP): CPU, after exp_E02
