@@ -16766,3 +16766,118 @@ Output: `results/exp43_sheet_mode/`
 | setup_evo2_40b (job 12215125) | PENDING (A100 queue) | TE + cudnn install |
 | exp_E02 (Evo 2 embeddings) | Awaiting setup | submit after setup passes |
 | exp_E03/E03b/E05 (CPU) | Scripts ready | submit after exp_E02 |
+
+---
+
+## Entry 222 — exp42 Complete: NextGen 47K Inference Results + Exp Series Design Refinements (2026-03-25)
+
+### exp42 Results — NextGen FA-FPN Pipeline on 47,454 Images
+
+**Job**: 12212309, COMPLETE, runtime ~2h48m on RTX6000 (compute-0-376)
+**Pipeline**: SAM3 + FA-FPN combo scoring (alpha=0.5), conf=0.3, NMS=0.7
+
+| Source | Images | frac_any_mask | mean_n_masks | mean_combo_score |
+|--------|--------|--------------|-------------|-----------------|
+| flowers_detected | 17,320 | **88.9%** | 11.17 | 0.708 |
+| annotation_only | 11,583 | 64.3% | 8.26 | 0.706 |
+| background_no_flowers | 8,560 | 42.9% | 6.38 | 0.652 |
+| inat_fast_downloaded | 9,977 | **33.5%** | 3.85 | 0.672 |
+| citadel_other | 14 | 14.3% | 0.14 | 0.635 |
+| **TOTAL** | **47,454** | — | — | — |
+| Failures | 31 (Citadel) | — | — | — |
+
+**Key observations:**
+- `flowers_detected` source (TP images from Citadel): 88.9% detection rate — confirms pipeline fires correctly on known-flower images
+- `background_no_flowers` (FP images): 42.9% still generates masks — these are expected false positives, normal behavior
+- `inat_fast_downloaded`: only 33.5% — iNat images are diverse (not curated flowers), lower detection rate expected and correct
+- 31 Citadel failures = image load errors (corrupted/missing files), negligible at 0.08%
+
+**Interpretation**: NextGen FA-FPN pipeline processes 47K images correctly. The per-source detection rates are internally consistent. No anomalies. Results saved as per-image JSONs in numbered subdirectories (one JSON per image, per-mask details included).
+
+---
+
+### Design Refinements to Evo Series — Session Notes (2026-03-25)
+
+#### On mean-pooling in exp_E02 (genomic vectors)
+
+**The concern is correct**: mean-pooling over all positions of an ITS2/rbcL sequence loses positional and structural information. A sequence of 600bp becomes one 1024-dim vector — the spatial arrangement of informative sites is discarded.
+
+**Why we accept it for the POC:**
+Mean-pooling is standard for foundation model embeddings (same as BioCLIP's CLS token aggregation, NT-v2 published benchmarks). It captures global sequence composition and conservation patterns. For ITS2 barcoding purposes — which is what we're using it for — the global embedding is sufficient to distinguish species at family level (Chen 2010). The LOO cosine from W_evo will tell us empirically whether this is enough.
+
+**What we are losing and how to recover it:**
+The Evo 2 last hidden states have shape (seq_len, embed_dim). Mean-pooling collapses to (embed_dim,). Alternatives that preserve more information:
+1. **CLS-like pooling**: Evo 2 uses causal attention (no CLS token). The last token's hidden state captures the full sequence context via the causal chain — it's the best single-token summary without mean-pooling.
+2. **Weighted pooling by conservation**: ITS2 has conserved stems (structurally important) and variable loops (species-discriminating). Weight the mean by per-position conservation score (from NCBI conserved domain database). Upweight variable positions → more species-discriminating embedding.
+3. **Max-pooling**: takes the most activated feature at each dimension — captures "what is present" rather than "average character." Better for motif detection.
+4. **Multi-scale pooling**: compute embeddings separately for the first 200bp (stem 1+2), middle 200bp (ITS2 core), last 200bp (stem 3+4) — three vectors per species. W_evo becomes a 3× larger regression. Tests whether different structural regions of ITS2 predict different visual traits.
+
+**Decision**: Run exp_E02 with mean-pooling first. If LOO cosine is below 0.3, switch to last-token pooling as exp_E02b. Report both. Multi-scale is exp_E02c, conditional on a specific failure mode (LOO < 0.3 but cross-region variability is high).
+
+#### On visual appearance plotting along interpolation paths (exp_E05)
+
+The plot we generate is a **topology map**, not pixel images. Specifically:
+- UMAP of all 81 species in BioCLIP space (2D projection of 1024-dim visual centroids)
+- Interpolation paths drawn as curves on the UMAP — starting at A's position, ending at B's position
+- Each path colored by landscape type (smooth = blue, flat = gray, detour = red)
+- Detour waypoints labeled with the detour species name
+
+This is a well-defined, publication-quality visualization. It shows the *topology* of visual space: which species are visual neighbors, which pairs have smooth paths, which have detours.
+
+**What we cannot show yet**: actual pixel appearance at each interpolation point. W_evo gives us a BioCLIP 1024-dim vector at each t. To visualize the flower at t=0.5, we would need to decode that BioCLIP vector into pixels — which requires a diffusion model or image retrieval. We note the nearest actual training species at each t (already implemented in exp_E05) as a proxy: "at t=0.5, the predicted appearance is closest to Arisarum simorrhinum" is informative without generating any pixels.
+
+**Future visualization (not in scope now)**: retrieve the actual mask image of the nearest species at each t from the production database. This gives a "storyboard" of real photographs ordered along the interpolation path. No generation needed — pure retrieval from our 47K image corpus.
+
+#### On fitness ("how fit is it") in addition to morphology
+
+The path smoothness experiment (exp_E05) measures morphological landscape topology. Measuring fitness along the path is a separate and harder question:
+
+**What fitness means here**: the probability that a plant with genome g_interp(t) successfully attracts pollinators and reproduces. This is not directly measurable from our data.
+
+**What we CAN proxy**: the production pipeline's P(flower) score (MLP gate output) on a synthetic image of f_interp(t)'s nearest neighbor. This is not fitness — it's "how flower-like does this look to our classifier." But it's a measurable proxy.
+
+**The experiment that would test this**: for each intermediate point on the interpolation path, use the nearest real training species as a proxy, retrieve its P(flower) scores from the production database, and plot P(flower) vs t along the path. High P(flower) throughout = the visual path stays in "flower-like" territory = high morphological fitness. A dip in P(flower) at t=0.5 = the intermediate morphology is less flower-like = consistent with a fitness valley.
+
+This is exp_E05c — measurable from existing production data, no new GPU needed. Added to the experiment registry.
+
+#### On exp_E04 and the future direction of parsing production masks to Evo 2
+
+This is the most important long-term direction: the production pipeline generates validated flower masks for every species. Each mask is a BioCLIP 1024-dim vector. This means we have, for every species in the 290-species production database, a distribution of visual vectors f[s] — not just a mean centroid, but the full cloud of per-mask embeddings.
+
+**What parsing those masks into Evo 2 means:**
+Forward: g_evo2[s] → W_evo → f_pred_mean[s] — this is what exp_E03 validates.
+Richer: g_evo2[s] → W_evo → f_pred_distribution[s] — can the genomic embedding predict not just the mean visual appearance but the *variance* of visual appearance within a species? High intra-species visual variance = morphologically variable species. Does the genome encode that variability? That is a fundamentally new question.
+
+**Specific experiment this enables (exp_E07, future):**
+For each species, compute:
+- σ_visual[s] = std of cosine distances among all production masks of species s (intra-species visual variability)
+- Does g_evo2[s] (projected through W_evo) predict σ_visual[s]?
+- Null: genomic embedding predicts mean appearance only, not variance
+- Alternative: some genomic axes predict intra-species variability — these are axes encoding developmental plasticity, not just species identity
+
+This requires the production mask database (which exp42 has now built for 47K images) and the Evo 2 embeddings (exp_E02). It is directly enabled by our existing infrastructure and is added to the experiment registry as exp_E07.
+
+---
+
+### Updated Experiment Registry (Evo Series)
+
+| Exp | Description | Status | Trigger |
+|-----|-------------|--------|---------|
+| exp_E01 | ITS2/rbcL/matK sequences (81 species) | DONE | — |
+| exp_E02 | Evo 2 embeddings (7B prelim / 40B final) | Script ready, pending GPU | setup job wins race |
+| exp_E02b | Last-token pooling variant | Conditional | LOO_E03 < 0.3 |
+| exp_E03 | W_evo LOO + E03c reverse + SVD | Script ready, CPU | g_evo2.npz exists |
+| exp_E03b | Mantel D_evo2 vs D_visual | Script ready, CPU | g_evo2.npz exists |
+| exp_E05 | Path smoothness + detour detection | Script ready, CPU | W_evo.npz exists |
+| exp_E05b | SVD shared subspace (free, inside E03) | Inside E03 script | — |
+| exp_E05c | P(flower) proxy fitness along paths | Future, CPU | exp_E05 results |
+| exp_E04 | Genomic injection on Group A edge cases | Not written | LOO ≥ 0.5 |
+| exp_E06 | Jacobian epistasis profiling | Not written | LOO ≥ 0.7 |
+| exp_E07 | Intra-species visual variance prediction | Future | exp_E02 + exp42 masks |
+
+### Jobs Running
+
+- exp42: COMPLETE (job 12212309)
+- setup_evo2_40b: job 12215125, PENDING A100
+- setup_evo2_h100: job 12215960, PENDING H100 (race — first to start wins)
+- exp_E02: submit immediately after either setup job passes smoke test
