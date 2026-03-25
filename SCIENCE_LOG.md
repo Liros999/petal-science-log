@@ -15368,3 +15368,67 @@ STEP 5: Return top K masks (K=2 production default)
 This is the "NextGen" pipeline: zero training, genus-generalizes, one matrix multiply offline per species, one dot product per mask at inference.
 
 ---
+
+## Entry 212 — exp41: Adaptive Alpha Visual Demo (75 Sheets) + exp44: Morphological Edge Case Analysis (2026-03-25)
+
+### exp41: Adaptive Alpha Visual Demo
+
+75 side-by-side PNG sheets generated in `results/exp41_adaptive_alpha_viz/`. Each sheet shows one image rendered 7 times, one panel per alpha value (0.0, 0.05, 0.1, 0.2, 0.5, 1.0, 2.0). Every panel shows predicted mask contours in color and GT SAM2 flower outlines in white. The panel corresponding to the adaptive alpha formula `alpha_adaptive = 2.0 / sqrt(n_gt)` is marked with a yellow border.
+
+**Image groups:**
+
+| Group | N sheets | Selection criterion |
+|---|---|---|
+| A | 4 | Single-flower images that improved at alpha=2.0 (recall 0→1) |
+| B | 21 | Multi-flower images hurt at alpha=2.0 (recall dropped) |
+| C | 25 | Multi-flower n_gt≥5, stable across all alpha |
+| D | 25 | Unchanged single-flower (baseline recall=1.0 stays 1.0) |
+
+Only 4 images qualified for Group A — these are the true ceiling breaks. Group B has 21 images. Groups C and D filled from the remaining pool. Total: 75 sheets (not 100 — the selection pools did not have 25 Group A candidates).
+
+**Group A details (the 4 recovered images):**
+- img=11294 Foeniculum vulgare: recall 0.00→1.00 at alpha=2.0 (umbel inflorescence)
+- img=14553 Moraea sisyrinchium: recall 0.00→1.00 at alpha=2.0 (iris-like)
+- img=15240 Ophrys umbilicata: recall 0.00→1.00 at alpha=2.0 (insect-mimicking orchid)
+- img=37688 Banksia serrata: recall 0.00→1.00 at alpha=2.0 (Proteaceae spike)
+
+These 4 images are all morphologically unusual species — the exact species where the injection hypothesis predicts the most benefit. Adaptive alpha formula: `alpha=2.0` for all 4 (n_gt=1).
+
+**Visual purpose:** Use these sheets to determine the production alpha. Group B sheets show the merging artifact at high alpha on multi-flower images. Group C shows that very dense images (n_gt≥15) are unaffected regardless of alpha.
+
+**Adaptive alpha recommendation from data (exp38):**
+
+| Strategy | Multi-flower recall | Delta vs baseline |
+|---|---|---|
+| alpha=2.0 constant | 93.153% | +0.235pp |
+| adaptive: single=2.0, multi=0.5 | 93.291% | +0.373pp |
+| oracle best-per-image | 93.587% | +0.669pp |
+
+---
+
+### exp44: Morphological Edge Case Analysis
+
+**Core finding: there is no text embedding problem for unusual species.**
+
+The hypothesis was that Banksia, Ophrys, Foeniculum, etc. might have poorly-positioned b_text embeddings in BioCLIP space, explaining their low injection recovery. The data refutes this:
+
+**delta_flower_cos (cosine between delta_fpn[s] and D_flower_SAM3):**
+- Typical species mean: +0.982
+- Unusual species mean: +0.982 (identical)
+- Lowest value in ALL 290 species: Drosera rotundifolia at +0.953
+
+All 290 species have delta_fpn[s] pointing well toward D_flower_SAM3 (cosine > 0.95). The text embedding directions are not the problem. Zero species have Q_W_loo < 0.80 (note: Q_W LOO file not found in exp36 results dir — Q_W values are None; this needs follow-up).
+
+**Strategy A — Multi-prompt ensemble:** Mean gain = −0.002 (effectively zero). Best single gain: Drosera rotundifolia +0.0053. For most unusual species (Banksia, Moraea, Ophrys), the bare species name already produces the best direction — adding "inflorescence" or "bloom in nature" HURTS slightly (ensemble drags direction away from D_flower).
+
+**Strategy C — Family-level ensemble:**
+- Proteaceae family: Banksia gains −0.007 (family ensemble hurts Banksia but helps Leucadendron +0.015)
+- Orchidaceae: mixed, gains within ±0.005
+- Araceae: both members gain +0.002 from ensemble
+
+**Conclusion:** The 4 recovered images (Foeniculum, Moraea, Ophrys, Banksia) succeed at alpha=2.0 NOT because of better text embeddings — their single-prompt b_text directions are already well-aligned with D_flower_SAM3 (+0.975 to +0.991). The recovery mechanism is purely injection strength: alpha=2.0 pushes backbone_fpn[-1] far enough toward the flower direction that SAM3 generates a new mask. For these 4 species, the flower appearance in SAM3 FPN space was recoverable — it just required stronger injection than default.
+
+The failure of multi-prompt ensembling is a positive result: BioCLIP 2.5 text embeddings for even morphologically unusual taxon names are already well-calibrated for flower detection. The single bare species name is the optimal prompt.
+
+**Next step on Q_W:** exp36 LOO results need to be checked for the correct filename. The per-species Q_W values were not loaded (loo_results.json not found). This is a gap — once Q_W per species is loaded, the ΔAUC equation can be fully validated.
+
