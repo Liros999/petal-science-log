@@ -17032,3 +17032,67 @@ exp_E02 selects model by VRAM:
 | 0.3–0.5 | PARTIAL — weak signal, note limitations |
 | 0.5–0.7 | FULL — submit exp_E04 genomic injection |
 | ≥ 0.7 | PUBLICATION — submit exp_E06 Jacobian |
+
+---
+
+## Entry 222 — exp43 Sheet Mode COMPLETE; Evo Setup Jobs Queued; Monitor Autonomous (2026-03-25)
+
+### exp43 Results
+
+**Job 12215996 completed 2026-03-25 19:38 IST. Runtime: ~16 minutes (CPU, power-general-public-pool).**
+
+exp43 loaded 26,527 images from exp42 results (47,454 total — some JSONs had no masks and were excluded from sheet generation). From those: 76,915 masks (top-3 per image).
+
+**Three output types produced:**
+
+**Type A — Per-species contact sheets:**
+- 76 sheets (top 50 species, up to 2 pages each, 6×5 grid = 30 masks/page)
+- Each cell: original image thumbnail + green bbox overlay + combo/FA-FPN scores
+- Path: `results/exp43_sheet_mode/type_A_species/`
+
+**Type B — Per-image high-confidence breakdown:**
+- 3,790 images had rank-1 combo_score > 0.85 (high-confidence detections)
+- Top 100 saved as full breakdown sheets (image + bbox + 8-bar score chart)
+- Path: `results/exp43_sheet_mode/type_B_images/`
+
+**Type C — Statistics summary (5-panel PNG):**
+- combo_score mean = 0.696 ± 0.127 across all 76,915 masks
+- Path: `results/exp43_sheet_mode/type_C_stats/stats_summary.png`
+
+**Key observation**: 3,790 / 26,527 images (14.3%) have rank-1 combo > 0.85 — these are the high-confidence detections where FA-FPN and SAM3 strongly agree. These are the images where the NextGen pipeline is most reliable for downstream analysis.
+
+---
+
+### Evo Series: Two Setup Jobs Queued, Autonomous Monitor Running
+
+Two setup jobs submitted for TransformerEngine build on different GPU types:
+- **12216062**: setup_evo2_40b — A100 (Resources → waiting for slot)
+- **12216063**: setup_evo2_h100 — H100 (Priority → queued behind others)
+
+**Autonomous monitor running** (job 12216131, CPU, 12h, compute-0-297):
+- Checks every 10 minutes for `setup_PASSED.flag`
+- State machine: setup → exp_E02 (GPU) → exp_E03 + exp_E03b (CPU, parallel) → exp_E05 (CPU) → log results
+- Logs to: `results/monitor_evo_series.log`
+- State 0 at 20:12 IST — waiting for either setup job to write the flag
+
+**What the setup job must produce to pass:**
+1. `transformer-engine[pytorch]` installs without error (CUDNN_INCLUDE_DIR set from nvidia-cudnn-cu12)
+2. `from evo2 import Evo2` succeeds
+3. `evo2_7b` forward pass returns valid tensor (smoke test)
+4. `arcinstitute/evo2_40b` accessible via HF API with token
+
+On pass: writes `results/exp_E02_evo2_embeddings/setup_PASSED.flag` → monitor immediately submits exp_E02.
+
+---
+
+### Complete Status Table
+
+| Experiment | Status | Key result |
+|---|---|---|
+| exp42 (47K NextGen) | COMPLETE | 47,454 images, combo=0.708 (flowers) |
+| exp43 (sheet mode) | **COMPLETE** | 76 type-A sheets, 100 type-B, 1 type-C |
+| setup_evo2_40b (12216062, A100) | PENDING | TransformerEngine + cudnn build |
+| setup_evo2_h100 (12216063, H100) | PENDING | Same, H100 backup |
+| evo_monitor (12216131) | RUNNING | State 0: waiting for setup flag |
+| exp_E02 (Evo 2 40B embeddings) | Not started | Awaiting setup pass |
+| exp_E03/E03b/E03c/E05 | Scripts ready | Awaiting exp_E02 g_evo2.npz |
