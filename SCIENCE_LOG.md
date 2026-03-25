@@ -15755,3 +15755,189 @@ The combination is genuinely novel. The FA-FPN score (AUC=0.9622) derived from t
 - Entry 216: exp42 completion + exp43 sheet overhaul
 - exp48: Full 290-species spread correlation (GPU re-encoding, resolve underpowered analysis1)
 - exp49: FA-FPN AUC on TEST split (extract fpn_feats_test.npz, measure AUC vs 0.9622 VAL)
+
+
+## Entry 216 — Phase Transition: NextGen Production Sealed, Evo 2 Genomic Bridge Program Begins (2026-03-25)
+
+### Context: What This Entry Records
+
+exp47 seals the NextGen production pipeline at 98.1% recall. This entry does three things: (1) formally closes the PETAL NextGen production phase with a complete parameter table, (2) plans the GCP scaling architecture given the FA-FPN discovery, and (3) launches a new experimental series — the Evo 2 Genomic Bridge Program — as the next research frontier.
+
+---
+
+### Part I — NextGen Production Pipeline: Sealed
+
+All parameters are now locked from experimental evidence:
+
+| Parameter | Value | Experiment | Metric |
+|---|---|---|---|
+| SAM3 model | SAM3 ViT-H/14 | baseline | — |
+| Injection level | backbone_fpn[-1] (Level 3) | exp34a | AUC 0.9622 |
+| Injection alpha (single-flower) | 2.0 | exp38, exp40 | recall +0.60pp |
+| Injection alpha (multi-flower) | 2.0 / sqrt(n_gt) | formalized Entry 214 | prevents merging |
+| Confidence threshold | 0.3 | exp45 | recall 0.9693 VAL multi |
+| NMS threshold | 0.7 (mask-level IoU) | exp45 | negligible recall cost |
+| FA-FPN score | cosine(mean_pool(fpn[bbox]) − bg_mean, D_flower_SAM3) | exp34a | AUC 0.9622 |
+| Combo score | 0.3×SAM3 + 0.7×FA-FPN | exp42 | deployed |
+| Species direction | normalize(W_SAM3 @ BioCLIP.encode_text(s)) | exp36 | pre-computed at startup |
+
+**TEST performance (exp47, conf=0.3, NMS=0.7, alpha=2.0):**
+- Overall recall: **0.9812** (+6.77pp vs exp40 baseline conf=0.5)
+- Single-flower: **0.9968** (near-perfect)
+- Multi-flower: **0.9686** (matches VAL 0.9693 — perfect generalization)
+
+This is the final production configuration. No further parameter tuning is needed. The pipeline is ready for GCP-scale deployment on the 53.7M iNaturalist image corpus.
+
+**Key efficiency insight (BioCLIP text only, no image encoder needed for injection):**
+The species direction is computed once at startup: `delta[s] = normalize(W_SAM3 @ BioCLIP.encode_text(s))` for all species in the registry. BioCLIP text encoder runs on CPU, takes ~5ms/species, and produces identical results every time — so 290 species costs 1.45s once, then lookup is O(1). BioCLIP **image** encoder (the expensive 135 masks/s step) is still used for CLS scoring in the combo score, but is the main throughput bottleneck.
+
+**NextGen-Lite hypothesis (pending exp49):** If FA-FPN score alone (AUC=0.9622 on VAL) achieves equivalent recall on TEST, the BioCLIP image encoder can be removed entirely from production inference. This would eliminate the main bottleneck and allow SAM3 to run at its native throughput (~5 img/s on V100). exp49 will measure this.
+
+---
+
+### Part II — GCP Scaling Architecture
+
+With $5,000 in GCP credits and the NextGen pipeline validated, the scaling plan is:
+
+**Target**: 53.7M iNaturalist images, ~300+ plant species
+
+**Infrastructure**: GCP A100 (80GB VRAM) instances
+- SAM3 at B=4 per forward pass on A100 (vs B=1 on V100): ~4× throughput
+- Expected: ~15–20 img/s per A100 instance
+- Time for 53.7M images at 15 img/s: ~42 days per instance → parallelize across 5 instances → ~8.5 days
+- Cost estimate: A100 ~$3.50/h × 8 instances × 210h = ~$5,880 → fits in budget with 1–2 fewer instances
+
+**Pipeline on GCP:**
+1. Pre-compute `delta[s]` for all species at instance startup (1.45s, one-time)
+2. For each image: SAM3 forward (FPN injection) → masks + FPN features
+3. FA-FPN score on each mask bbox: free, from step 2
+4. Optionally: BioCLIP CLS for combo (enable if FA-FPN-only recall < threshold)
+5. Save top-K=3 masks per image with all scores to distributed storage
+
+**Storage**: 53.7M × ~500 bytes/JSON = ~27GB → trivial. Mask bitmaps stored as RLE-encoded NPZ (~2KB/mask) = ~320GB for top-3 per image.
+
+The key decision point is exp49: if FA-FPN-only achieves 97%+ recall, BioCLIP image encoder is dropped and throughput doubles.
+
+---
+
+### Part III — Evo 2 Genomic Bridge Program: Experimental Design
+
+#### Motivation
+
+The W_SAM3 bridge (BioCLIP text → SAM3 FPN space) succeeded because two independently-trained models organized their latent spaces around the same biological concepts. This is not a coincidence — it is a consequence of the fact that biological information has coherent structure across modalities: a species' name, its appearance, and its genome all encode overlapping information about what it is.
+
+Evo 2 (Arc Institute, 2025, arXiv:2501.xxxxx) is a 7B-parameter genomic foundation model trained on 9.3T nucleotides from 128,000+ whole genomes — all domains of life, no phylogenetic labels. Its key emergent property: **principal components of Evo 2 embeddings geometrically reconstruct the tree of life**. This is the genomic analogue of what BioCLIP does for morphology.
+
+#### The Core Hypothesis
+
+There exists a linear map W_evo such that:
+```
+W_evo: g_Evo2[s] (4,096-dim) → f_BioCLIP[s] (1,024-dim)
+```
+where `g_Evo2[s]` is the Evo 2 embedding of a representative genomic sequence for species s (e.g., ITS2 barcode), and `f_BioCLIP[s]` is the BioCLIP 2.5 visual centroid computed from SAM2-confirmed flower crops.
+
+**Why this should work**: Both Evo 2 and BioCLIP independently learned representations where taxonomically related entities cluster together. Species in the same genus have similar genome sequences AND similar visual appearance. This shared taxonomic organization means the two spaces are not independent — they are co-organized around the same underlying biological reality. W_evo is the bridge between these co-organized spaces.
+
+**What "working" means scientifically:**
+- LOO reconstruction cosine ≥ 0.5: sequence encodes measurable morphological signal
+- LOO reconstruction cosine ≥ 0.7: sequence reliably predicts visual embedding — publication-worthy
+- LOO reconstruction cosine ≥ 0.9: near-perfect sequence→morphology map — extraordinary result
+
+#### Proof-of-Concept Scope (85 species)
+
+We have `f_BioCLIP[s]` for 85 species (exp30a_v3: `/scratch200/leardistel/petal_benchmark/results/exp30a_v3_f1024/f1024_v3.npz`, shape (85, 1024)). These are the training targets for W_evo.
+
+The 85 species span diverse plant families (Proteaceae, Orchidaceae, Araceae, Asteraceae, etc.) — sufficient taxonomic diversity to test whether the bridge generalizes across families.
+
+#### Experiment Series: Evo Series (exp_E01–exp_E05)
+
+**exp_E01 — ITS2 Sequence Acquisition (CPU, ~30 min)**
+- For all 85 species in f1024_v3.npz: pull ITS2 sequences from NCBI via Bio.Entrez
+- ITS2 (Internal Transcribed Spacer 2) is the standard plant DNA barcode: 200–800bp, available for nearly all flowering plants in NCBI GenBank
+- Fallback: ITS1, rbcL, matK (all standard barcodes with broad NCBI coverage)
+- Output: `results/exp_E01_evo2_seqs/species_sequences.json` — {species: {accession, sequence, locus, length}}
+- Validation: coverage rate (expect >80% of 85 species have ITS2 in NCBI)
+- Submit: CPU job, power-general-public-pool
+
+**exp_E02 — Evo 2 Embedding (GPU, ~30 min)**
+- Load `togethercomputer/evo-2-7b` from HuggingFace (requires ~14GB VRAM, fits on V100-32GB)
+- For each species with sequence: tokenize DNA → Evo 2 forward → mean-pool last hidden states → 4,096-dim vector
+- Output: `results/exp_E02_evo2_embeddings/g_evo2.npz` — {species, embeddings (N, 4096)}
+- UMAP visualization: 2D projection colored by family — does it reproduce phylogenetic structure?
+- Submit: GPU job, gpu-general-pool, 1h
+
+**exp_E03 — W_evo Ridge Regression + LOO Validation (CPU, ~15 min)**
+- Fit `W_evo: g_Evo2 (4096) → f_BioCLIP (1024)` via ridge regression (same protocol as W_SAM3)
+- Lambda sweep: [0.01, 0.1, 1.0, 10.0, 100.0]
+- LOO validation: for each of 85 species, fit on remaining 84, predict held-out species
+- Key metric: LOO reconstruction cosine = cosine(W_evo @ g_Evo2[s_held_out], f_BioCLIP[s_held_out])
+- Secondary metrics: per-family LOO cosine (is the bridge better within families?), Pearson r between predicted and actual per dimension
+- Output: `results/exp_E03_W_evo/summary.json` — LOO cosines, W_evo_best.npz
+- Submit: CPU job, power-general-public-pool
+
+**exp_E04 — Zero-Shot Generalization Test (CPU, ~5 min)**
+- Select 5 species held completely out of W_evo training (different genus from all 80 training species)
+- Predict `f_BioCLIP_predicted[s] = W_evo @ g_Evo2[s]` for each held-out species
+- Compare to actual `f_BioCLIP[s]` (if available) OR to BioCLIP text embedding `b_text[s]` (always available)
+- Measure: cosine(f_BioCLIP_predicted, f_BioCLIP_actual) — pure zero-shot generalization
+- Also measure: cosine(f_BioCLIP_predicted, f_BioCLIP_text) — is the genomic prediction closer to visual centroid than the text embedding is?
+- Submit: CPU, runs in seconds
+
+**exp_E05 — Cross-Modal UMAP Alignment (CPU, visualization)**
+- Joint UMAP of three modalities for all 85 species:
+  1. g_Evo2[s] (genome space)
+  2. f_BioCLIP[s] (visual space)
+  3. b_text[s] (text space)
+- Plot three UMAPs side-by-side colored by family
+- Expected: all three show the same family clusters, different coordinate systems
+- This directly visualizes whether the three modalities are co-organized
+- If W_evo works well: UMAP(g_Evo2) should look like a distorted version of UMAP(f_BioCLIP)
+
+#### Why This Is Not Just About Segmentation
+
+The W_evo program is broader than the PETAL pipeline. The applications, once the bridge is validated:
+
+1. **Morphological prediction from sequence**: Given a new species' genome (no photos needed), predict its visual embedding → generate synthetic images via diffusion model conditioned on that embedding. See what an undiscovered species might look like.
+
+2. **Anomaly detection in genomic space**: Species whose Evo 2 embedding predicts a visual centroid far from their actual visual centroid are genomically unusual — potentially hybridized, mis-identified, or morphologically convergent.
+
+3. **Phylogenetic signal in visual space**: Measure how much of f_BioCLIP variance is explained by g_Evo2 variance → quantifies the genomic contribution to visual diversity.
+
+4. **Conservation genomics**: For critically endangered species with no photos, predict visual traits from museum specimen DNA → catalog historical morphology.
+
+5. **Scaling to 53.7M images**: The W_chain (g_Evo2 → f_BioCLIP → f_SAM3) would enable species-specific injection even for species with no BioCLIP visual centroid computed yet — as long as a genome sequence exists (NCBI has sequences for 100K+ plant species).
+
+#### Execution Order
+
+```
+Independent — submit together:
+  exp_E01 (ITS2 sequence pull, CPU ~30min)
+
+After exp_E01 completes:
+  exp_E02 (Evo 2 embedding, GPU ~30min)
+
+After exp_E02 completes (independent):
+  exp_E03 (W_evo fit + LOO, CPU ~15min)
+  UMAP alignment visualization (exp_E05, CPU ~5min)
+
+After exp_E03:
+  exp_E04 (zero-shot generalization test, CPU ~5min)
+  Science Log Entry 217: full W_evo results
+```
+
+Total GPU time: ~30 min (Evo 2 embedding only). Total calendar time: ~2 hours. Cost: negligible (V100 time).
+
+#### Decision Gate
+
+After exp_E03:
+- **LOO cosine < 0.3**: bridge is weak — genomic and visual spaces are not co-organized at this scale. Report null result, investigate confounders (taxonomy leakage, family-level vs species-level signal).
+- **LOO cosine 0.3–0.7**: partial bridge — significant but not complete. Investigate which families bridge best, propose W_evo with family-specific lambda.
+- **LOO cosine > 0.7**: strong bridge — publish. Proceed to exp_E04 zero-shot test and full W_chain construction.
+
+---
+
+### Pending
+- exp42 (47K NextGen): RUNNING (45% done, ~1.5h remaining)
+- exp43 (sheet overhaul): after exp42
+- exp49 (FA-FPN-only AUC on TEST): next GPU experiment
+- exp_E01 (ITS2 sequences): next CPU experiment — start Evo 2 series
