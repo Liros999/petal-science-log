@@ -17157,3 +17157,17 @@ None of these require a GPU — compilation is CPU-only. The GPU is only needed 
 - On GPU smoke test pass: writes `setup_PASSED.flag` → monitor chains exp_E02
 
 **GPU queue status**: A100 (12218574) and RTX6000Ada (12219327) both PENDING (Priority/Resources, est. days). Keeping as fallback; not waiting for them.
+
+---
+
+## Entry 227 — TE Runtime: libcudnn.so Symlink Fix (2026-03-26)
+
+### Build succeeded, runtime failed, fix applied
+
+- **TE build**: SUCCESS (job 12219730). `transformer_engine_torch-2.13.0` wheel compiled and installed.
+- **TE import runtime failure**: `cudnn shared object not found` — TE's `ctypes.util.find_library("cudnn")` searches for `libcudnn.so` (unversioned), but the pip package only ships `libcudnn.so.9` (versioned).
+- **Fix**: Created unversioned symlinks in `/scratch200/leardistel/petal_benchmark/lib_symlinks/`:
+  - `libcudnn.so → libcudnn.so.9`
+  - `libnccl.so → libnccl.so.2`
+- **LD_LIBRARY_PATH** must include symlink dir at runtime (added to all downstream scripts: smoketest, submit_exp_E02_evo2.sh)
+- **Import test job**: 12220454 (CPU, PENDING(None)) — tests `from evo2 import Evo2` with symlink dir, auto-submits GPU smoke test on success
