@@ -16881,3 +16881,91 @@ This requires the production mask database (which exp42 has now built for 47K im
 - setup_evo2_40b: job 12215125, PENDING A100
 - setup_evo2_h100: job 12215960, PENDING H100 (race — first to start wins)
 - exp_E02: submit immediately after either setup job passes smoke test
+
+---
+
+## Entry 223 — Corpus Audit, Fitness Proxy Correction, Future Directions (Geography + Variance) (2026-03-25)
+
+### Validated Corpus Counts (authoritative)
+
+| Source | Images | Masks | Notes |
+|--------|--------|-------|-------|
+| Citadel DB | **47,440** | — | 290 species, 22,622 TP + 1,305 FP + 12,431 HN |
+| SAM3 mask cache | 22,877 NPZ | **~560,121 masks** | mean 24.5 masks/image, median 20 |
+| SAM2 GT masks | 6,959 NPZ | — | manually validated flower masks |
+| exp42 outputs | 47,454 JSONs | per-mask details | 37,477 Citadel + 9,977 iNat |
+| iNat downloaded | 9,977 images | — | for exp42 NextGen inference |
+
+**Total mask-level corpus: ~560K individual masks across 22,877 cached images.** Not 47K — the per-image multiplicity (mean 24.5 masks/image) means the actual mask space is 10× larger than the image count. This is the correct scale for exp_E07 (intra-species variance) and future geographic analyses.
+
+---
+
+### Fitness Proxy Correction (exp_E05c) — MLP Removed
+
+**Previous (incorrect)**: use P(flower) from production MLP as fitness proxy along interpolation paths.
+
+**Why wrong**: (1) MLP is nonlinear — breaks the linear-only principle of the Evo series. (2) MLP was trained on the same species — data leakage. (3) P(flower) measures detection probability, not morphological fitness.
+
+**Corrected exp_E05c**: at each interpolation point t, compute the nearest-neighbor distance in BioCLIP space:
+
+```
+morphological_coherence(t) = max_s  cosine(f_interp(t), f_centroid[s])
+```
+
+High coherence = interpolation point is in a populated region of visual space — a real phenotype exists there.
+Low coherence = interpolation point is in empty visual space — a phenotypic gap, i.e. a fitness valley in visual terms.
+
+This is strictly linear (cosine of linear projection), uses no trained classifier, and is a direct measurement of visual space density along the path. A dip in coherence at intermediate t is the morphological landscape's equivalent of a fitness valley: no real species has this visual appearance, evolution would not produce it directly. The detour path (exp_E05) is what evolution would take to avoid this gap.
+
+Updated in exp_E05 script: replace P(flower) with nearest-centroid cosine.
+
+---
+
+### Future Research Directions — Logged for Later Stages
+
+#### Direction 1: Geographic and Temporal Variance Decomposition (exp_E07, exp_E08)
+
+For each of the ~560K masks we have species identity, image source, and (for iNat images) latitude, longitude, date, observer. Combined with Evo 2 per-species embeddings, this enables a full variance decomposition of visual appearance:
+
+```
+Var(f_mask[s,i]) = Var_genome[s] + Var_geography[s,loc] + Var_season[s,date] + Var_residual
+```
+
+- **Var_genome[s]**: explained by W_evo @ g_evo2[s] — the genomic prediction of species mean appearance
+- **Var_geography[s,loc]**: residual variation correlated with lat/lon — ecotypic adaptation, local selection
+- **Var_season[s,date]**: residual variation correlated with collection date — phenological plasticity
+- **Var_residual**: unexplained — developmental noise, individual variation, camera/lighting effects
+
+**Scientific significance**: If Var_genome explains >50% of inter-species visual variation but <10% of intra-species variation, it means: Evo 2 barcodes capture species identity but not within-species adaptation. If Var_geography explains significant intra-species variation, it means BioCLIP is detecting ecotypic differences that are invisible to ITS2 — a specific limitation of DNA barcoding that our pipeline can measure for the first time.
+
+**What this is NOT**: We are not claiming iNat lat/lon metadata is a proxy for population genetics. Lat/lon correlates with local environment (climate, soil, elevation), not with allele frequency directly. The connection to population genetics requires additional genomic data per population — that is future wet-lab work. We are measuring phenotypic variance decomposition, not genetic variance decomposition.
+
+**Data already in hand**: iNat metadata is downloadable via the iNat API for the 9,977 images in exp42. Citadel images have source_folder and original_path fields encoding the collection context. No new data collection needed for the geographic analysis.
+
+This is a future research direction, logged here for reference. Not in the current experiment queue. Conditional on W_evo LOO ≥ 0.4 being established first.
+
+#### Direction 2: Production Masks as Rich Per-Species Phenotype Profiles
+
+The 47K-image corpus, processed through the NextGen FA-FPN pipeline (exp42), gives us for each species:
+- A distribution of BioCLIP embeddings (not just a mean centroid) from real field photographs
+- Multiple angles, lighting conditions, developmental stages, geographic locations
+- The full covariance structure of visual appearance within a species
+
+This is richer than any herbarium digitization dataset. Each species has an "empirical visual distribution" in BioCLIP 1024-dim space. Questions that become answerable:
+
+1. **Which species are visually tight (low intra-species variance)?** → Genomically constrained morphology, strong purifying selection on visual traits
+2. **Which species are visually diffuse (high intra-species variance)?** → Developmental plasticity, possibly multiple ecotypes within the same ITS2 barcode
+3. **Do species pairs with similar genomes have more overlap in their visual distributions?** → This is the Mantel test applied to distributions, not means — a more powerful test than exp_E03b
+4. **Can the variance of the visual distribution predict the LOO cosine of W_evo?** → High visual variance = W_evo harder to fit = lower LOO cosine. This would connect morphological plasticity to prediction difficulty in the linear bridge
+
+All of these are exp_E07 sub-analyses, enabled entirely by existing data.
+
+---
+
+### Setup Job Status
+
+- **Job 12216062** (A100, setup_evo2_40b): PENDING (Resources) — cudnn path fix applied, hardcoded to sam2_env headers
+- **Job 12216063** (H100, setup_evo2_h100): PENDING (Priority)
+- Root cause of all previous TE build failures: `cudnn.h` was in `sam2_env` but the script was looking in `petal_env`. Fixed in current scripts.
+- Success flag written to: `/scratch200/leardistel/petal_benchmark/results/exp_E02_evo2_embeddings/setup_PASSED.flag`
+- Next: when flag exists → submit exp_E02 (7B prelim or 40B depending on VRAM)
