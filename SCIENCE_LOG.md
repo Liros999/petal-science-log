@@ -17130,3 +17130,30 @@ LIBRARY_PATH=$CUDNN_LIB:$NCCL_LIB
 - Monitor job 12216131 running on compute-0-297 (10-min polling loop)
 - State file reset to 0 with new job ID 12218574
 - Next: job 12218574 runs → evo2_7b smoke test → PASSED flag → monitor chains exp_E02
+
+---
+
+## Entry 226 — TE Build: Full Header Chain Resolved (2026-03-26)
+
+### Complete missing-header chain (all 3 failures, now fixed)
+
+| Attempt | Missing header | Fix |
+|---------|---------------|-----|
+| 1 | `cudnn.h` | Add `nvidia/cudnn/include` from sam2_env |
+| 2 | `nccl.h` | Add `nvidia/nccl/include` from sam2_env |
+| 3 | `crt/host_defines.h` | Add full CUDA 12.6 toolkit: `/powerapps/share/rocky9/CUDA/cuda-12.6/include` |
+
+**Root cause**: TransformerEngine[pytorch] is a C++ CUDA extension. It needs:
+1. `cudnn.h` — from nvidia pip package (sam2_env)
+2. `nccl.h` — from nvidia pip package (sam2_env)
+3. Full CUDA toolkit (`crt/host_defines.h`, `cuda_runtime_api.h`, etc.) — from cluster module `CUDA/CUDA-12.6` at `/powerapps/share/rocky9/CUDA/cuda-12.6`
+
+None of these require a GPU — compilation is CPU-only. The GPU is only needed at runtime.
+
+**Current job**: 12219730 (`evo2_install_v2`, CPU, PENDING(None))
+- Sets `CUDA_HOME=/powerapps/share/rocky9/CUDA/cuda-12.6`
+- Sets `CPATH=$CUDNN_INC:$NCCL_INC:$CUDA_HOME/include`
+- On success: writes `te_installed.flag` → auto-submits GPU smoke test (any GPU, 30min)
+- On GPU smoke test pass: writes `setup_PASSED.flag` → monitor chains exp_E02
+
+**GPU queue status**: A100 (12218574) and RTX6000Ada (12219327) both PENDING (Priority/Resources, est. days). Keeping as fallback; not waiting for them.
