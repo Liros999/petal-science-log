@@ -17171,3 +17171,56 @@ None of these require a GPU — compilation is CPU-only. The GPU is only needed 
   - `libnccl.so → libnccl.so.2`
 - **LD_LIBRARY_PATH** must include symlink dir at runtime (added to all downstream scripts: smoketest, submit_exp_E02_evo2.sh)
 - **Import test job**: 12220454 (CPU, PENDING(None)) — tests `from evo2 import Evo2` with symlink dir, auto-submits GPU smoke test on success
+
+---
+
+## Entry 228 — TE Dependency Chain: nvrtc + flash_attn_2_cuda (2026-03-26)
+
+### Root Cause Progress
+
+After the cudnn symlink fix (Entry 227), two more TE/vortex import failures were discovered and resolved:
+
+**Failure 4 — `nvrtc` shared object not found:**
+- Error at `transformer_engine/common/__init__.py:370` — `_load_cuda_library("nvrtc")` fails
+- Root cause: TE's `_load_cuda_library_from_python()` uses `sysconfig.get_path("purelib")` which returns petal_env's own site-packages, NOT the inherited sam2_env packages (despite `--system-site-packages`). `cuda_nvrtc` is in sam2_env, not petal_env, so the python fallback fails; system lookup fails because no unversioned `libnvrtc.so` is in LD_LIBRARY_PATH
+- Fix: Added `libnvrtc.so → nvidia/cuda_nvrtc/lib/libnvrtc.so.12` to lib_symlinks/; added all CUDA lib dirs to LD_LIBRARY_PATH (cublas, curand, cudart, cuda_nvrtc)
+- Status: **TE import now succeeds**
+
+**Failure 5 — `flash_attn_2_cuda` module not found:**
+- Error at `vortex/ops/attn_interface.py:7` — `import flash_attn_2_cuda as flash_attn_gpu`
+- Root cause: flash-attn was never installed. evo2 → vortex/vtx 1.0.8 → vortex/ops/attn_interface.py has HARD unconditional import of `flash_attn_2_cuda`. Despite `vortex/model/attention.py` wrapping flash-attn imports in try/except, the underlying attn_interface.py fails at import time
+- Flash-attn only ships source distributions (no pre-built binary wheel for py310/cu12/torch2.7)
+- Fix: GPU compilation job `install_flash_attn.sh` submitted as job 12220493 (est. start 02:04 IST)
+  - Compiles flash-attn from source with `CUDA_HOME=/powerapps/share/rocky9/CUDA/cuda-12.6`, MAX_JOBS=8
+  - On success: writes `flash_installed.flag`, runs evo2_7b forward pass, writes `setup_PASSED.flag`
+
+### Current lib_symlinks State
+```
+libcudnn.so   → nvidia/cudnn/lib/libcudnn.so.9
+libcudnn.so.9 → nvidia/cudnn/lib/libcudnn.so.9
+libnccl.so    → nvidia/nccl/lib/libnccl.so.2
+libnccl.so.2  → nvidia/nccl/lib/libnccl.so.2
+libnvrtc.so   → nvidia/cuda_nvrtc/lib/libnvrtc.so.12
+libnvrtc-builtins.so → nvidia/cuda_nvrtc/lib/libnvrtc-builtins.so.12.6
+libcublas.so  → nvidia/cublas/lib/libcublas.so.12
+libcublasLt.so → nvidia/cublas/lib/libcublasLt.so.12
+libcurand.so  → nvidia/curand/lib/libcurand.so.10
+libcudart.so  → nvidia/cuda_runtime/lib/libcudart.so.12
+```
+
+### Complete Dependency Chain (evo2 on cluster without matching system CUDA)
+1. TransformerEngine requires cudnn.h at build time → sam2_env headers ✅
+2. TransformerEngine requires nccl.h at build time → sam2_env nccl headers ✅
+3. TransformerEngine requires crt/host_defines.h at build time → CUDA 12.6 module ✅
+4. TransformerEngine loads libcudnn.so at runtime → unversioned symlink ✅
+5. TransformerEngine loads libnvrtc.so at runtime → unversioned symlink ✅ (Entry 228)
+6. vortex imports flash_attn_2_cuda at import time → GPU compilation of flash-attn ⏳ (job 12220493)
+7. evo2 forward pass needs ≥14GB VRAM (7B) → any GPU slot ✅ (RTX 6000 Ada 51GB available)
+
+### Job Status (02:39 IST 2026-03-26)
+| Job | Purpose | Status | Est. Start |
+|-----|---------|--------|-----------|
+| 12220493 | flash-attn GPU compilation + evo2_7b smoke | PENDING | 02:04 IST |
+| 12218574 | setup_evo2_final (A100, 40B-capable) | PENDING | 2026-03-28 |
+| 12216131 | evo_monitor (state machine) | RUNNING | — |
+
