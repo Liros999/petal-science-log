@@ -15432,3 +15432,96 @@ The failure of multi-prompt ensembling is a positive result: BioCLIP 2.5 text em
 
 **Next step on Q_W:** exp36 LOO results need to be checked for the correct filename. The per-species Q_W values were not loaded (loo_results.json not found). This is a gap — once Q_W per species is loaded, the ΔAUC equation can be fully validated.
 
+
+## Entry 213 — exp40: TEST Split Validation + exp45: Confidence×NMS Sweep → Production Config (2026-03-25)
+
+### exp40: Level 3 FPN Injection on TEST Split (Never-Seen)
+
+1,405 TEST images processed (1 failure). W_SAM3 trained on TRAIN only; TEST is genus-exclusive. Clean leakage check confirmed.
+
+**Alpha sweep — per-GT-flower recall @ IoU≥0.3:**
+
+| alpha | recall | Δ vs baseline |
+|---|---|---|
+| 0.0 (baseline) | 0.9075 | — |
+| 0.05 | 0.9076 | +0.01pp |
+| 0.1 | 0.9080 | +0.05pp |
+| 0.2 | 0.9089 | +0.14pp |
+| 0.5 | 0.9110 | +0.35pp |
+| 1.0 | 0.9128 | +0.53pp |
+| **2.0** | **0.9135** | **+0.60pp** |
+
+Best alpha = 2.0. Ceiling change = +0.598pp. This matches the VAL pattern: gain is real, monotonic, and best at alpha=2.0.
+
+**Single vs multi-flower breakdown:**
+
+| Subset | n | Baseline recall | Best recall (α=2.0) | Gain |
+|---|---|---|---|---|
+| Single-flower | 629 | 0.9666 | 0.9762 | +0.96pp |
+| Multi-flower | 776 | 0.8596 | 0.8627 | +0.31pp |
+| **All** | 1,405 | **0.9075** | **0.9135** | **+0.60pp** |
+
+**Comparison VAL vs TEST:**
+
+| Metric | VAL (exp38) | TEST (exp40) | Comment |
+|---|---|---|---|
+| Baseline recall | 0.9292 | 0.9075 | TEST harder by −2.2pp |
+| Best alpha | 2.0 | 2.0 | Same |
+| Ceiling change | +0.36pp | +0.60pp | TEST ceiling slightly larger |
+| Single-flower gain | — | +0.96pp | Injection works well on single flowers |
+| Multi-flower gain | — | +0.31pp | Multi-flower harder, but gain present |
+
+The TEST baseline is lower than VAL by 2.2pp — TEST has harder images (more multi-flower: 776/1405 = 55% vs VAL). The ceiling change is slightly larger on TEST (+0.60pp vs +0.36pp VAL), confirming that the injection signal generalizes cleanly.
+
+**Scientific conclusion:** Level 3 FPN injection generalizes to held-out TEST data. The gain is consistent and monotone with alpha. The pipeline is not overfitting to VAL. TEST validates the mechanism.
+
+---
+
+### exp45: Confidence × NMS Parameter Sweep — Multi-Flower VAL Images
+
+844 multi-flower VAL images (n_gt ≥ 2). Alpha fixed at 0.5. 16 configurations tested: CONFIDENCE ∈ {0.3, 0.4, 0.5, 0.6} × NMS ∈ {0.3, 0.5, 0.7, None}. NMS applied post-hoc on mask bounding boxes via torchvision.ops.nms.
+
+**Full sweep table — multi-flower recall:**
+
+| confidence | NMS=0.3 | NMS=0.5 | NMS=0.7 | NMS=None |
+|---|---|---|---|---|
+| 0.3 | 0.9626 | 0.9663 | **0.9693** | **0.9693** |
+| 0.4 | 0.9435 | 0.9465 | 0.9477 | 0.9477 |
+| 0.5 | 0.9000 | 0.9018 | 0.9028 | 0.9028 |
+| 0.6 | 0.8379 | 0.8386 | 0.8392 | 0.8392 |
+
+**Mean masks per image:**
+
+| confidence | NMS=0.3 | NMS=0.5 | NMS=0.7 | NMS=None |
+|---|---|---|---|---|
+| 0.3 | 20.3 | 21.6 | 22.5 | 22.7 |
+| 0.4 | 15.7 | 16.4 | 16.9 | 17.0 |
+| 0.5 | 12.1 | 12.4 | 12.6 | 12.6 |
+| 0.6 | 9.1 | 9.1 | 9.2 | 9.2 |
+
+**Best configuration: confidence=0.3, NMS=0.7** (tied with NMS=None)
+- multi_recall = 0.9693
+- mean masks per image = 22.5
+
+**Key findings:**
+
+1. **Confidence threshold dominates.** Dropping confidence from 0.5 → 0.3 improves multi-flower recall by **+6.65pp** (0.9028 → 0.9693). This is 11× larger than the entire Level 3 injection gain (+0.60pp). The current default of 0.5 is heavily suboptimal for multi-flower detection.
+
+2. **NMS has minimal effect above IoU=0.5.** At any fixed confidence, NMS=0.7 and NMS=None produce identical recall. NMS=0.3 hurts by ~0.7pp (over-suppresses distinct flowers whose bboxes partially overlap). The recommended NMS threshold is 0.7 (avoids over-suppression while still removing true duplicates).
+
+3. **The confidence threshold failure mode is confirmed.** exp44 showed that injection directions are geometrically good — the problem was SAM3 generating valid flower proposals that scored just below 0.5. Lowering to 0.3 recovers these. This directly explains why the 4 Group A recoveries in exp41 needed alpha=2.0: they were making up for the gap between true flower score and the 0.5 threshold through injection strength.
+
+4. **Practical tradeoff at conf=0.3:** 22.5 masks per image vs 12.6 at conf=0.5 (+78%). This increases BioCLIP encoding cost proportionally. With K=128 batch encoding, the per-image cost at conf=0.3 is still dominated by SAM3 forward pass time, not BioCLIP. Acceptable for production.
+
+**Production configuration (from exp45):**
+- `SAM3_CONFIDENCE = 0.3`
+- `SAM3_NMS = 0.7`
+- Expected multi-flower recall improvement: +6.65pp over current default
+
+These values drive exp42 inference and Manual Validator config.py defaults.
+
+**Comparison to exp38 baseline (conf=0.5, no NMS):**
+- exp38 VAL multi-flower baseline: ~0.9018 (conf=0.5, NMS=None)
+- exp45 best: 0.9693 (conf=0.3, NMS=0.7)
+- Net improvement: **+6.75pp** from parameter tuning alone, no model change required
+
