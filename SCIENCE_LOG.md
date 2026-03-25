@@ -16041,3 +16041,127 @@ iNaturalist has observations for ~80,000 plant species. NCBI has ITS2 sequences 
 - exp_E03 (W_evo ridge + LOO): CPU job, after exp_E02
 - exp_E04 (zero-shot generalization): CPU, after exp_E03
 - exp_E05 (cross-modal UMAP): CPU, after exp_E02
+
+
+## Entry 218 — Evo Series: Strict Scope, Model Selection, Validated Prior Knowledge Anchors (2026-03-25)
+
+### Context
+
+Evo 2 model is gated on HuggingFace (requires auth) and its pip package requires TransformerEngine with native CUDA compilation — not viable in the current cluster environment without significant setup. Nucleotide Transformer v2 (500M, InstaDeepAI) is fully public, loads cleanly, encodes phylogenetic structure, and operates on the same sequence lengths as our ITS2 data. This entry: (1) locks the model choice, (2) defines strict experimental scope with no-drift parameters, (3) anchors every claim to validated prior knowledge from population genetics and evolutionary biology.
+
+---
+
+### Model Selection: Nucleotide Transformer v2 (locked)
+
+**Model**: `InstaDeepAI/nucleotide-transformer-v2-500m-multi-species`
+- 500M parameters, ESM-style transformer
+- Trained on genomes from 850 species across domains of life
+- Context window: 12,288 bp (sufficient for ITS2 ~600bp, rbcL ~860bp)
+- Embedding dim: 1,024 (same as f_BioCLIP — W_evo is a square matrix, geometrically clean)
+- Fully public, no TE dependency, loads via HuggingFace AutoModel
+- Published evidence: NT-v2 embeddings encode taxonomic structure (InstaDeepAI, 2023, NeurIPS)
+
+**Relationship to Evo 2**: NT-v2 is the correct proof-of-concept model. If W_evo succeeds with NT-v2 embeddings, the result scales directly to Evo 2 when access is available (exp_E02b). The core scientific claim does not require Evo 2 — it requires any genomic foundation model that encodes phylogenetic structure, which NT-v2 satisfies.
+
+**Note on model update**: g_NTv2[s] replaces g_Evo2[s] in all experiment notations. W_evo: g_NTv2 (1,024-dim) → f_BioCLIP (1,024-dim).
+
+---
+
+### Prior Knowledge Anchors (what is already established in genetics)
+
+Every result we produce must be interpretable against these validated baselines from the literature. These are not hypotheses — they are facts we use to calibrate our expectations:
+
+1. **Morphological distance correlates with phylogenetic distance** (Felsenstein 1985, phylogenetic comparative methods). Within a family, closely related species look more similar than distantly related species. This means: if W_evo is doing anything meaningful, pairwise D_genome should correlate with pairwise D_visual. If this Mantel correlation is ZERO, W_evo is capturing noise, not biology.
+
+2. **ITS2 is a valid species barcode for angiosperms** (Chen et al. 2010, PLoS ONE). ITS2 sequences distinguish plant species in >95% of cases in published tests. Using ITS2 as the genomic input is standard and defensible.
+
+3. **DNA barcodes encode family-level phylogeny** (BOLD, NCBI). The ITS2 region is variable enough to distinguish species but conserved enough to reflect family-level relationships. Intra-family NT-v2 similarity should be higher than inter-family similarity — we can verify this from exp_E02b embeddings directly (no model needed).
+
+4. **Morphological convergence exists** (Givnish & Sytsma 1997). Distantly related species can look similar (e.g., Cactaceae and Euphorbiaceae both have succulent stems). This means D_visual does NOT perfectly track D_genome — there will be outliers. W_evo cannot explain convergent evolution; the LOO cosine will be lower for such species. We will identify these outliers explicitly.
+
+5. **Genome → phenotype is not linear** (Mackay et al. 2009, QTL mapping). The honest scope: we are measuring the linear component of genome → visual embedding correlation. Nonlinear effects (epistasis, regulatory interactions) are real and excluded from our claims by construction.
+
+---
+
+### Strict Experimental Scope: What We Are Proving
+
+**POC Goal (3 experiments, ~2h total compute):**
+
+**Claim 1 (exp_E03): W_evo has measurable reconstruction quality**
+- Metric: mean LOO cosine (all species) ≥ 0.4, cross-genus LOO cosine ≥ 0.3
+- Null: LOO cosine ≤ 0.1 (random — no genomic signal in visual space)
+- Confound check: within-family LOO cosine vs cross-family LOO cosine (must be significantly different, otherwise we're measuring taxonomy not morphology)
+- Prior anchor: if W_evo cosine = 0, it contradicts Felsenstein 1985 applied to embedding spaces
+
+**Claim 2 (exp_E03b): Pairwise genomic distance predicts pairwise visual distance**
+- Metric: Mantel r between D_NTv2 and D_BioCLIP across 81 species, p < 0.05 (1000 permutations)
+- This is the Mantel test — established method, directly interpretable against prior literature
+- Null: Mantel r = 0 (genomic and visual spaces are unrelated)
+- This is the most defensible claim: it does not require W_evo to be accurate, only for the distance structures to correlate
+
+**Claim 3 (exp_E04): Genomic injection outperforms text injection for morphologically unusual species**
+- Test set: 4 Group A images (Banksia/Ophrys at conf=0.5, recall=0)
+- Metric: delta_genome injection recall vs delta_text injection recall on those 4 images
+- Required: delta_genome must recover at least 1 of the 4 images that delta_text failed on
+- This requires W_evo + W_visual chain to exist — only pursued if Claim 1 LOO cosine ≥ 0.5
+
+**What we are NOT claiming:**
+- We are not claiming W_evo can generate novel species morphologies
+- We are not claiming sequence editing produces valid biology
+- We are not claiming the linear bridge is complete (nonlinear effects exist and are excluded)
+- We are not connecting to directed evolution or morphogenesis
+- We are not running diffusion models (that is future work, contingent on Claim 1 and external collaboration)
+
+---
+
+### On Interpolation Smoothness (precise measurement)
+
+The interpolation `f_interp(t) = W_evo @ ((1-t)*g_A + t*g_B)` is tested by measuring monotonicity:
+```
+smooth_score = Pearson r(t, cosine(f_interp(t), f_BioCLIP[A]))
+```
+If smooth_score < -0.9: the interpolation monotonically moves from A toward B — smooth.
+If smooth_score is near 0: the path is non-monotonic — the linear bridge does not respect the metric structure.
+
+This is measured entirely in BioCLIP embedding space. No image generation needed. Valid only within-family pairs (same family → embedding space is calibrated for that region).
+
+Note: "shifting Arum palestinum into a bear" is outside the valid regime by construction. The interpolation is only scientifically meaningful within families where both the NT-v2 and BioCLIP spaces are well-sampled. Cross-clade interpolations will pass through empty regions of both spaces — the experiment explicitly restricts to within-family pairs from the 85 training species.
+
+---
+
+### On the Gradient Path and Taxonomic Trees
+
+The gradient path through NT-v2 embedding space (what sequence positions, when mutated, move the embedding toward a target) is a future experiment — it requires: (1) W_evo LOO cosine ≥ 0.7 (Claim 1 passes strongly), (2) a separate experiment mapping NT-v2 embedding sensitivity to sequence positions. This is noted as exp_E06 (planned, not submitted). The taxonomic correlation Mantel test (Claim 2, exp_E03b) is the immediate first step — it's the most defensible result and requires no inverse bridge.
+
+---
+
+### Execution Plan (strict)
+
+```
+Now running:
+  exp_E02 (NT-v2 embedding, GPU ~30min): submit after transformers install confirmed
+
+Sequential:
+  exp_E03  (W_evo ridge + LOO + Claim 1): CPU, after exp_E02
+  exp_E03b (Mantel test D_NTv2 vs D_BioCLIP + Claim 2): CPU, 2min, after exp_E02
+  exp_E04  (genomic injection test + Claim 3): GPU, after exp_E03 if LOO ≥ 0.5
+  exp_E05  (UMAP alignment): CPU, visualization, after exp_E02
+
+Decision gate after exp_E03:
+  LOO < 0.3 → publish null result, stop Evo series
+  LOO 0.3–0.5 → report partial, proceed Mantel + interpolation only
+  LOO > 0.5 → full program: exp_E04 injection test + Science Log Entry 219
+
+Future (not now):
+  exp_E02b: Evo 2 7B embeddings (requires auth or TE fix)
+  exp_E06: sequence position sensitivity (gradient path)
+  exp_E07: cross-family interpolation boundary mapping
+  Diffusion model direction: external collaboration, after LOO ≥ 0.7 confirmed
+```
+
+---
+
+### Job Status
+- exp42 (47K NextGen): RUNNING (job 12212309), 31,245/~47,491 (66%), ~20min remaining
+- setup_min (12215050): COMPLETE — transformers installed, NT-v2 config confirmed OK
+- Evo2 (gated on HF): deferred to exp_E02b when access available
