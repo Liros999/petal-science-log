@@ -17429,3 +17429,145 @@ Gate = **STRONG** (LOO > 0.7). Proceed to:
 
 All current results use **evo2_7b** (4096-dim, 7B params). The evo2_40b rerun (job 12218574) is pending. Expected improvement with 40B: potentially higher LOO cosine and stronger Mantel r due to richer genomic representations. Current results are preliminary but already publication-worthy at LOO=0.971.
 
+
+## Entry 232 — W_evo Geometric Interpretation, Open Questions, and Next Directions (2026-03-27)
+
+### Reproducibility Note: What LOO Cosine = 0.971 Precisely Means
+
+**Setup.** Let g̃_s = L2-normalize(g_evo2[s]) ∈ ℝ⁴⁰⁹⁶ (Evo 2 7B mean-pool of ITS2/rbcL/matK barcode). Let f̃_s = L2-normalize(f_bioclip[s]) ∈ ℝ¹⁰²⁴ (BioCLIP 2.5 ViT-H/14 visual centroid from exp30a_v3, averaged over confirmed TP images). W_evo ∈ ℝ⁴⁰⁹⁶×¹⁰²⁴ fitted by ridge regression (α=1.0 selected by 5-fold CV) on n−1=80 species. Prediction: f̂_s = L2-normalize(g̃_s @ W_evo_(−s)). Metric: LOO_cosine(s) = f̂_s · f̃_s.
+
+**Result.** Mean LOO cosine = 0.9709 (std=0.022, min=0.882, max=0.992). In 1024-dimensional unit sphere space, random unit vector pairs have E[cosine]=0, σ=1/√1024=0.03125. Our mean is 0.971/0.03125 ≈ **31σ above chance**. The angle between predicted and true visual centroid is arccos(0.971) = **13.8°** on average. Worst species (*Mercurialis annua*, cosine=0.882) gives angle=28.1°, still **28σ above chance**. There are zero complete failures — every species' visual appearance is recoverable from its DNA barcode alone.
+
+**What this is NOT.** LOO cosine is not a distance-preservation metric. It measures directional alignment between predicted and true visual centroid after a linear map. It does not mean pairwise distances between species are preserved (Mantel r=0.066 shows they are not in raw space). These are orthogonal claims.
+
+---
+
+### Understanding the Spaces: What We Haven't Yet Asked
+
+The experiments so far treat Evo 2 space and BioCLIP space as black boxes and ask only whether a linear map connects them. We have not yet asked:
+
+**Q1. What is the internal structure of each space independently?**
+- Is Evo 2 space organized phylogenetically? (PCA of G_norm — do species from the same family cluster?)
+- Is BioCLIP space organized phylogenetically? (PCA of F_norm — do visual centroids cluster by family?)
+- If both are phylogenetically organized, the W_evo result follows trivially from phylogeny. If only one is, the W_evo result is stronger.
+
+**Q2. What does the rank-1 structure of W_evo mean — who is on that axis?**
+The first right singular vector of W_evo (from Vt[0]) identifies which direction in Evo 2 space has maximum predictive power for visual appearance. The first left singular vector (U[0]) identifies which direction in BioCLIP space is most predictable from DNA. These are the "shared axis" vectors. We have not yet:
+- Projected all 81 species onto these axes and identified who is at each extreme
+- Correlated the scores along this axis with known taxonomy (order, family, genus)
+- Correlated the scores with known morphological traits (flower complexity, inflorescence type, pollinator guild)
+
+**Q3. Who are the other 10%?**
+W_evo explains 90% of its variance in one dimension (σ₁=0.967 vs σ₂=0.113). The remaining 10% (dimensions 2–1024) are not random — they carry residual visual signal that requires more than one genomic axis to predict. These dimensions may encode:
+- Secondary morphological axes (size, color, symmetry) that are weakly heritable
+- Family-level differences below the dominant inter-order axis
+- Noise from barcode choice (ITS2 vs rbcL vs matK have different evolutionary rates)
+
+Dimensions 2–5 (σ=0.113, 0.093, 0.059, 0.047) are small but not negligible. The LOO for the 6 "partial" smoothness pairs may be exactly the species where dimensions 2–5 matter.
+
+---
+
+### The Rank-1 Assumption: Does It Hold?
+
+We currently claim: "one dominant axis of plant diversity is simultaneously encoded by both genomes and visual appearance." This needs to be broken apart:
+
+**Challenge 1: Selection artifact.** Our 81 species span a wide phylogenetic range (monocots, dicots, many families). A rank-1 structure could simply reflect the broadest phylogenetic split (e.g., monocots vs. dicots) dominating the variance. The map would then be trivially "predicting" a binary phylogenetic label, not true visual appearance. Test: split the 81 species into monocots vs. dicots and check LOO cosine within each group. If LOO drops substantially within-group, the rank-1 axis is the monocot/dicot split.
+
+**Challenge 2: ITS2 vs rbcL vs matK confound.** 69/81 species used ITS2, 10 used rbcL, 2 used matK. These loci evolve at different rates and capture different phylogenetic signals. If ITS2-species cluster together in Evo 2 space due to barcode similarity (not species biology), the W_evo fit may be partially measuring barcode-type effects. Test: check LOO cosine separately for ITS2 vs rbcL species.
+
+**Challenge 3: Sample size.** n=81 species, d_evo=4096. The ridge regression is severely under-determined (4096 parameters per output dimension, 81 training points). The LOO cosine is high despite this because the effective rank is 1 — the regression collapses to fitting one number per species. Test: check if LOO cosine is equally high with d_projected=1 (project G_norm onto its first PC before regression). If so, the 4096-dimensional input is overkill.
+
+---
+
+### The Reverse Bridge and the Two-Way Street
+
+W_BioCLIP (visual → genome, LOO=0.992) being stronger than W_evo (genome → visual, LOO=0.971) means:
+
+**Interpretation:** BioCLIP's visual representation already encodes genomic identity more precisely than the genome encodes visual identity. This is a statement about information compression: the visual centroid (average of hundreds of images) averages out individual variation and retains only species-level signal, which happens to align with genomic identity. The Evo 2 vector (single barcode) contains more noise (within-species barcode variation, PCR artifacts, barcode choice effects) that reduces its predictive power.
+
+**What this is NOT:** It does not mean "visual appearance contains more information than DNA." It means the specific visual representation (BioCLIP centroid, averaged over confirmed TPs) is a cleaner signal of species identity than the specific genomic representation (single barcode through Evo 2 7B). With evo2_40b or averaged barcodes, the forward direction may strengthen.
+
+**The key unanswered question about the reverse bridge:** Can W_BioCLIP be used operationally? Specifically: given a new *image* (not a species centroid, but a single image), can we compute its BioCLIP embedding, apply W_BioCLIP, and recover its genomic position? If yes, this is a zero-DNA species identification tool: photograph → BioCLIP → W_BioCLIP → genomic coordinate → nearest known species. We have not tested this.
+
+---
+
+### Can W_evo Aim SAM3 Toward GT Images?
+
+**The question:** Evo 2 was trained on DNA only (2.7 million genomic sequences — bacteria, archaea, eukaryotes, viruses). It has never seen an image. BioCLIP was trained on 10 million iNaturalist image-text pairs. They are entirely different modalities, different training data, different architectures. Yet W_evo connects them.
+
+**Evo 2's training (Arc Institute, 2025):**
+- Architecture: StripedHyena (a hybrid of attention and state-space/convolutional layers)
+- Training data: 2.7M genomic sequences from NCBI (bacteria, archaea, viruses, eukaryotes)
+- Task: next-token prediction on DNA/RNA sequences (byte-level tokenization, A/T/C/G/N)
+- No images. No species names. No taxonomy labels. Purely sequence-level self-supervised learning.
+- The 4096-dim hidden state at `blocks.31` encodes contextual genomic information — what nucleotide patterns are in this sequence and what they predict.
+
+**How W_evo works despite this:** Evo 2 has learned to encode evolutionary conservation and variation across millions of sequences. Species that are phylogenetically close have similar ITS2 sequences → similar Evo 2 representations. BioCLIP has learned to encode visual similarity across millions of images. Species that look alike visually get similar BioCLIP representations. Since phylogenetically close species also tend to look alike (Felsenstein 1985), both spaces contain correlated information about species identity — and W_evo extracts that correlation.
+
+**The SAM3 question — can W_evo steer SAM3 toward ground-truth images?**
+
+The injection pipeline (SAM3 + FPN Level 3 injection, exp38/exp40) works as follows:
+```
+D_flower_SAM3 = mean direction of flower masks in backbone_fpn[-1] space
+injection: backbone_fpn[-1] += alpha * D_flower_SAM3
+```
+
+W_SAM3 maps BioCLIP text embeddings (b_text[s]) → SAM3 FPN space directions (delta_s). The question is: can we instead use:
+```
+g_evo2[s]  →  W_evo  →  f_bioclip_pred[s]  →  W_SAM3  →  delta_evo[s]
+```
+and inject `delta_evo[s]` into SAM3's FPN?
+
+This is entirely possible and would be the first zero-image species-specific injection: you provide only a DNA barcode, no photographs, and the pipeline steers SAM3 toward that species' visual domain. The mathematical path is:
+
+```
+g_evo2[s] → (W_evo, 4096×1024) → f̂_bioclip[s] → (W_SAM3, 1024×256) → delta_evo[s] ∈ ℝ²⁵⁶
+```
+
+This is a composition of two linear maps — effectively a single linear map W_composed = W_evo @ W_SAM3 (4096 → 256). The quality of this injection would be LOO_cosine(W_evo) × quality(W_SAM3) — compounded but not zero. This is exp_E04 (the genomic injection experiment, gate condition: LOO ≥ 0.5, met at 0.971).
+
+---
+
+### exp_E05 Path Smoothness: What It Gives Us and Where It Points
+
+**What we established:** No fitness valleys in the 17 within-genus pairs. Every interpolation path in W_evo-projected space is either smooth (r≈−1) or flat (r≈+1). "Flat" paths (r=+1) are not failures — they indicate the two species map to nearly the same visual location, so any movement in Evo 2 space moves you away from both endpoints equally.
+
+**What we CANNOT claim from this:** That the landscape is truly Fujiyama in a biologically meaningful sense. We have only 17 pairs, all within-genus (very close phylogenetically). Within a genus, species are visually similar almost by definition. A more meaningful test requires cross-genus or cross-family pairs — but those paths in Evo 2 space traverse regions not covered by our 81 training species, so W_evo predictions at those intermediate points are extrapolations, not interpolations.
+
+**Fitness valleys and epistasis — what the terms mean mathematically:**
+
+*Fitness valley*: a point on an evolutionary path A→B where fitness (here: visual similarity to A) locally increases before decreasing. In our context: a path from species A to species B where at t=0.5, the projected visual position is *closer* to A than at t=0. This would mean the evolutionary path through Evo 2 space "detours" visually before arriving at B.
+
+*Epistasis*: genetic interactions where the effect of mutation in gene 1 depends on the state of gene 2. In embedding space, epistasis would appear as: the path from A to B is not straight — the Jacobian of W_evo (∂f̂/∂g) changes along the path. If W_evo is linear (which it is by construction), the Jacobian is constant everywhere — there is no epistasis in the embedding space. This is a fundamental limitation: W_evo is linear, so it cannot model epistatic interactions. The Jacobian exp_E06 would measure this in a nonlinear extension.
+
+**What exp_E05 actually enables:** It validates that within-genus interpolation in Evo 2 space produces biologically coherent visual trajectories. Combined with the LOO result, this means we can *generate* hypothetical visual centroids for species not in our dataset by placing them on a continuum between known relatives. This is a morphological prediction tool: given a new ITS2 barcode of an unknown species, find its position in Evo 2 space, project through W_evo, and the resulting BioCLIP vector is the predicted visual centroid of that species.
+
+---
+
+### The Distance Question: Are These Spaces Phylogenetically Organized?
+
+The Mantel test (D_evo2 vs D_bioclip in raw coordinates) failed (r=0.066, p=0.201). But the right question is more nuanced:
+
+**After applying W_evo**, the projected distance D_projected should align with D_bioclip — this tests whether W_evo preserves distance structure, not just direction. We predict this will give r >> 0.066 because W_evo was explicitly fitted to align the two spaces.
+
+**The deeper question** is whether *either* space is organized phylogenetically:
+- If D_evo2 correlates with D_phylo, Evo 2 embeds taxonomic distance (expected — ITS2 is a phylogenetic barcode)
+- If D_bioclip correlates with D_phylo, BioCLIP encodes evolutionary history from appearance alone (the stronger claim)
+- If both correlate with D_phylo, then W_evo works because both spaces are independently aligned to the phylogenetic backbone — not because they share direct visual-genomic information
+
+This is the phylogenetic confound analysis that should precede any causal claim. It requires a species tree for our 81 species, computable from the ITS2 sequences themselves (MUSCLE alignment + NJ tree). This is exp_E03d (proposed).
+
+---
+
+### Open Experiments to Design
+
+| Exp | Question | Method | Cost |
+|---|---|---|---|
+| E03d | Is W_evo driven by phylogeny or by independent visual-genomic alignment? | Partial Mantel r(D_projected, D_bioclip \| D_phylo) | CPU, ~1h (need species tree) |
+| E03e | Does W_evo preserve topology (not just direction)? | Post-W Mantel + Procrustes + NN accuracy | CPU, 10min |
+| E03f | Is rank-1 structure a monocot/dicot artifact? | Within-group LOO for monocots vs. dicots separately | CPU, 5min |
+| E03g | Single barcode vs species barcode centroid | LOO cosine using mean of ITS2+rbcL+matK vs single ITS2 | CPU, 5min (need multi-barcode species) |
+| E04 | Can W_evo steer SAM3 toward GT flowers for unseen species? | Compose W_evo → W_SAM3, inject, measure IoU vs GT | GPU, 4h |
+| E06 | Does the path in Evo 2 space have nonlinear structure (Jacobian epistasis)? | Fit nonlinear map (MLP), compare Jacobian to linear W_evo | GPU, 2h |
+| E07 | Can W_BioCLIP identify species from a single new image? | Single image BioCLIP → W_BioCLIP → nearest genomic neighbor | CPU, 30min |
+
