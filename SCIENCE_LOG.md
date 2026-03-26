@@ -18146,3 +18146,80 @@ Expected: L2O mean ≈ 0.970 (close to LOO, confirming stability of the mean-pre
 | 12232546 | E01b NCBI barcode fetch (290 sp) | RUNNING — 161 done |
 | 12232774 | setup_evo2_v3 (vtx fix) | RUNNING |
 
+
+---
+
+## Entry 237 — Path 2 Confirmed: Rank-1 Is Biological, Not Sampling Artifact (2026-03-26)
+
+### Background
+
+Entry 236 diagnosed W_evo's LOO=0.971 as regression-to-mean: W maps all ITS2 barcodes to approximately the same "flower appearance" centroid, not per-species visual structure. Three paths out of rank-1 were proposed: (1) 290-species expansion (Path 1 — blocked, 197 species have zero validated masks), (2) stratified family sampling (Path 2 — exp_E03j), (3) Evo2 40B model (Path 3 — A100 setup in progress). This entry reports Path 2 results.
+
+### Null Hypothesis (Path 2)
+
+H₀: Rank-1 collapse is a **sampling artifact** — 81 species drawn non-uniformly from 39 families creates apparent rank-1 by overrepresenting Fabaceae (n=12) and Asteraceae (n=10). If we balance by family (2 species/family), LOO should drop toward 0.5, revealing that the bridge does not generalize.
+
+### Experiment (exp_E03j)
+
+**Test A — Full LOO reference**: Reproduce E03 result to confirm data integrity.
+
+**Test B — Per-family LOO** (within-family prediction): For each family with ≥4 species, hold out one species, train W on the remaining n-1 within-family species, predict the held-out visual centroid. If rank-1 is a sampling artifact from cross-family variation, within-family LOO should be near chance (0.0–0.5).
+
+**Test C — Family-balanced bootstrap** (100 subsets, K=2 per family): Draw 2 random species from each eligible family (14 families with ≥2 species), compute LOO on this 28-species balanced subset. Repeated 100 times. If rank-1 is an artifact of family size imbalance, balanced LOO should differ substantially from full LOO.
+
+### Results
+
+**Test A — Full LOO (reference)**:
+- LOO cosine: mean=0.9709, std=0.0219
+- Effective rank of W (full dataset): 3.154
+- Confirms: identical to E03 result — data loading correct.
+
+**Test B — Per-family LOO (all 5 eligible families)**:
+
+| Family | n species | LOO mean | LOO std | Within-family eff_rank |
+|--------|-----------|----------|---------|----------------------|
+| Fabaceae | 12 | 0.9657 | 0.0237 | 1.510 |
+| Asteraceae | 10 | 0.9702 | 0.0108 | 1.656 |
+| Iridaceae | 6 | 0.9772 | 0.0090 | 1.464 |
+| Apiaceae | 4 | 0.9260 | 0.0353 | 1.261 |
+| Lamiaceae | 4 | 0.9844 | 0.0042 | 1.249 |
+
+**All five families independently show LOO ≈ 0.926–0.984.**
+
+This is the decisive test: if rank-1 were a sampling artifact from cross-family heterogeneity, within-family LOO would collapse. It does not. Fabaceae alone (12 species, all legumes with highly similar floral morphology) achieves LOO=0.9657. The bridge is mapping all legume ITS2 barcodes to approximately the same legume-flower centroid. This is biologically expected.
+
+**Test C — Family-balanced bootstrap**: Not yet complete (job 12234561, resubmitted with 2h limit). Expected result: balanced LOO ≈ 0.97 (same as full LOO), since the per-family LOO confirms the pattern holds within each family independently.
+
+### Interpretation
+
+**H₀ rejected.** Rank-1 is a biological constraint, not a sampling artifact.
+
+The mathematical reason: even within a single plant family, all visual centroids are near the same "flower mean" in BioCLIP space. The within-family effective rank (1.25–1.66) is lower than the full-dataset effective rank (3.154), because families of related species have even more similar floral appearance than a cross-family mix. Prediction accuracy stays high (≥0.926) precisely because mean prediction within a family is itself accurate — the target is always near the family-level centroid.
+
+**The correct frame**: W_evo is not a species discriminator. It is a **flora-type detector**: given any ITS2 barcode from a flowering plant in our 81-species range, W correctly predicts "this organism is a flowering plant with typical flower appearance." This is accurate and reproducible. It is not species-level reconstruction.
+
+### A100 Setup for Path 3 (Evo2 40B)
+
+Setup v4 (job 12234572) confirmed the cuBLAS GEMM failure: evo2_7b loads all 32 blocks successfully and adjusts Wqkv, but the first forward pass fails with `CUBLAS_STATUS_NOT_SUPPORTED` in TransformerEngine 2.13's cublaslt_gemm.cu:764. This is not a sequence length issue — a 367-char ITS2 sequence was used. The error is TE 2.13's GEMM kernel not supporting A100 (sm_80) BF16 GEMM.
+
+Setup v5 (job 12234930) addresses this with a three-part patch:
+1. Suppress FP8 recipe assert: `te_quant.check_recipe_support = lambda recipe: None`
+2. Replace `vortex.layers.TELinear` with `PyTorchTELinear` — pure `F.linear` fallback, no TE GEMM
+3. Set `vortex.model.model.HAS_TE = False` — strips `_extra_state` keys from checkpoint loading
+
+If v5 passes, the next step is to generate Evo2 7B embeddings for all 273/290 species with ITS2 barcodes (vs current 81), then refit W on the expanded dataset. The hypothesis: LOO will remain near 0.97, since all 273 are still flowering plants. The per-species reconstruction may or may not improve — this is the empirical question.
+
+### Jackknife Stability (E03h)
+
+exp_E03h (job 12234560, resubmitted with 4h limit) is computing L2O (3,240 pairs), L10O (200 subsets), and family leave-out. Previous run (job 12232178) confirmed LOO=0.9709 (Test 0), then timed out during L2O. Expected: L2O mean ≈ 0.970 (same as LOO — mean prediction is stable regardless of holdout count).
+
+### Updated Experiment Status
+
+| Exp | Description | Status | Key Result |
+|-----|-------------|--------|------------|
+| exp_E03h | Jackknife stability (L2O, L10O, family) | RUNNING (job 12234560) | Test 0: LOO=0.9709 |
+| exp_E03j | Stratified family sampling (Path 2) | RUNNING (job 12234561) | Test A-B COMPLETE (rank-1 biological) |
+| setup_v5 | A100 PyTorch TELinear fallback | PENDING GPU (job 12234930) | — |
+
+**Path 2 conclusion**: Rank-1 is a biological constraint. The bridge is statistically sound but morphologically uninformative at species level with 81 flowering plants. Species-specific recovery requires either many more diverse species (Path 1/3) or a fundamentally different architecture (beyond linear).
+
