@@ -18033,3 +18033,116 @@ W_SAM3 (BioCLIP image → SAM3 FPN) faces the same mathematical constraints. For
 **Experiment running**: exp_E03h jackknife (job 12232178) — will establish stability of W_evo under dataset composition changes.
 **Next**: exp_E03i (axis 2 floral symmetry annotation), exp_E03j (baseline cosine to mean — regression-to-mean diagnosis), W_SAM3 geometry battery.
 
+---
+
+## Entry 236 — Regression-to-Mean Diagnosis: LOO=0.971 Is Mean Prediction (2026-03-26)
+
+**Triggered by**: exp_E03i completion (job 12232465), exp_E03j/E03k/E01b launch.
+
+---
+
+### CRITICAL FINDING: W_evo Predicts the Global Mean, Not Per-Species Structure
+
+**Metric** | **Value**
+--- | ---
+LOO cosine (W prediction) | 0.9709
+Cosine to distribution mean | 0.9711
+Delta (LOO − mean) | **−0.0002**
+Interpretation | **Bridge predicts mean only**
+
+The LOO cosine of 0.971 is **not evidence that W_evo recovers per-species visual structure**. The global mean of the 81 normalized BioCLIP visual centroids (F_norm.mean(axis=0)) achieves cosine 0.9711 — indistinguishable from the per-species W prediction.
+
+**Why this happens**: With normalized vectors in high-dimensional space (1024-dim), the mean of 81 unit vectors is itself a high-norm vector pointing in the dominant shared direction (the "flower direction"). Every species vector has cosine ≈ 0.97 with this mean. Ridge regression in 4096-dim finds the single dominant axis that approximates this mean — which is exactly the rank-1 structure (σ₁=0.967, 97.1% variance). The W matrix is essentially computing: `F_pred[s] = W @ G[s] ≈ F_mean` for all species s.
+
+**Implication**: LOO=0.971 is not a signal of cross-modal biological alignment. It is a signal that:
+1. All 81 visual centroids lie close to a single shared "flower appearance" direction in BioCLIP space
+2. W learns this shared direction (rank-1) regardless of the per-species genomic input
+3. The per-species variation (axes 2–5, σ=0.11–0.05) is NOT recovered by W
+
+**This changes our published claim**: Entry 231 ("publication-worthy — DNA predicts appearance in embedding space") requires revision. The correct statement is: **W_evo maps all ITS2 barcodes to approximately the same point (the flower centroid) in BioCLIP space, not to species-specific visual centroids**.
+
+---
+
+### Axis 2 — Floral Symmetry Results (Five SVD Axes Tested)
+
+From exp_E03i:
+
+| Axis | σ | r(Evo2, symmetry) | p | r(BioCLIP, symmetry) | p |
+|---|---|---|---|---|---|
+| 1 | 0.967 | −0.123 | 0.280 | +0.018 | 0.876 |
+| **2** | **0.113** | **+0.157** | **0.168** | **+0.279** | **0.013** |
+| 3 | 0.093 | −0.200 | 0.077 | −0.062 | 0.588 |
+| 4 | 0.059 | −0.101 | 0.376 | +0.092 | 0.420 |
+| 5 | 0.047 | −0.164 | 0.148 | −0.118 | 0.299 |
+
+**BioCLIP axis 2 vs symmetry**: r=0.279, p=0.013 (significant at α=0.05).
+**Bonferroni correction** (5 axes): threshold p<0.01. Axis 2 BioCLIP (p=0.013) does NOT survive.
+**Evo2 axis 2 vs symmetry**: r=0.157, p=0.168 (not significant).
+
+**Pollination syndrome** (bee vs non-bee): r=−0.018, p=0.872 (null).
+
+**Symmetry annotation**: n=50 actinomorphic, n=29 zygomorphic, n=2 ambiguous.
+Mean axis 2 scores: actinomorphic=−0.0105, zygomorphic=−0.0392 (diff=+0.0286).
+
+**Conclusion**: The floral symmetry hypothesis for axis 2 is **UNSUPPORTED** in Evo2 (p=0.168) and **marginal** in BioCLIP (p=0.013, does not survive Bonferroni). The dominant axis 1 (σ=0.967, all species near −1.0) encodes the shared "flower" concept, not symmetry.
+
+---
+
+### Three Paths Out of Rank-1 — Experiments Launched (2026-03-26)
+
+**Path 1 (290-species bridge)**: exp_E01b + exp_E03k
+- exp_E01b (job 12232546): NCBI ITS2 fetch for all 290 citadel species. Already at 161/290 barcodes fetched.
+- exp_E03k (job 12232758): W bridge on combined train+val+test visual centroids. Phase A: 85 species (same as before — no new validated species found). Phase B: effective_rank=3.154 (measured from combined splits), σ₁=0.9667.
+- **Blocker**: 197 of 290 species have zero SAM2-confirmed masks. Visual centroids for new species require mask-level validation (months of work) or Evo2 embedding of all 290 barcodes (blocked on A100).
+
+**Path 2 (stratified family sampling)**: exp_E03j (job 12232542, RUNNING)
+- Tests whether rank-1 is a sampling artifact (too many families) or a genuine biological constraint.
+- Key test: LOO cosine on family-balanced bootstrap subsets (K=2/family).
+- If balanced LOO drops substantially: rank-1 is a sampling artifact.
+- If balanced LOO stays at ~0.97: rank-1 is genuine — all visual centroids are near the same mean.
+
+**Path 3 (40B model)**: blocked on A100 cudnn+vortex fix
+- setup_evo2_v2 (job 12232488): FAILED — vtx package missing (installed evo2 --no-deps, vtx skipped).
+- Root cause confirmed: evo2 requires vtx>=0.0.7, which provides the 'vortex' Python module.
+- setup_evo2_v3 (job 12232774, RUNNING): installs vtx explicitly after evo2 --no-deps. Cudnn pre-loading still in place.
+- If v3 passes: resubmit exp_E02 with evo2_7b on all 81 species (verify identical results first) then attempt evo2_40b.
+
+---
+
+### Updated Interpretation of W_evo
+
+The five-test geometry battery (E03e) + regression-to-mean diagnosis (E03i) together give a coherent picture:
+
+| Test | Result | Interpretation |
+|---|---|---|
+| LOO cosine | 0.971 | Identical to cosine-to-mean — not genuine prediction |
+| NN accuracy | 0/81 (0%) | W maps all species near the same point |
+| Mantel test | r=0.074, p=0.171 | No between-species distance structure preserved |
+| CKA | 0.042, p=0.44 | Representations are not aligned beyond mean |
+| Effective rank | 1.0 (E03, original) / 3.154 (E03k, combined splits) | Dominant direction = flower mean |
+| SVD axis 2 biology | BioCLIP r=0.28 p=0.013 (marginal); Evo2 r=0.16 p=0.17 (null) | Weak secondary signal, not symmetry |
+| Regression-to-mean | LOO ≈ mean-prediction | Bridge output ≈ constant vector for all species |
+
+**The complete picture**: W_evo has learned to map any ITS2 barcode (regardless of species) to approximately the shared "flower appearance" centroid in BioCLIP space. This is unsurprising: all 81 species are flowering plants, all their visual centroids are within σ≈0.11 of each other on their dominant shared axis. The W matrix captures this shared axis perfectly (LOO=0.971) but captures nothing species-specific (NN=0%).
+
+**The honest publishable claim**: "A linear bridge W: ITS2_space → BioCLIP_space successfully maps genomic barcode embeddings to the flower-appearance manifold. Species-specific prediction beyond the shared floral centroid is not achieved with 81 species (evidence of rank-1 collapse). Whether species-specific structure is recoverable with more species (290+), stratified sampling, or the 40B model remains an open question under investigation."
+
+---
+
+### Jackknife Stability (E03h, RUNNING)
+
+exp_E03h (job 12232178) is computing L2O (3,240 pairs × 4096-dim ridge) — still running at 50 min.
+Expected: L2O mean ≈ 0.970 (close to LOO, confirming stability of the mean-prediction).
+
+---
+
+### Experiments Running / Pending
+
+| Job | Experiment | Status |
+|---|---|---|
+| 12232178 | E03h jackknife (L2O+L10O+family) | RUNNING ~50min+ |
+| 12232542 | E03j stratified sampling | RUNNING ~5min |
+| 12232758 | E03k 290-species bridge | RUNNING (LOO phase) |
+| 12232546 | E01b NCBI barcode fetch (290 sp) | RUNNING — 161 done |
+| 12232774 | setup_evo2_v3 (vtx fix) | RUNNING |
+
