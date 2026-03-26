@@ -18316,3 +18316,87 @@ Three-pass streaming over 27 GB of compressed metadata:
 | E05 NT v2 geometry | SUBMITTED | job 12239562 — tokenizer/model class fix applied |
 | E_inat_audit | PENDING CPU | job 12239553 — 3-pass streaming audit |
 
+## Entry 239 — Literature Survey: Cross-Modal DNA↔Vision Bridge (2026-03-27)
+
+### Purpose
+
+Comprehensive survey of the state-of-the-art in cross-modal bridges between DNA/genomic sequences and visual phenotype representations, to inform the design of our ITS2→BioCLIP flower mask centroid bridge.
+
+### Key Finding: BIOSCAN-CLIP / CLIBD (ICLR 2025) — The Closest Existing System
+
+The BIOSCAN group (Guelph/Vector Institute) built **exactly our architecture but for insects**:
+- BarcodeBERT (DNA, 768-dim) + ViT-B/16 (image) + BERT-small (text)
+- CLIP-style InfoNCE contrastive alignment across all three modalities
+- Trained on BIOSCAN-1M / BIOSCAN-5M (5M+ insect specimens with COI barcodes + images)
+- Result: >8% improvement over single-modality on zero-shot species classification
+- Also tested ImageBind-style: freeze image+text encoders, only align DNA encoder — our exact approach
+
+**What BIOSCAN-CLIP does NOT do** (our novel contributions):
+1. No plant barcodes (ITS2) — all prior work uses animal COI
+2. No linear/closed-form ridge regression baseline (W_evo) — everyone uses contrastive training
+3. No flower mask-level visual centroids — all use full-image embeddings
+4. No fitness landscape topology from the bridge
+5. No variance decomposition (genome vs environment) from visual embeddings
+6. No epistasis profiling from cross-modal bridge
+7. No Mantel(ITS2_embedding_distance, BioCLIP_flower_centroid_distance) for angiosperms
+
+### DNA Encoder Landscape — Updated Ranking for Barcodes (<500bp)
+
+| Rank | Model | Architecture | Barcode Acc | Notes |
+|---|---|---|---|---|
+| 1 | DNACSE (JCIM 2025) | DNABERT-2 + unsupervised contrastive | 99.17% ft / 98.31% linear | Current SOTA on barcodes |
+| 2 | BarcodeMamba (NeurIPS 2024 WS) | Mamba-2 SSM | 99.2% linear | 8.3% of BarcodeBERT params |
+| 3 | BarcodeBERT (2023) | BERT 4-layer | 91.9% linear | Domain-specific (COI only) |
+| 4 | DNABERT-S (ISMB 2025) | BERT + C²LR contrastive | 2x ARI clustering | Species-aware, microbial domain |
+| 5 | PlantCaduceus (PNAS 2025) | Bidirectional Mamba | N/A (genomic tasks) | 16 angiosperm genomes, 512bp context |
+| 6 | NT v2 500M (Nature Methods 2024) | Transformer, 6-mer | N/A | Over-parameterized for barcodes |
+| 7 | Evo 2 7B (Nature 2026) | StripedHyena 2 | blind spots on short seqs | Confirmed unsuitable for barcodes |
+
+**New finding**: BarcodeMamba+ (Dec 2025) extends barcode-specific SSMs to **fungal ITS** sequences — closest existing model to plant ITS2.
+
+**New finding**: DNACSE's success (DNABERT-2 + contrastive = SOTA) validates starting from DNABERT-2 and adding contrastive loss. Our InfoNCE against BioCLIP is the supervised variant.
+
+**New finding**: A March 2026 bioRxiv preprint confirms "systematic blind spots in short-range biological signals" in Evo2, validating our rank-1 collapse diagnosis.
+
+### ITS2 Data — Larger Than Expected
+
+**Quaresma et al. (Scientific Data, 2024)**: 354,690 ITS2 sequences covering **119,830 unique species**. Zenodo CC0. Semi-automated curation pipeline. This roughly doubles our species coverage ceiling beyond PLANiTS (96,771 sequences, ~58,893 species).
+
+Intersection with iNat (~250K angiosperms) could yield **50–80K species** with both ITS2 and photo data. Larger than the 30–50K we estimated.
+
+### Methodological Discoveries
+
+**Compositional Autoencoder for G×E (Tross & Schnable, Frontiers Plant Science 2024):**
+Disentangles genotype (G) and environment (E) latent subspaces from plant phenotyping data. Directly applicable to decomposing f_1024[s] into heritable vs. environmental components. The ratio V_G / V_total = visual heritability H² of flower morphology in BioCLIP space — a novel metric.
+
+**Epistatic Net (Aghazadeh et al., Nature Communications 2021):**
+Walsh-Hadamard spectral decomposition of fitness functions quantifies epistatic ORDER. Order 1 = additive (linear bridge sufficient). Order 2+ = epistatic (non-linear bridge needed). Applicable to our bridge function to rigorously measure whether non-linearity is justified.
+
+**Deep Feature Interaction Maps (Greenside et al., Bioinformatics 2018):**
+Perturb each input position, measure attribution change at all other positions → pairwise interaction maps. Applied to our non-linear bridge: which nucleotide pairs in ITS2 epistatically influence flower morphology.
+
+**Hyperbolic Multimodal Embeddings (NeurIPS 2025 Workshop):**
+Lifting DNA+image embeddings into Poincaré ball better preserves taxonomic hierarchy than Euclidean space. Test after linear Euclidean baseline.
+
+**CNN Phenotype Heritability (GigaScience 2019):**
+Deep learning features from field images showed HIGHER heritability than hand-measured traits. Predicts BioCLIP flower mask embeddings may correlate more strongly with genetic distance than manual floral traits. Testable NOW with 81 species.
+
+### Other Notable Papers
+
+- **G2PDiffusion (ICCV 2025)**: COI barcode → insect image via diffusion + MSA + GPS conditioning. Top-1 retrieval 15.2%, Top-100 94.0% on unseen species.
+- **GenoDrawing (Plant Phenomics 2023)**: SNP genotype → apple image via autoencoder + linear predictor. Architecturally identical to W_evo but at 320 genotypes.
+- **Phylo-Diffusion (ECCV 2024)**: Phylogenetic tree embeddings condition diffusion model. Trait masking = gene knockout analog.
+- **OmiCLIP (Nature Methods 2025)**: Histology ↔ spatial transcriptomics via CLIP. 2.2M pairs. Validates cross-modal contrastive in biology.
+- **varKoding (Nature Ecol Evol 2025)**: Genome-skim → chaos game 2D image → transformer. Alternative DNA representation.
+
+### Immediate Actionable Items
+
+1. **Test NOW (81 species)**: Mantel(D_ITS2_sequence, D_BioCLIP_visual) vs Mantel(D_ITS2_sequence, D_manual_floral_traits). If r_visual > r_trait → publishable easy win.
+2. **After iNat audit**: Download Quaresma ITS2 dataset from Zenodo, cross-reference with audit species list.
+3. **DNA encoder choice**: Start from DNABERT-2 (117M, 768-dim, HF available), apply InfoNCE against frozen BioCLIP centroids. Test Plant-DNABERT-BPE as alternative base.
+4. **Projection head**: 768→1024 linear, trained jointly with encoder via InfoNCE.
+
+### Full Reference List
+
+Saved to: `memory/literature_cross_modal_bridge.md` (22 papers with URLs, architectures, results, relevance)
+
