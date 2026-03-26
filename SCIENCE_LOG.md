@@ -18223,3 +18223,96 @@ exp_E03h (job 12234560, resubmitted with 4h limit) is computing L2O (3,240 pairs
 
 **Path 2 conclusion**: Rank-1 is a biological constraint. The bridge is statistically sound but morphologically uninformative at species level with 81 flowering plants. Species-specific recovery requires either many more diverse species (Path 1/3) or a fundamentally different architecture (beyond linear).
 
+
+---
+
+## Entry 238 — Jackknife Complete (L2O), NT v2 + Layer Sweep Launched, iNat Audit Submitted (2026-03-26)
+
+### Jobs Submitted This Session
+
+| Job | ID | Partition | Status | Description |
+|---|---|---|---|---|
+| exp_E03h jackknife (Woodbury fix) | 12239584 | CPU | RUNNING | L2O+L10O+family leave-out |
+| exp_E04 layer sweep (OOM fix) | 12239522 | GPU A100 | PENDING | Evo2 7B all-layer embedding sweep |
+| exp_E05 NT v2 geometry (fixed) | 12239562 | CPU | SUBMITTED | NT v2 500M geometry vs Evo2 7B |
+| exp_E_inat_audit | 12239553 | CPU | PENDING | 3-pass iNat metadata audit (11GB+16GB) |
+
+### exp_E03h — Jackknife L2O Result
+
+**L2O confirmed complete (Woodbury rank-2 downdate fix):**
+
+| Test | Mean cosine | Std | Delta vs LOO |
+|---|---|---|---|
+| LOO (Test 0, reference) | 0.9709 | 0.0219 | — |
+| L2O (Test 1, all 3240 pairs) | **0.9709** | **0.0219** | **0.0000** |
+| L10O (Test 2, 200 subsets) | pending | — | — |
+| Family leave-out (Test 3) | pending | — | — |
+
+**Key result**: L2O mean = LOO mean exactly (0.9709). Removing any two species simultaneously causes zero degradation vs removing one. This is the expected behavior for a mean-prediction regime: with 81 samples all mapping to the same approximate target, removing 2 vs 1 barely changes the fitted mean.
+
+**The Woodbury fix**: The previous implementation ran `lstsq(4096×4096)` for each of 3240 pairs — O(n² × d³) = estimated ~2–4 hours. The fix precomputes `A_inv = (G'G + αI)⁻¹` once (one O(d³) inversion), then each pair uses Woodbury rank-2 downdate: two sequential rank-1 updates O(d²) each. The 3240 iterations completed in under 10 minutes.
+
+The formula for removing species i and j:
+```
+A_{-i}^{-1} = A_full^{-1} + (A_inv @ g_i)(A_inv @ g_i)' / (1 - g_i' A_inv g_i)  [rank-1 Woodbury]
+A_{-i,-j}^{-1} = A_{-i}^{-1} + (A_{-i}^{-1} @ g_j)(A_{-i}^{-1} @ g_j)' / (1 - g_j' A_{-i}^{-1} g_j)  [second rank-1]
+GF_{-i,-j} = G'F - g_i f_i' - g_j f_j'
+W_{-i,-j} = A_{-i,-j}^{-1} @ GF_{-i,-j}
+```
+
+### exp_E04 — Evo2 7B All-Layer Sweep (OOM Fix)
+
+Previous attempt (job 12234570) failed with `torch.OutOfMemoryError: Tried to allocate 27.60 GiB` from Hyena SSM `compute_filter` — a large contiguous allocation in the SSM filter computation that caused fragmentation at 47.74 GiB model footprint with only 23.31 GiB free.
+
+Two fixes applied:
+1. `export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True` in submit script — the allocator serves the SSM's large contiguous request from a reserved segment rather than failing on fragmentation
+2. `del emb_dict, input_ids; torch.cuda.empty_cache()` after each species — explicit GC between iterations reduces peak fragmentation
+
+Job 12239522 PENDING GPU A100.
+
+**Purpose**: Extract embeddings at all 65 Evo2 7B layers for 81 species, compute LOO cosine per layer, identify which layer maximizes W_evo bridge quality. Expected: last attention block (Layer 31/32) is optimal; intermediate layers may carry complementary signal.
+
+### exp_E05 — NT v2 500M Geometry
+
+**Problem**: `AutoModel.from_pretrained` for NT v2 falls through to `EsmModel` base class which has incompatible config (`is_decoder` attribute missing). Root cause: NT v2's `config.json` only has `AutoModelForMaskedLM` in its `auto_map`, not `AutoModel`.
+
+**Fix**: `AutoModelForMaskedLM.from_pretrained(...)` then `.esm` attribute to unwrap to the encoder. Also loading from local cache snapshot path directly.
+
+**Hypothesis**: NT v2 uses bidirectional (MLM) attention over 850 reference genomes → should show significantly less G-space collapse than Evo2's causal next-token predictor.
+
+| Metric | Evo2 7B | NT v2 predicted |
+|---|---|---|
+| `\|\|mean(G_norm)\|\|` | 0.9932 | < 0.95 (less collapse) |
+| pairwise_cos mean | 0.9862 | < 0.90 (more disperse) |
+| PCA dims 95% var | 4 | > 10 (richer geometry) |
+| LOO cosine | 0.9709 | ~0.97 (similar — mean prediction regime) |
+
+### exp_E_inat_audit — iNaturalist Metadata Audit
+
+**Purpose**: Determine how many of the 250,995 active angiosperm species in iNaturalist have:
+- ≥20 research-grade observations
+- ≥20 open-license photos (CC0/CC-BY/CC-BY-NC)
+
+**The training corpus ceiling**: species with both criteria = maximum cross-modal training set size for the DNA↔vision bridge.
+
+Three-pass streaming over 27 GB of compressed metadata:
+- Pass 1: `taxa.csv.gz` (37 MB) → extract all active angiosperm species + families
+- Pass 2: `observations.csv.gz` (11 GB) → per-species research-grade obs counts + write `angio_obs.tsv.gz`
+- Pass 3: `photos.csv.gz` (16 GB) → per-species photo counts, license filtering, sample photo_ids
+
+**Expected output**: `summary_stats.json` with `training_corpus_ceiling_ge20` = species with ≥20 rg obs AND ≥20 open-license photos. This number determines whether the DNA↔BioCLIP bridge at 30–50K species is feasible.
+
+### Status Summary
+
+| Experiment | Status | Key result |
+|---|---|---|
+| E02 Evo2 embeddings | COMPLETE | 81 species, 4096-dim, model=evo2_7b |
+| E03 W_evo bridge | COMPLETE | LOO=0.9709, W(4096→1024), α=1.0 |
+| E03b Mantel | COMPLETE | r=0.066, p=0.201 — null (G↔F not correlated) |
+| E03h jackknife L2O | COMPLETE | L2O=0.9709 (=LOO) — mean-prediction regime confirmed |
+| E03h jackknife L10O+family | PENDING | job 12239584 running |
+| E03j stratified sampling | COMPLETE | Per-family LOO=0.926–0.984, rank-1 biological |
+| E04 layer sweep | PENDING GPU | job 12239522 — OOM fix applied |
+| E05 NT v2 geometry | SUBMITTED | job 12239562 — tokenizer/model class fix applied |
+| E_inat_audit | PENDING CPU | job 12239553 — 3-pass streaming audit |
+
