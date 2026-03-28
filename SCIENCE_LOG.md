@@ -18556,3 +18556,57 @@ Photo → NextGen pipeline → BioCLIP CLS → W_reverse → predicted ITS2 embe
 - phyr R package (Li et al. 2020): Modern implementation for large trees.
 - Our exp_E03f (partial Mantel controlling for phylogeny) already showed phylo explains ~0% — but PGLMM is more rigorous.
 
+## Entry 242 — Reverse Bridge Experiment + Color Gene Research + Variance Citation Chain (2026-03-29)
+
+### exp_E_reverse_bridge (job 12307035, COMPLETE, 6.3s)
+
+**Result: Reverse bridge is ALSO rank-1 (mean prediction).**
+
+| Metric | Forward (DNA→Visual) | Reverse (Visual→DNA) |
+|---|---|---|
+| LOO cosine | 0.9709 ± 0.0219 | 0.9929 ± 0.0088 |
+| NN accuracy | — | **1/81 = 1.2%** |
+| cos(pred, mean) | 0.9999 | **1.0000** |
+| Variance ratio (pred_std/target_std) | 0.047 | 0.234 |
+| Effective rank (90% var) | 1 | 1 |
+| W SVD σ₁ fraction | 97.1% | 96.6% |
+
+**Diagnosis**: All 81 predicted DNA embeddings collapse to the mean DNA vector. 80/81 species' nearest neighbor is either Gundelia tournefortii or Ceratonia siliqua (closest real species to the DNA centroid). Only 1/81 maps to the correct species.
+
+**Why reverse LOO > forward LOO**: G-space (DNA) is MORE clustered (pairwise_cos=0.986) than F-space (visual, 0.944). Predicting "mean of G" gives cos≈0.993 trivially.
+
+**Interpretation for the reverse bridge app vision**: Photo→DNA prediction DOES NOT WORK with Evo2 embeddings. Root cause: Evo2's collapsed G-space. Fix: DNABERT-S with species-discriminative training. The app remains feasible IF the DNA encoder is fixed.
+
+### Variance Decomposition — Full Citation Chain Established
+
+The chain LOO_MLP − LOO_linear ≈ epistatic contribution is now supported by:
+
+**Foundation**: Fisher 1918 → Cockerham 1954 → Falconer & Mackay 1996 (textbook)
+**Empirical validation**: Abdollahi-Arpanahi et al. 2020, Zingaretti et al. 2020, Kovalev et al. 2024 — MLP-linear gap scales with epistatic architecture
+**Conservative bound**: Hill et al. 2008 — most VARIANCE is additive even with functional epistasis → gap is lower bound
+**Confounding caveat**: Wood et al. 2014 (phantom epistasis), Zuk et al. 2012 (phantom heritability) — environmental noise masquerades as epistasis
+**Solution**: Powadi/CAE 2024 — disentangle G from E → Δ_genetic isolates true epistasis
+**Denoising effect**: Okbay et al. 2023, Wray et al. 2010 — removing noise reveals MORE epistatic signal (Δ_genetic > Δ_raw possible)
+
+### Flower Color Genes — Research Summary
+
+DFR (dihydroflavonol reductase) is the key color-determinant gene:
+- Position 133/134: Asn-type = broad color, Asp-type = red-to-blue only
+- 237 species with DFR in GenBank (745 homologs)
+- No curated multi-species database for flower color genes exists
+- KIPEs3 tool can automatically annotate DFR from any genome (GitHub: bpucker/KIPEs)
+
+**BioCLIP color encoding**: Gandelsman et al. (ICLR 2024) showed ViT attention head L22H11 specializes in color. Color IS in the 1024-dim CLS but mixed with other features.
+
+**Assessment for multi-gene pipeline**:
+- GPU/compute: NOT a bottleneck (DNABERT is 117M params, trivial)
+- DATA is the bottleneck: 237 species with DFR vs 111K with ITS2
+- Recommended: ITS2-only in Phase 1, add DFR in Phase 2 for the ~237 overlapping species
+
+### Running Jobs
+
+| Job | ID | Description |
+|---|---|---|
+| iNat audit | 12304278 | 250K species metadata audit (glob fix applied) |
+| Israel species | 12307040 | Israel angiosperm species + ITS2 cross-reference |
+
