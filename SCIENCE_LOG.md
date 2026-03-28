@@ -18400,3 +18400,68 @@ Deep learning features from field images showed HIGHER heritability than hand-me
 
 Saved to: `memory/literature_cross_modal_bridge.md` (22 papers with URLs, architectures, results, relevance)
 
+## Entry 240 — Additivity vs Epistasis: Empirical Evidence for Floral Traits, Job Status Update (2026-03-28)
+
+### Purpose
+
+Deep investigation of the additivity vs epistasis question for ITS2→flower phenotype, and status update on all running experiments.
+
+### Job Status (as of 2026-03-28)
+
+| Job | ID | Status | Result |
+|---|---|---|---|
+| nextgen_full_run | 12240632 | **COMPLETE** | 82,016 images (73,180 Citadel + 8,836 new), 0 failures |
+| E03h jackknife | 12239584 | **CANCELLED (time limit)** | L2O=0.9709=LOO confirmed; L10O at 0.9715 when killed (100/200 subsets) |
+| E04 layer sweep | 12239522 | **FAILED (OOM)** | Evo2 7B uses 52 GiB; Hyena filter needs 27.6 GiB more. Needs fix. |
+| E05 NT v2 | 12239562 | **FAILED (cache)** | modeling_esm.py missing from HF snapshot. Re-download needed. |
+| iNat audit | 12240749 | **FAILED (polars glob)** | `[Pipeline]` brackets in path trigger glob expansion. Known bug. |
+
+**Key**: nextgen_full_run COMPLETE unblocks CLS extraction (Step 4). E03h confirmed mean-prediction (sufficient data despite timeout).
+
+### The Additivity vs Epistasis Question
+
+**Context**: Our linear W_evo bridge captures ONLY additive genetic variance. The question: how much of flower appearance is additive vs epistatic?
+
+**Additive evidence (the linear bridge captures this):**
+- Conner 2002 meta-analysis: mean h²≈0.4 for floral traits. Additive variance dominates for petal number, flower size, corolla length.
+- Hansen & Wagner 2001: Natural selection converts epistatic variance to additive over evolutionary time. Standing variation is disproportionately additive.
+- Goker & Grimm 2008: Raw ITS p-distance vs morphological Gower distance gives r=0.818 (Fagus, 28 OTUs, 42 characters). Linear metric on linear metric = high correlation. This validates that the ADDITIVE component of ITS-morphology correlation is strong.
+
+**Epistatic evidence (what the linear bridge MISSES):**
+- Monnahan & Kelly 2015 (Mimulus F2 crosses): Epistatic variance = 15–40% of total genetic variance for carotenoid petal content; ~15–20% for corolla width. COLOR has 2–3x more epistasis than SHAPE.
+- Anthocyanin biosynthesis pathway: Sequential chain (CHS→CHI→F3H→DFR→ANS→UGT). Loss-of-function at any step blocks all downstream pigment. By definition epistatic: effect of gene X depends on state of gene Y.
+- Rausher 2008: Convergent flower color evolution repeatedly targets DFR/ANS/F3'H across unrelated lineages. If landscape were flat/additive, evolution would take different paths. Same path repeatedly → narrow ridges → rugged landscape with epistatic constraints.
+- Letten & Cornwell 2015: Trait divergence ∝ √time, not linear. Morphospace saturates. Sublinear scaling = boundaries imposed by epistatic constraints. Species diverged 100 Mya are only ~3.2× more visually different than species diverged 10 Mya (not 10×).
+
+### Prediction for Our Bridge
+
+| Bridge | Captures | Predicted LOO (30K+ spp) | Interpretation |
+|---|---|---|---|
+| Linear W_evo | Additive V_G only | 0.5–0.7 | h²≈0.4 additive component |
+| MLP bridge | Additive + epistatic V_G | Higher than linear | Improvement = epistatic contribution |
+| LOO_MLP − LOO_linear | Epistatic component | THIS is the publishable number | First quantification of epistasis in DNA→vision bridge |
+
+**Color dimensions specifically**: MLP should show largest gain over linear in BioCLIP dimensions that encode color (anthocyanin epistasis). Shape dimensions should show smaller gain (more additive).
+
+### Goker vs Our Framework — Distance Space Comparison
+
+| Aspect | Goker (2008) | Our Framework |
+|---|---|---|
+| DNA distance | Raw uncorrected p-distance (linear, each mismatch = equal weight) | Neural embedding cosine distance (nonlinear, learned weighting) |
+| DNA space | {A,C,G,T}^300 (raw alignment) | 4096-dim Evo2 / 768-dim DNABERT (compressed representation) |
+| Phenotype distance | Gower dissimilarity on 42 hand-measured characters | Cosine distance in 1024-dim BioCLIP visual space |
+| Phenotype space | 42-dim character space (discrete/ordinal) | 1024-dim continuous neural features |
+| Organisms | Trees (leaves, bark, seeds) | Flowers (petals, color, shape) |
+| V_E | LOW (herbarium specimens, calipers) | HIGH (wild photos, variable lighting/angle/season) |
+| Expected Mantel r | 0.818 (observed) | Predicted: 0.3–0.5 (lower due to V_E, neural encoding, flower ephemerality) |
+
+**Critical insight**: Goker's r=0.818 used RAW p-distance — every nucleotide change weighted equally. Our neural embeddings apply LEARNED nonlinear weighting. If our Mantel r exceeds Goker's after training DNABERT-S with InfoNCE, it means the neural encoding learned biologically meaningful weighting of ITS2 positions (positions that predict visual change weighted more). This would be a novel result.
+
+### BIOSCAN-CLIP Exact Numbers (for reference)
+
+Species-level accuracy on BIOSCAN-1M insects:
+- Multimodal (DNA+image+text): 60.4% seen / 62.5% unseen
+- Vision only (BioCLIP): 37.7% seen / 48.1% unseen
+- DNA only: 51.7% seen / 58.5% unseen
+- Multimodal gain: +22.7pp over vision-only, +8.7pp over DNA-only
+
