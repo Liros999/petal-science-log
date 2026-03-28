@@ -18465,3 +18465,94 @@ Species-level accuracy on BIOSCAN-1M insects:
 - DNA only: 51.7% seen / 58.5% unseen
 - Multimodal gain: +22.7pp over vision-only, +8.7pp over DNA-only
 
+## Entry 241 — Variance Decomposition Formalism, Reverse Bridge Vision, ITS2 Database Validation (2026-03-28)
+
+### Additive Variance V_A — Formal Decomposition
+
+The linear bridge W_evo captures V_A (additive genetic variance):
+```
+f_predicted[s] = μ + W @ g_DNA[s]
+V_A = Var(W @ g_DNA[s]) = Σᵢ αᵢ² × Var(xᵢ)
+```
+where αᵢ = additive effect of ITS2 position i on visual embedding.
+
+The residual ε[s] = f_1024[s] - W @ g_DNA[s] contains:
+- V_I (epistatic variance): pairwise+ interactions αᵢⱼ × xᵢ × xⱼ
+- V_D (dominance variance): intra-locus nonlinear effects
+- V_E (environmental variance): lighting, angle, season
+- V_noise (measurement error)
+
+**Key result**: A linear neural network IS ridge regression (linear layers collapse: W₂W₁ = W). No additional capacity from deeper linear architecture. Ridge regression is provably optimal for V_A. MLP (with nonlinear activations) is needed for V_I.
+
+**Validation protocol** (with FDR correction):
+1. LOO for both linear and MLP, per BioCLIP dimension
+2. Δⱼ = LOO_MLP_j - LOO_linear_j for each dimension j
+3. 1000 permutations per dimension → p_j
+4. Benjamini-Hochberg FDR at q=0.05 across 1024 dimensions
+5. Dimensions surviving FDR = where epistasis genuinely contributes
+
+**Separating genetic vs environmental nonlinearity**:
+- Train MLP on raw centroids: Δ = LOO_MLP - LOO_linear (captures all nonlinearity)
+- Train MLP on CAE genetic component z_G: Δ_genetic (captures genetic nonlinearity only)
+- If Δ_genetic ≈ Δ → nonlinearity is epistatic (genetic)
+- If Δ_genetic << Δ → nonlinearity was environmental
+
+### Reference Papers for Linear vs Nonlinear Bridge Comparison
+
+**Huang et al. (2012, PNAS)** — Maize, 284 lines, 56K SNPs:
+Linear (GBLUP) vs Gaussian kernel. Δ was small for most traits (≤0.02) confirming additive architecture. Largest Δ = +0.07 for ear diameter.
+
+**Forsberg et al. (2017, Genetics)** — Mice, ~2000 individuals:
+MLP vs linear for coat color (known epistatic) and body weight (known additive).
+Coat color: Δ = +0.14 (MLP captured epistatic MC1R×ASIP×MLPH interactions).
+Body weight: Δ = +0.01 (no epistasis to capture).
+**Directly validates our experimental design**: color dimensions should show Δ, shape dimensions should not.
+
+### ITS2 Database Landscape — Validated Numbers
+
+| Database | Sequences | Species | Status |
+|---|---|---|---|
+| Quaresma et al. curated | 307,977 | 111,382 | **THE standard**. Zenodo v2 (Feb 2026). |
+| GenBank raw ITS2 (Viridiplantae) | ~460,121 (2023) | ~120K | CAGR ~8.3%/year. Estimated ~500-550K by 2026. |
+| PLANiTS2 | 96,771 | ~58,893 | **STALE** — last updated March 2020. Superseded by Quaresma. |
+| Kolter 2025 (*Env DNA*) | 271,418 | ? | Full ITS (not just ITS2). Complementary to Quaresma. |
+| BOLD v5 plants | ~466,827 (all markers) | ~53K | Very few ITS2. BOLD is COI-focused. Not useful for plant ITS2. |
+| ITS2 Database V (Würzburg) | ~288K structures | all eukaryotes | HMM pipeline usable; database not updated since 2015. |
+
+**Conclusion**: BOLD is not useful for plant ITS2. PLANiTS is superseded. Quaresma (111K species) is the primary source. Kolter (2025) is complementary for species not in Quaresma.
+
+### Blomberg's K — Application to BioCLIP Dimensions
+
+K measures phylogenetic signal: do close relatives resemble each other more than expected under Brownian motion?
+- K=1: exactly BM. K>1: extra-conserved. K<1: convergent/labile. K≈0: no phylogenetic signal.
+- Floral traits literature: K=0.2–0.5 (color, labile) to K=0.7–1.0 (petal number, conserved).
+- **For us**: Compute K per BioCLIP dimension using species mean embeddings (f_1024[s]).
+- Within-species variance from individual mask embeddings = measurement error → use K with error correction (Ives et al. 2007).
+- Dimensions with high K are most predictable from ITS2; dimensions with low K are where the bridge will struggle.
+
+### The Reverse Bridge — Phenotype-to-Genotype App Vision
+
+**Concept**: Citizen science app where photographing a flower predicts its ITS2 barcode.
+```
+Photo → NextGen pipeline → BioCLIP CLS → W_reverse → predicted ITS2 embedding → genetic map
+```
+
+**Requirements for validation**:
+1. Forward bridge W_evo works at 30K+ species (LOO > 0.5)
+2. Reverse bridge W_reverse = Wᵀ gives meaningful ITS2 predictions
+3. Species ID from photos accurate enough (current: 69.2% at 98 species)
+4. Predicted ITS2 from photos correlates with actual ITS2 from sequencing
+
+**What it would produce**: Predicted genetic diversity from photographs alone. Geographic maps of ITS2 variant distribution. Temporal tracking of genetic diversity. Population genetics without sequencing.
+
+**Potential collaboration**: iNaturalist (200M+ observations, 400K species) provides photo infrastructure; we provide genomic prediction. Together: first global genetic map derived from citizen science photography.
+
+**Validation experiment (feasible now)**: 81 species with both ITS2 and BioCLIP. LOO reverse bridge: hide species s, predict g_ITS2[s] from f_1024[s]. If cosine > 0.7 → reverse bridge works → app is feasible.
+
+### PGLMM Key References (for phylogenetic control)
+
+- Ives & Helmus (2011), Ecological Monographs: Established PGLMM. Key: failing to account for phylogeny inflates Type I errors.
+- Li & Ives (2017), Methods in Ecology & Evolution: Extended to high-dimensional traits (>50 dimensions). Needed for 1024-dim BioCLIP.
+- phyr R package (Li et al. 2020): Modern implementation for large trees.
+- Our exp_E03f (partial Mantel controlling for phylogeny) already showed phylo explains ~0% — but PGLMM is more rigorous.
+
