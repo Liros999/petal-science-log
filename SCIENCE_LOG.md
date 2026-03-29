@@ -18905,3 +18905,79 @@ Steps 2-3 scripts are written and ready to run. Steps 4-5 require additional dev
 - Still running, ETA ~20 minutes
 - Key output: `species_audit.json` — per-species n_photos_total, n_open_license_photos, sample_photo_ids
 
+---
+
+## Entry 247 — Israeli Flora DB + Quaresma Cross-Reference (2026-03-29)
+
+### Israel Species SQLite Database
+
+**`exp_E_israel_db.py`** (job 12322851, RUNNING) builds `israel_species.db` directly from
+source files — no intermediate JSON. Single pipeline:
+
+```
+Pass 1: taxa.csv.gz     → 250,995 angiosperm species → 2,611 Israel species identified
+Pass 2: observations.csv → Israel bbox obs counts + global obs counts + UUID cache
+Pass 3: photos.csv.gz   → open-license photo counts + 50 sample photo IDs per species
+Join:   flora.co.il xlsx → color / lifeform / chorotype (Hebrew + English)
+Output: israel_species.db
+```
+
+**Schema** (4 tables):
+```sql
+species    — taxon_id PK, name, family, hebname, n_israel_obs, rg_obs_global,
+             n_open_photos, n_permissive_photos,
+             color_en, color_heb, lifeform_en, lifeform_heb,
+             chorotype_en, chorotype_heb, inflorescence_heb,
+             has_its2, flora_id
+photos     — taxon_id, photo_id, ext  (up to 50 per species)
+colors     — taxon_id × color_en      (normalized, one row per color tag)
+chorotypes — taxon_id × chorotype     (normalized, one row per zone)
+```
+
+**flora.co.il integration** (`flora.co.il colours.xlsx`, 2,969 species):
+- Joined on Latin name → 2,090/2,611 matches (80%)
+- **17 flower colors** (Hebrew → English): yellow(790), green(698), white(676), pink(438),
+  purple(229), crimson(193), cream(104), blue(103), lilac(72), brown(62), red(60), sky_blue(59),
+  orange(46), membranous(44), no_perianth(33), no_flowers(22), black(10)
+- **2 lifeforms**: annual (בן-חלוף), perennial (בן-קיימא)
+- **26 chorotypes**: Mediterranean(979), IranoTuranian(342), SaharoArabian(287), Sudanian(81)...
+
+**Why SQLite**: immediately queryable, zero infrastructure, readable from Python/R/shell.
+Example queries:
+```sql
+-- Yellow-flowered annuals ready for NextGen (≥20 open photos)
+SELECT name, n_israel_obs, n_open_photos FROM species s
+JOIN colors c ON s.taxon_id=c.taxon_id
+WHERE c.color_en='yellow' AND s.lifeform_en='annual' AND s.n_open_photos>=20;
+
+-- Download budget estimate
+SELECT COUNT(*), SUM(MIN(n_open_photos,30))*150000/1e9 AS est_gb
+FROM species WHERE n_open_photos >= 20;
+```
+
+**Output path**: `results/exp_E_israel_db/israel_species.db`
+
+### Quaresma 2024 ITS2 Cross-Reference
+
+**`exp_E_quaresma_crossref.py`** (job 12322865, RUNNING):
+- Downloads Quaresma 2024 ITS2 FASTA from Zenodo (DOI: 10.5281/zenodo.7968519, 232MB)
+- Extracts species names from FASTA headers (307,977 sequences → ~111,382 plant species)
+- Cross-references with 2,611 Israeli iNat species (exact name match)
+- **Expected**: several hundred matches (Mediterranean flora is well-barcoded in Quaresma)
+
+This answers: **how many of the 2,611 Israeli species have ITS2 barcodes available?**
+That number × open-photo coverage = Israel-specific DNA↔vision training pairs.
+
+**Output path**: `results/exp_E_quaresma_crossref/`
+- `quaresma_species.txt` — all 111K species names
+- `israel_quaresma_match.json` — matched Israeli species with n_seqs in Quaresma
+- `summary.json` — match rate, genus coverage
+
+### Running Jobs Summary (2026-03-29 17:41)
+
+| Job | ID | Status | ETA |
+|---|---|---|---|
+| iNat audit Pass 3 | 12320549 | RUNNING | ~8h |
+| Israel species DB | 12322851 | RUNNING | ~3h |
+| Quaresma crossref | 12322865 | RUNNING | ~30min |
+
