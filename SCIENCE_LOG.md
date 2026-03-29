@@ -18830,3 +18830,78 @@ Both jobs confirmed: Pass 1 loads 1,620,653 taxa → 250,995 active angiosperm s
 3. **Quaresma cross-reference**: Download species name list from Quaresma 2024 (Zenodo, 232MB FASTA headers only), cross-reference with Israeli species list
 4. **DNABERT-S acquisition**: `from transformers import AutoTokenizer, AutoModel; model = AutoModel.from_pretrained("zhihan1996/DNABERT-S")`
 
+---
+
+## Entry 246 — Production Pipeline: Scalable Inference Architecture + Session Summary (2026-03-29)
+
+### Session Summary: What Was Established
+
+**Theoretical foundations (sealed):**
+
+1. **Circularity is not a problem** — the pipeline is a DAG. BioCLIP text encoder (→ W_SAM3 training) and BioCLIP image encoder (→ f_1024 extraction) are independent. DNABERT-S is trained on f_1024 as a frozen target. W_evo is trained on frozen g[s]. No cycles exist. Evaluation contamination is prevented by the iNat holdout rule.
+
+2. **B2 cross-attention decoder** = production decoder for photo→ITS2 generation. g (768-dim DNABERT-S embedding) is re-injected at every decoder layer via cross-attention, encoding V_A (additive variance) at all levels of abstraction. B3 (FiLM, multiplicative, encodes V_I epistasis) comes after B2 is validated.
+
+3. **Inference chain (no BLAST):**
+```
+flower image → SAM3 → mask crop
+→ BioCLIP 2.5 (ONE pass, image encoder) → f_photo ∈ ℝ¹⁰²⁴
+→ W_reverse (1024→768) → g_predicted ∈ ℝ⁷⁶⁸
+→ Autoregressive decoder (B2) → x₁,...,x_L ∈ {A,T,C,G}
+→ DNABERT-S(generated_seq) → cosine search in known-species database
+→ predicted species
+```
+
+**Experimental results (new):**
+
+| Experiment | Result | Significance |
+|---|---|---|
+| exp_E06 K2P distances | 223 ITS2 species, between/within ratio=3.71×, 0 NaN pairs | Ground truth phylogenetic matrix established |
+| exp_E07 Mantel test | r=-0.042, p=0.80 (null) | f_1024 visual space ≠ phylogenetic space — expected, correct baseline |
+| exp_E_israel_species | 2,611 angiosperm species in Israel, 0 overlap with our 273 | Cross-reference with Quaresma needed |
+| iNat audit Pass 2 | 230M obs, 133,385 species with ≥1 research-grade obs | Checkpoint saved, Pass 3 running |
+
+**Artifacts identified:**
+- Mercurialis annua: wind-pollinated, no real flowers → contaminated visual centroid → top positive residual artifact. Flagged for exclusion.
+- Ophrys within-genus: K2P=0 but visually divergent → V_I epistasis case (regulatory, not sequence-level)
+
+**"30-50K" number: STILL UNVALIDATED** — waiting for iNat audit Pass 3 completion.
+
+### Production Scalable Pipeline — New Scripts
+
+**`nextgen_inat_run.py`** — Scales the sealed NextGen pipeline to any iNat species:
+- Input: TSV file (image_id, species_name, taxon_id, image_path)
+- SLURM array: `--array=0-7` → 8 parallel GPU shards, each processes images[shard::8]
+- On-the-fly delta: BioCLIP text encoder (CPU) computes b_text[s] for any new species → W_SAM3 → delta[s]
+- delta_cache: pre-populated with 290 Citadel species at startup, grows as new species encountered
+- Fully resumable: skips existing JSON outputs
+- Output: `results/nextgen_inat_run/{bucket}/{image_id}.json` (same format as nextgen_full_run)
+
+**`exp_E_inat_download.py`** — Downloads iNat photos and generates the TSV:
+- Reads `species_audit.json` (from iNat audit)
+- Filters: n_open_license_photos ≥ 20 AND n_research_obs ≥ 5
+- Downloads top-30 photos per species from iNat S3: `https://inaturalist-open-data.s3.amazonaws.com/photos/{photo_id}/medium.{ext}`
+- 8 parallel download workers
+- Generates `results/nextgen_inat_run/inat_image_list.tsv`
+
+### Execution Order (Production)
+
+```
+STEP 1 [RUNNING] iNat audit (12313651) → species_audit.json
+                  ↓
+STEP 2 [READY]   exp_E_inat_download.py → download photos → inat_image_list.tsv
+                  ↓
+STEP 3 [READY]   nextgen_inat_run.py --array=0-7 → flower masks for all species
+                  ↓
+STEP 4 [FUTURE]  BioCLIP CLS extraction from saved mask crops → f_1024_inat[s]
+                  ↓
+STEP 5 [FUTURE]  DNABERT-S fine-tuning with InfoNCE (g[s] ← f_1024_inat[s])
+```
+
+Steps 2-3 scripts are written and ready to run. Steps 4-5 require additional development.
+
+### iNat Audit — Pass 3 Progress (at time of logging)
+- Chunk 10: 1,506,690 photos scanned, 18,472 species with photos
+- Still running, ETA ~20 minutes
+- Key output: `species_audit.json` — per-species n_photos_total, n_open_license_photos, sample_photo_ids
+
