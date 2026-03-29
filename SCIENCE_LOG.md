@@ -18993,3 +18993,97 @@ under different name variants — fuzzy matching will recover additional species
 | Israel species DB | 12322851 | RUNNING | ~3h |
 | Quaresma crossref | 12322886 | **COMPLETE** | — |
 
+## Entry 248 — Israel Production Run Initiated: DB Complete, Download + Inference Pipeline Ready (2026-03-29)
+
+### DB Status: COMPLETE
+
+`israel_species.db` finalized (job 12323101, fixed 3 bugs from job 12323021):
+- **Bug 1 fixed**: `uuid` → `observation_uuid` column name in observations.csv.gz
+- **Bug 2 fixed**: license cast from `pl.Int64` → `pl.Utf8` (photos.csv.gz uses strings: `'CC-BY-NC'`, `'CC0'`)
+- **Bug 3 fixed**: `mean_b` (CIELab) vs `mean_B` (RGB) column name collision in mask_colors DDL — SQLite 3.34 is case-insensitive; renamed to `lab_L`, `lab_a`, `lab_b`
+
+**Final DB state:**
+```
+species:    2,611 rows
+photos:     73,580 rows  (avg 73.8/species, max 2,332)
+colors:     2,657 rows
+chorotypes: 2,069 rows
+```
+
+### Photo Download Running (job 12323888)
+
+`exp_E_israel_download.py` started automatically (SLURM `--dependency=afterok:12323101`):
+- 73,580 photos pending
+- Target: `/groups/itay_mayrose_nosnap/leardistel/israel_photos/{taxon_id}/{photo_id}.{ext}`
+- Rate: ~7.7 img/s, ETA ~155 min from start
+- Storage: 10 TB free on nosnap (14% used). ~73K × ~150KB = ~11 GB expected
+
+### WCVP Synonym Recovery: COMPLETE (job 12323887)
+
+`exp_E_quaresma_synonym.py` ran after DB (also `--dependency=afterok:12323101`).
+Used `wcvp_names.csv` synonym table to find Quaresma entries for the 799 unmatched Israeli species.
+**No genus-level fallback** (contamination risk — wrong-species sequences corrupt the training set).
+
+| Metric | Value |
+|---|---|
+| Israeli species with exact Quaresma match | 1,812 |
+| Recovered via WCVP synonyms | **+158** |
+| — via direct synonym (Israeli name IS synonym) | 21 |
+| — via sibling synonym (both are synonyms of accepted) | 137 |
+| Still unresolved | 641 |
+| **Total with ITS2 available** | **1,970 / 2,611 (75.5%)** |
+
+Notable recovered: e.g. *Capparis zoharyi* → *Capparis spinosa* (if present in Quaresma as accepted name).
+
+### DNABERT-S Validated (job 12324856)
+
+After fixing 3 compatibility issues in cached `bert_layers.py`:
+1. PyTorch 2.7 meta-device bug in `rebuild_alibi_tensor` → force `device='cpu'` when None
+2. Triton JIT compilation failure → `flash_attn_qkvpacked_func = None` (force PyTorch attention path)
+3. Model output is tuple, not ModelOutput → `outputs[0]` for last hidden state
+
+**Results on 20 ITS2 sequences (exp_E01b barcode set):**
+
+| Metric | DNABERT-S | Evo2 7B (baseline) |
+|---|---|---|
+| Mean pairwise cosine | **0.5704** | 0.986 |
+| Std pairwise cosine | 0.1408 | — |
+| Min pairwise cosine | 0.1752 | — |
+| Max pairwise cosine | 0.8597 | — |
+| Effective rank | 5.42 | 4 |
+| Embedding dim | 768 | 4096 |
+
+**Assessment: GOOD** — 0.5704 vs 0.986 baseline = dramatically more species-discriminative than Evo2.
+DNABERT-S is confirmed as the correct DNA encoder for this project.
+
+### NextGen Israel Inference Pipeline: READY
+
+All scripts written and tested:
+
+| Script | Purpose |
+|---|---|
+| `exp_E_israel_build_tsv.py` | DB → TSV (photo_id, species, taxon_id, path) |
+| `exp_E_israel_infer.py` | NextGen sealed pipeline, 8 GPU shards |
+| `exp_E_israel_ingest_results.py` | JSONs → inference_results table in DB |
+| `submit_exp_E_israel_build_tsv.sh` | 15min, CPU |
+| `submit_exp_E_israel_infer.sh` | 24h, GPU array (0-7) |
+| `submit_exp_E_israel_ingest_results.sh` | 2h, CPU |
+
+**Output path**: `/groups/itay_mayrose_nosnap/leardistel/nextgen_israel_run/` (nosnap, persistent)
+**Storage estimate**: ~73K images × 2KB JSON = ~150MB
+
+**Execution after download completes:**
+```bash
+sbatch submit_exp_E_israel_build_tsv.sh        # builds TSV from downloaded photos
+sbatch --dependency=afterok:<tsv_job_id> submit_exp_E_israel_infer.sh   # 8 GPU shards
+```
+
+### Storage Check (2026-03-29 18:35)
+
+| Filesystem | Free | Used% | Note |
+|---|---|---|---|
+| nosnap | 10 TB | 14% | Photos + inference JSONs go here |
+| scratch200 | 15 TB | 46% | DB, scripts, results go here |
+
+Well within capacity. ~11 GB photos + ~150MB JSONs = trivial.
+
