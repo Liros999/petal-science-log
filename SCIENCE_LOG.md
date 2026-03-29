@@ -18965,19 +18965,31 @@ FROM species WHERE n_open_photos >= 20;
 - Cross-references with 2,611 Israeli iNat species (exact name match)
 - **Expected**: several hundred matches (Mediterranean flora is well-barcoded in Quaresma)
 
-This answers: **how many of the 2,611 Israeli species have ITS2 barcodes available?**
-That number × open-photo coverage = Israel-specific DNA↔vision training pairs.
+**Results (COMPLETE, job 12322886):**
+
+| Metric | Value |
+|---|---|
+| Quaresma total sequences | 307,977 |
+| Quaresma unique species | 105,875 |
+| Israeli species with ITS2 in Quaresma | **1,812 / 2,611 (69.4%)** |
+| Israeli species with ITS2 + ≥5 Israel obs | **1,355** |
+| Israeli species with ITS2 + ≥20 Israel obs | **814** |
+
+**The 814 number** = Israeli species with both ITS2 barcode (Quaresma) AND ≥20 research-grade
+Israel observations. These are the species for which we can build a DNA↔vision training pair
+using Israeli iNat photos specifically.
+
+**Top unmatched species** (likely synonymy): *Capparis zoharyi* (1,333 obs), *Drimia aphylla* (831),
+*Asphodelus ramosus* (693), *Colchicum stevenii* (571). These are likely present in Quaresma
+under different name variants — fuzzy matching will recover additional species.
 
 **Output path**: `results/exp_E_quaresma_crossref/`
-- `quaresma_species.txt` — all 111K species names
-- `israel_quaresma_match.json` — matched Israeli species with n_seqs in Quaresma
-- `summary.json` — match rate, genus coverage
 
-### Running Jobs Summary (2026-03-29 17:41)
+### Running Jobs Summary (2026-03-29 17:46)
 
 | Job | ID | Status | ETA |
 |---|---|---|---|
 | iNat audit Pass 3 | 12320549 | RUNNING | ~8h |
 | Israel species DB | 12322851 | RUNNING | ~3h |
-| Quaresma crossref | 12322865 | RUNNING | ~30min |
+| Quaresma crossref | 12322886 | **COMPLETE** | — |
 
