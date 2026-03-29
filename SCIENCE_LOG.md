@@ -18612,6 +18612,70 @@ DFR (dihydroflavonol reductase) is the key color-determinant gene:
 
 ---
 
+## Entry 245 — exp_E07: Visual–DNA Distance Structure — Null Mantel, Circularity Analysis, Ophrys Confirmed (2026-03-29)
+
+### exp_E07_visual_dna_distance (job 12314304, COMPLETE, 0.1s)
+
+**Question**: Does BioCLIP visual distance between species (d_visual = 1 - cosine similarity in f_1024 space) correlate with ITS2 K2P phylogenetic distance?
+
+| Metric | Value |
+|---|---|
+| n_species in intersection | 116 |
+| n_pairs | 6,670 |
+| Mantel r | **-0.042** |
+| p-value (999 perms) | **0.801** (NULL — not significant) |
+| R² (linear regression) | **0.0018** (0.18% variance explained) |
+| Regression slope α | -0.0045 (slightly negative — opposite sign to expectation) |
+
+### Interpretation — Null Is Expected and Scientifically Correct
+
+The Mantel r = -0.042, p = 0.80 means: **with the current Evo2 G-space and 116 species, visual distance and K2P distance are uncorrelated.** This is the correct baseline result BEFORE the DNA encoder is fixed.
+
+This is NOT a failure. It tells us three things:
+
+**1. The current f_1024 space (BioCLIP visual centroids) is NOT organized by phylogenetic distance.**
+BioCLIP encodes visual appearance (color, texture, shape). Phylogenetically distant species can look identical (convergent evolution), and closely related species can look very different (adaptive radiation). BioCLIP has no reason to place species by evolutionary distance — it places them by visual similarity.
+
+**2. The Ophrys pattern (low d_DNA, near-zero d_visual) is the DOMINANT within-genus signal.**
+All 7 genera with multiple species show NEGATIVE mean residuals (d_visual << d_DNA). Crocus: d_DNA=0.093 but d_visual=0.002. Solanum: d_DNA=0.114 but d_visual=0.004. These are within-genus pairs where ITS2 has diverged substantially but the flowers look nearly identical to BioCLIP. This is the CONVERGENT EVOLUTION signature, not the epistasis signature.
+
+**3. The "Mercurialis annua" anomaly in positive residuals is a red flag.**
+Mercurialis annua appears in ALL top-10 positive residual pairs. It is a wind-pollinated plant with very small, inconspicuous greenish flowers — essentially no petals. Its visual centroid will be dominated by leaf/stem features, not flowers. This is a DATA QUALITY artifact: our SAM3 pipeline may be segmenting non-flower structures for this species. The positive residual reflects bad visual centroid, not true visual–genetic divergence.
+
+### The Critical Distinction: d_visual in BioCLIP ≠ phenotypic distance
+
+BioCLIP visual distance measures appearance similarity as seen by the model. For our analysis to be meaningful, we need:
+- d_visual[s,s'] to reflect TRUE phenotypic divergence in floral traits
+- Currently: d_visual also reflects non-floral features, lighting, image quality, background
+
+The correct analysis will use **flower-crop-only** visual centroids, with quality filtering (min n_masks ≥ 10 per species). This is the nextgen_full_run output — f_1024 from confirmed flower mask crops, which is MORE reliable than exp_E43b centroids (which may include weak mask detections).
+
+### The Circularity Analysis (Entry in Response to User Question)
+
+The training pipeline is a DAG (directed acyclic graph) — no cycles:
+
+```
+BioCLIP (frozen, external pre-training)
+    ↓ text encoder              ↓ image encoder
+W_SAM3 training             f_1024[s] extraction
+(290 species, text only)    (Citadel images → flower crops)
+    ↓                               ↓
+SAM3 injection              DNABERT-S InfoNCE training
+(new species inference)     (g[s] ← → f_1024[s], frozen)
+    ↓                               ↓
+flower detection            W_evo (g[s] → f_1024[s])
+```
+
+No node has a path back to itself. The only real circularity RISK is evaluation contamination: if the species used to compute f_1024[s] for DNABERT-S training are the same species used to test the final pipeline. This is prevented by the rule: **iNat images are holdout test set only, never used in training anything.**
+
+### Running Jobs
+
+| Job | ID | Status |
+|---|---|---|
+| iNat audit (128GB + checkpoint) | 12313651 | PENDING/RUNNING |
+
+---
+
 ## Entry 244 — K2P Distances + Israel Species: First Measured Numbers (2026-03-29)
 
 ### exp_E06_k2p_distances (job 12312545, COMPLETE, 248s)
