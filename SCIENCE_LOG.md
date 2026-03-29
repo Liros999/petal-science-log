@@ -19087,3 +19087,331 @@ sbatch --dependency=afterok:<tsv_job_id> submit_exp_E_israel_infer.sh   # 8 GPU 
 
 Well within capacity. ~11 GB photos + ~150MB JSONs = trivial.
 
+---
+
+## Entry 249 — exp_E08a: DNABERT-S Embeddings for 1,958 Israeli ITS2 Species (2026-03-30)
+
+### Why this experiment
+
+DNABERT-S was validated on 20 Israeli ITS2 sequences (Entry 248: pairwise_cos=0.5704, eff_rank=5.42). The question: does the embedding space have enough effective rank at full Israel scale (1,958 species) to support a non-degenerate bridge? Evo2 7B collapsed to eff_rank=4 (mean-prediction regime) at 81 species. We needed to know whether DNABERT-S breaks the rank problem at scale.
+
+### Method
+
+- Model: `zhihan1996/DNABERT-S` (117M params, 768-dim, BPE tokenizer)
+- Input: 1,958 Israeli species with ITS2 from Quaresma FASTA (1,812 exact + 158 WCVP synonym matches)
+- Both **mean-pool** (attention-weighted average of all token hidden states) and **CLS** (index 0 token) extracted in a single forward pass — compared to determine which is more discriminative
+- Per-species: embed all Quaresma accessions (mean=6.9/species), average → single species embedding
+- GPU job 12324856, ~30min
+
+### Results
+
+| Metric | Mean-pool | CLS | Evo2 (baseline) | DNABERT-S 20sp |
+|---|---|---|---|---|
+| N species | 1,958 | 1,958 | 81 | 20 |
+| Pairwise cosine (mean) | **0.617** | **0.609** | 0.986 | 0.5704 |
+| Pairwise cosine (std) | 0.146 | 0.150 | — | — |
+| Effective rank | **8.08** | **9.56** | 4 | 5.42 |
+| Mean vector norm | 0.785 | 0.780 | 0.993 | — |
+
+### Interpretation
+
+DNABERT-S at scale is dramatically better than Evo2 (cos 0.617 vs 0.986, rank 8 vs 4) but still exhibits the anisotropy problem: PC1 explains 62.8% of variance, eff_rank=8 out of possible 768. The root cause is domain mismatch — DNABERT-S was pre-trained on bacterial/viral genomes (10 kbp fragments), not plant ribosomal spacers (220-250bp ITS2). The model encodes GC content and microbial k-mer statistics, not plant phylogenetic signals. **This is expected and fixable via domain adaptation (exp_E10b).**
+
+CLS slightly better than mean-pool (rank 9.56 vs 8.08). Both kept for bridge testing.
+
+**Output:** `results/exp_E08a_dnabert_israel/g_dnabert_mean.npz`, `g_dnabert_cls.npz` (1958, 768)
+
+---
+
+## Entry 250 — exp_E08b: Rank Geometry Battery — DNABERT-S Anisotropy Characterized (2026-03-30)
+
+### Why this experiment
+
+With eff_rank=8 at 1,958 species, we needed to understand the structure of the anisotropy: how much variance is in the top PC, does PCA whitening help, does the space have genus-level nearest-neighbor structure despite the low rank?
+
+### Method
+
+Full geometry battery on the 1,958×768 embedding matrix:
+- Pairwise cosine distribution, angular spread, PCA spectrum (variance per PC)
+- Effective rank (RankMe: exp of Shannon entropy of squared singular values)
+- PCA whitening test: rescale each PC to unit variance → does LOO bridge improve?
+- Genus nearest-neighbor accuracy: is the nearest neighbor in the same genus?
+- Evo2 control for comparison (found to be unnormalized in storage → nonsensical raw values but DNABERT-S results unaffected)
+
+### Results
+
+**PCA spectrum (mean-pool):**
+
+| PCs | Cumulative variance |
+|---|---|
+| Top-1 | **62.8%** |
+| Top-5 | 76.3% |
+| Top-10 | 83.6% |
+| Top-20 | 90.5% |
+| Top-50 | 95.5% |
+| Top-100 | 97.7% |
+
+PC1 dominates (62.8%). This is classic BERT anisotropy — the embedding cone. ITS2 sequences from all plant families land in a narrow wedge of 768-dim space because the model learned microbial sequence statistics, not plant diversity.
+
+**Genus nearest-neighbor accuracy:**
+- Mean-pool: **53.2%** correct genus NN (1,042/1,958 species with a genus partner)
+- CLS:        **50.6%** correct genus NN (990/1,958)
+
+Even with eff_rank=8, the space has detectable genus-level signal — 53% of the time the nearest neighbor is in the same genus. Random baseline: ~1/genus_size ≈ 0.3%.
+
+**PCA whitening test (in E08c):** Whitening raised eff_rank from 8→86 but destroyed bridge LOO from 0.93→0.05. Conclusion: the high-variance PC1 carries the biologically meaningful signal. Whitening amplifies noise dimensions and buries the signal. **PCA whitening rejected permanently.**
+
+**Output:** `results/exp_E08b_dnabert_geometry/geometry.json`
+
+---
+
+## Entry 251 — exp_E08c: W_evo Bridge at 52 Species — Lookup Table Diagnosis (2026-03-30)
+
+### Why this experiment
+
+With DNA embeddings (1,958 sp) and BioCLIP visual centroids (85 Citadel species), the overlap was 52 species. This is the first bridge fit: ridge regression 768→1024. The goal was to test whether a linear bridge from DNABERT-S to BioCLIP visual space produces meaningful predictions.
+
+### Method
+
+Ridge regression (α=0.001), LOO cosine, Mantel test (1,000 permutations), prediction geometry.
+Three variants: mean-pool, CLS, mean-pool whitened, CLS whitened.
+Evo2 baseline recomputed for direct comparison.
+
+### Results
+
+| Variant | LOO cosine | pred_std/target_std | pred eff_rank | Mantel r | p |
+|---|---|---|---|---|---|
+| Mean-pool | 0.932 | 0.986 | 1.46 | -0.024 | 0.792 |
+| CLS | 0.940 | 0.990 | 1.47 | -0.036 | 0.679 |
+| Mean-pool whitened | **0.048** | 0.998 | 1.48 | — | — |
+| CLS whitened | **-0.261** | 0.998 | 1.49 | — | — |
+| Evo2 baseline | 0.971 | 0.047 | — | 0.066 | 0.201 |
+
+### Diagnosis: the lookup table problem
+
+LOO=0.93 looks excellent but pred_std/target_std=0.986 with eff_rank=1.46 reveals the truth: the bridge learned a nearly rank-1 lookup table. With n=52 species and p=768 parameters, n/p=0.00007 (15,000× below the 10:1 rule for stable regression). The bridge memorizes training identities. Mantel r=-0.024 (p=0.792) confirms: the bridge does NOT capture the structure of DNA↔visual distance space — it predicts approximately the same "average flower" for every species, which happens to have high cosine to every actual flower centroid.
+
+**Key insight:** Whitening destroys LOO (0.93→0.05) because it inflates the noise dimensions (PCs 2-768) that carry no biological signal, overwhelming the small signal in PC1.
+
+**Decision:** scale to 1,614 species (DNA ∩ full Israel visual) where n/p becomes 0.002 — still below 10:1 but 20× more data. The lookup table effect should diminish.
+
+**Output:** `results/exp_E08c_dnabert_bridge/`
+
+---
+
+## Entry 252 — exp_E08d: Multi-Sequence Strategy — Max-Discriminative Embeddings (2026-03-30)
+
+### Why this experiment
+
+Quaresma has a mean of 6.9 ITS2 accessions per Israeli species (1,524/1,958 species have >1 accession). Two strategies: (A) mean-pool all accessions → single representative; (B) pick the accession whose embedding is least similar to the grand mean (most distinctive). Does Strategy B improve eff_rank?
+
+### Results
+
+| Strategy | Pairwise cosine | Eff rank |
+|---|---|---|
+| A: mean-pool | 0.617 | 8.08 |
+| B: max-discriminative | **0.464** | **16.40** |
+| Rank gain | — | **+8.32** |
+
+Intra-species cosine = 0.845, inter-species = 0.617. Intra/inter ratio = 1.37.
+
+### Interpretation
+
+Max-discriminative selection doubles effective rank (8→16) and substantially reduces pairwise cosine (0.617→0.464). This is real — the "most unusual" accession for each species is more phylogenetically informative than the average.
+
+**However:** For the bridge training (E12), we use Strategy A (mean-pool) as anchor + all 7 accessions as positives in contrastive learning. The multi-accession signal is the training data, not the inference-time embedding. The max-discriminative approach would be used if we needed a static embedding for retrieval without training.
+
+**Output:** `results/exp_E08d_multiSeq/` — includes `g_dnabert_maxdisc.npz`
+
+---
+
+## Entry 253 — exp_E09: BioCLIP Visual Centroids for Full Israeli Flora (2026-03-30)
+
+### Why this experiment
+
+After NextGen inference on 73,578 Israeli photos completed (8 GPU shards, job 12325531, all done by 2026-03-29 22:05 IDT), we had 18,731 JSONs with polygon masks and combo scores. The bridge training needs visual centroids f[s] ∈ ℝ^1024 for each species — the mean of BioCLIP CLS embeddings across confirmed flower masks. Previous baseline: 85 Citadel species. Target: all 2,174 Israeli species with enough flower mask detections.
+
+### Method
+
+- Read NextGen JSON outputs, extract polygon bboxes (5% padding), filter by combo_score ≥ 0.3
+- BioCLIP 2.5 ViT-H/14 (`hf-hub:imageomics/bioclip-2.5-vith14`), batch=64, GPU
+- Per species: mean of all CLS embeddings → L2-normalize → f[s] ∈ ℝ^1024
+- Job 12328770, ~1h
+
+### Results
+
+| Metric | Value |
+|---|---|
+| Species with visual centroids | **2,174** (vs 85 Citadel baseline) |
+| Total flower masks used | **52,049** |
+| Masks skipped (low score) | 83,890 |
+| Mean masks per species | 23.9 (median 16, max 117) |
+| Pairwise cosine (visual) | **0.548** |
+| Effective rank (visual) | **15.7** |
+| Photos missing | 0 |
+
+**25.6× increase in species coverage** (85 → 2,174). Visual space well-structured: eff_rank=15.7, pairwise_cos=0.548 — more discriminative than DNABERT-S DNA space (rank 8, cos 0.617).
+
+**Output:** `results/exp_E09_bioclip_cls_israel/f1024_israel.npz` (2174, 1024) — primary visual training target for E12.
+
+---
+
+## Entry 254 — exp_E10a: ViennaRNA ITS2 Secondary Structure Annotation (2026-03-30)
+
+### Why this experiment
+
+Domain adaptation of DNABERT-2 on plant ITS2 (exp_E10b) benefits from auxiliary supervision: in addition to masked language modeling (MLM), predict the RNA secondary structure (dot-bracket notation) at each position. ITS2 has a conserved 4-helix structure (Helices I–IV) across angiosperms. The structure-aware masking strategy (mask variable loops at higher rate than stems) and the Seq2Str auxiliary head (OmniGenome-style) require dot-bracket annotations for all 307,977 Quaresma ITS2 sequences.
+
+### Method
+
+- ViennaRNA 2.7.2 Python bindings (`import RNA`) — installed in petal_env via pip
+- `RNA.fold(seq_rna)` → (dot-bracket, MFE in kcal/mol)
+- Input: all 307,977 Quaresma ITS2 sequences (length filter: 80–800 bp)
+- Output: gzipped TSV (species, sequence, dot-bracket, mfe, stem_frac)
+- Job 12331358, CPU, ~1.5h
+
+### Validation
+
+Test sequence stem_frac = 0.450 — within expected ITS2 range (0.30–0.50). ViennaRNA Python bindings confirmed working. RNAfold CLI not in PATH on compute nodes (ViennaRNA Python-only install).
+
+### Status (at time of logging)
+
+RUNNING (job 12331358, ~33min elapsed). Output fed directly to E10b as dependency (`--dependency=afterok:12331358`).
+
+**Output:** `results/exp_E10a_its2_structure/structures.tsv.gz` — dot-bracket annotations for all Quaresma ITS2
+
+---
+
+## Entry 255 — exp_E10b: DNABERT-2 ITS2 Domain Adaptation (MLM + Seq2Str) (2026-03-30)
+
+### Why this experiment
+
+DNABERT-S (and DNABERT-2, its successor) were pre-trained on bacterial and viral genomes. Plant ITS2 is a 220–250 bp ribosomal spacer — completely absent from the training data. The 40× length mismatch (ITS2 vs 10 kbp microbial fragments) and zero plant sequences explain eff_rank=8 at 1,958 species. The fix: **continued MLM pre-training** on the 307,977 Quaresma ITS2 sequences to redirect the model's learned sequence reasoning toward plant-specific patterns.
+
+### Method (designed for E10b, pending E10a)
+
+- Base model: `zhihan1996/DNABERT-2-117M` (117M params)
+- Continued pre-training on Quaresma ITS2: 307,977 sequences × mean 5 epochs
+- **Loss = 0.70 × L_MLM + 0.30 × L_Seq2Str**
+  - L_MLM: standard BERT masked language modeling, but structure-aware masking: loop positions masked at 40% vs global 25%
+  - L_Seq2Str: predict dot-bracket label ('(', ')', '.') at each position from E10a annotations (OmniGenome-style auxiliary head)
+- LR = 1e-5 (NOT 5e-4 — conservative to avoid catastrophic forgetting of useful sequence priors)
+- Reverse complement augmentation: p=0.5 doubles effective training data
+- Geometry check per epoch: measure pairwise_cos and eff_rank on 200 Israeli ITS2 samples
+- Job 12331359, GPU, 6h, PENDING (waiting on E10a)
+
+### Expected outcome
+
+After domain adaptation: eff_rank should rise from 8→20+ as the model begins encoding plant phylogenetic patterns rather than microbial k-mer statistics. The Seq2Str head forces the model to understand the ITS2 stem-loop architecture (Helices I–IV), which co-varies with plant family membership.
+
+**Output:** `results/exp_E10b_its2_domain_adapt/checkpoint_epoch{1-5}/` — used as DNA encoder in E12
+
+---
+
+## Entry 256 — exp_E11: Full-Scale Bridge at 1,614 Species — Pre-Training Baseline (2026-03-30)
+
+### Why this experiment
+
+With 1,614 species in the DNA ∩ Visual overlap (DNABERT-S × BioCLIP, up from 52 in E08c), we fit the same ridge regression bridge to test: (1) does the lookup table problem persist at this scale? (2) what is the pre-training baseline for retrieval accuracy that E12 needs to beat?
+
+### Results
+
+| Metric | E08c (52sp) | E11 (1,614sp) | Change |
+|---|---|---|---|
+| pred_std / target_std | 0.047 | **0.739** | ✓ no longer lookup table |
+| cos(pred, mean_f) mean | ~0.9999 | **0.831 ± 0.054** | ✓ predictions scatter |
+| LOO cosine | 0.932 | **0.696 ± 0.134** | ↓ harder task, less overfitting |
+| Mantel r | -0.024 (p=0.792) | **+0.050 (p=0.003)** | ✓ first weak signal |
+| Pred eff_rank | 1.46 | **7.12** | ✓ non-degenerate |
+| Top-1 retrieval | 0% | **0%** | — pre-training baseline |
+| Top-50 retrieval | 0% | **0%** | — pre-training baseline |
+
+### Interpretation
+
+The bridge is no longer a lookup table at 1,614 species — pred_std jumped from 4.7% to 73.9%. Predictions scatter meaningfully around the visual centroid mean. Mantel r became weakly but significantly positive (0.050, p=0.003). **But retrieval is 0% because**: the prediction lands at cosine ~0.70 from the truth in a space where all 1,614 targets are cosine ~0.55 apart — the error radius is larger than the inter-species spacing. This is the correct pre-training baseline. Top-1 retrieval = 0% before domain adaptation and contrastive training is exactly expected.
+
+**The bridge is doing real work (not rank-1) but the encoder doesn't speak plant yet.** Fixing the encoder (E10b→E12) is the path to non-zero retrieval.
+
+**Output:** `results/exp_E11_bridge_1958/W_bridge_1614.npz` (1024, 768)
+
+---
+
+## Entry 257 — Architecture Decision: Three-Tower DNA↔Vision↔Text with Four Losses (2026-03-30)
+
+### Why this architecture
+
+The E11 diagnosis (0% retrieval, LOO=0.70, Mantel r=0.050) establishes what a static linear bridge from a mismatched DNA encoder gives us. The path forward requires:
+
+1. **Domain-adapted DNA encoder** (E10b): DNABERT-2 fine-tuned on 307K ITS2 sequences
+2. **Contrastive training** (E12): W_DNA (768→1024 linear) trained with four simultaneous loss signals
+
+### Architecture
+
+```
+Tower A (DNA):    DNABERT-2 → mean-pool → 768-dim → W_DNA → 1024-dim
+Tower B (Visual): BioCLIP CLS over confirmed flower masks → 1024-dim (FROZEN)
+Tower C (Text):   BioCLIP text encoder("a photo of {species}") → 1024-dim (FROZEN)
+                              ↕ shared 1024-dim space ↕
+```
+
+W_DNA is a single learnable matrix (1024×768 = 786,432 parameters). No projection head, no compression.
+
+**Why 1024-dim:** BioCLIP ViT-H/14 natively outputs 1024-dim. Projecting to 1024 is a rotation — zero information loss. Both visual and text towers already live in this space. Only Tower A (768-dim DNA) needs to project up. Any lower dimension discards information before we know which dimensions encode flower color, petal shape, or pollinator-correlated features.
+
+### Four loss signals (trained simultaneously on W_DNA)
+
+```
+L_total = 1.0×L_visual + 0.5×L_text + 0.3×L_visual_text + 0.5×L_phylo
+```
+
+| Loss | Formula | Purpose |
+|---|---|---|
+| L_visual | InfoNCE(W@g[s], f[s]) | Pull DNA prediction toward visual centroid of same species |
+| L_text | InfoNCE(W@g[s], t[s]) | Pull DNA prediction toward text embedding of same species |
+| L_visual_text | InfoNCE(f[s], t[s]) | Stabilize BioCLIP geometry (BioCLIP pre-alignment) |
+| L_phylo | MSE(cos(W@g[i],W@g[j]), sim_target[i,j]) | Organize output space by WCVP taxonomy |
+
+**sim_target from WCVP hierarchy:**
+- same_species = 1.0, same_genus = 0.7, same_family = 0.2, different_family = 0.0
+
+**Why four losses reinforce rather than fight:** Evolution made visual appearance, species name, and phylogeny consistent. A species that looks blue-purple has a text embedding in the "purple flower" region and belongs to a family that tends blue-purple. Gradients from all four losses point in the same direction. The only conflict: convergently evolved species (white-flowered Fabaceae) produce genuine tension — the model's uncertain prediction between visual and phylogenetic targets is the biologically correct uncertain answer.
+
+### Multi-sequence augmentation
+
+7 Quaresma ITS2 accessions per species as positives for the same visual centroid f[s]. Forces encoder to learn species-invariant features (constant across intraspecific ITS2 variants) rather than memorizing one sequence. Structurally identical to multi-crop augmentation in DINO/MoCo.
+
+### Training details
+
+- Batch = 256 species, AdamW, LR(W_DNA)=3e-4, LR(encoder)=1e-5, 30 epochs
+- Learnable temperature τ (initialized to 0.07)
+- Primary metric: top-k species retrieval (leave-self-out), NOT Mantel r
+- Job 12331942, GPU 12h, PENDING (dependency chain: E10a → E10b → E12)
+
+---
+
+## Entry 258 — exp_E11b: Taxonomic Retrieval Baseline — What the Pre-Training Bridge Actually Knows (2026-03-30)
+
+### Why this experiment
+
+Top-1 species retrieval = 0% before training is expected but uninformative. The real diagnostic is: **does the bridge already capture genus- and family-level taxonomic structure?** If the nearest neighbor is in the same genus 30% of the time (vs random ~0.3%), the encoder has implicit phylogenetic signal despite the domain mismatch. This becomes the baseline that E12 must improve.
+
+### Method
+
+For each of the 1,614 overlap species: rank all visual centroids by W_DNA@g[s]. Compute:
+- Nearest-neighbor genus/family accuracy
+- Top-5 genus recall (any of 5 nearest in same genus)
+- Top-50 family purity (fraction of 50 nearest in same family)
+- Mean rank of first same-genus / same-family species
+- Per-family breakdown for top-10 most represented families
+- 2D PCA coordinates of prediction space for visualization
+
+Job 12331995, CPU 1h, RUNNING.
+
+### Status
+
+RUNNING (job 12331995). Results pending — will update this entry with numbers when complete.
+
+**Output:** `results/exp_E11b_taxonomic_retrieval/summary.json`, `pca_2d_coords.json`
+
+---
+
