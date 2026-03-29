@@ -18612,6 +18612,77 @@ DFR (dihydroflavonol reductase) is the key color-determinant gene:
 
 ---
 
+## Entry 244 — K2P Distances + Israel Species: First Measured Numbers (2026-03-29)
+
+### exp_E06_k2p_distances (job 12312545, COMPLETE, 248s)
+
+**Ground-truth phylogenetic distance matrix for 223 ITS2 species.**
+
+| Metric | Value |
+|---|---|
+| n_species (ITS2 only) | 223 (of 290 total; 67 non-ITS2 filtered) |
+| n_pairs | 24,753 |
+| n_nan_pairs | 0 (all pairs have valid K2P) |
+| mean K2P | 0.4534 |
+| median K2P | 0.4362 |
+| min K2P | 0.000 (identical sequences within-genus) |
+| max K2P | 1.882 (Eschscholzia californica ↔ Plumeria rubra) |
+
+**Genus-level validation** (the critical test of whether K2P reflects taxonomy):
+- Within-genus mean K2P: **0.1226** (73 pairs, 27 multi-species genera)
+- Between-genus mean K2P: **0.4543** (24,680 pairs)
+- **Between/within ratio: 3.71×** — K2P cleanly separates within-genus from between-genus
+
+This ratio validates K2P as a phylogenetic signal in our dataset. Within-genus pairs (e.g., Ophrys bornmuelleri ↔ Ophrys umbilicata = 0.000) are indistinguishable by ITS2 alone — these are recent divergences. Between-genus pairs average 3.71× higher distance.
+
+**Closest pairs** (recent radiations):
+- Lupinus palaestinus ↔ Lupinus pilosus: K2P = 0.000
+- Ophrys bornmuelleri ↔ Ophrys umbilicata: K2P = 0.000
+- All Ophrys pairs are extremely close (K2P < 0.005) — consistent with rapid Ophrys radiation
+
+**Most distant pairs** (deep angiosperm divergences):
+- Eschscholzia californica ↔ Plumeria rubra: K2P = 1.882 (Papaveraceae vs. Apocynaceae)
+
+**Scientific significance**: D_K2P is now saved as `results/exp_E06_k2p_distances/D_k2p.npz`. When DNABERT-S embeddings exist for these 223 species, we compute:
+```
+r_Mantel = corr(D_embedding, D_K2P)    (Mantel test, 999 permutations)
+```
+Target: r > 0.3, p < 0.001 → embedding space is phylogenetically structured.
+
+### exp_E_israel_species (job 12310957, COMPLETE)
+
+**How many angiosperm species are observed in Israel (research-grade, bbox 29.3–33.5°N, 34.0–36.0°E)?**
+
+| Metric | Value |
+|---|---|
+| Total angiosperm species in Israel (research-grade) | **2,611** |
+| Species with ≥5 observations | 1,936 |
+| Species with ≥20 observations | 1,122 |
+| Total research-grade angiosperm observations | 111,089 |
+| Species matching our exp_E01b ITS2 set (273 sp) | **0** |
+
+**Top families in Israel**:
+Fabaceae (310 sp), Asteraceae (278), Poaceae (216), Brassicaceae (127), Lamiaceae (115), Caryophyllaceae (114), Apiaceae (93), Amaranthaceae (87), Boraginaceae (71), Plantaginaceae (65)
+
+**The 0 overlap with exp_E01b**: Our 273 ITS2 species were selected from the Citadel dataset (global species observed in the Citadel garden), not from Israel-specific flora. Cross-reference with Quaresma 2024 (111,382 species) will give the real number — Quaresma covers Israeli species extensively.
+
+**Next**: Download Quaresma species name list, cross-reference with the 2,611 Israeli iNat species. Expected: several hundred matches (Mediterranean flora is well-barcoded).
+
+### iNat Audit (job 12313651, RUNNING — 128GB)
+
+Previous run OOM'd in Pass 3 (48.4M UUID dict exceeded 64GB when combined with polars streaming). Fix:
+- Bumped to 128GB
+- Added checkpoint: saves `pass12_checkpoint.json` after Pass 2 completes (taxon_info + obs_counts for 250,995 species). Future reruns skip directly to Pass 3.
+
+Pass 2 results from previous run (already confirmed):
+- 230,116,316 total observations scanned
+- **133,385 angiosperm species with ≥1 research-grade observation** (of 250,995 total)
+- 48,360,951 research-grade UUID→taxon pairs written to angio_obs.tsv.gz
+
+Pass 3 (photos.csv.gz, 16GB) will give: n_species with open-license photos at each threshold (≥1, ≥5, ≥20, ≥30). The `training_corpus_ceiling_ge20` is the real corpus size denominator.
+
+---
+
 ## Entry 243 — Architecture Clarification: Evo2 Is Diagnostic Only; Production DNA Encoder Is DNABERT-S (2026-03-29)
 
 ### CRITICAL CORRECTION — DNA Encoder Architecture
