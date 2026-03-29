@@ -19415,3 +19415,108 @@ RUNNING (job 12331995). Results pending — will update this entry with numbers 
 
 ---
 
+## Entry 259 — exp_E14: WCVP Taxonomy Tree for 107K Quaresma Species — COMPLETE (2026-03-30)
+
+### Why this experiment
+
+The full-scale foundation model (E16) trains on all 107,072 Quaresma species with a hierarchical contrastive loss. This loss requires knowing the taxonomic relationship (same genus/family/order) between every pair of species. WCVP (World Checklist of Vascular Plants, Kew) provides the authoritative taxonomy.
+
+### Results (COMPLETE, job 12332794, 2min)
+
+| Metric | Value |
+|---|---|
+| Quaresma species total | 107,072 |
+| Matched to WCVP | **107,072 (100%)** |
+| — accepted name | 86,039 (80.4%) |
+| — via synonym | 10,153 (9.5%) |
+| — from FASTA header | 10,878 (10.2%) |
+| — genus inferred | 2 (0.002%) |
+| Unmatched | **0** |
+| Unique families | 467 |
+| Unique genera | 10,677 |
+| Unique orders | 96 |
+| Species with order label | 106,415 (99.4%) |
+
+Top families: Asteraceae (11,930), Fabaceae (9,004), Poaceae (7,333), Orchidaceae (6,870).
+
+**Output:** `results/exp_E14_wcvp_tree/quaresma_taxonomy.json` — used as sim_target source in E16.
+
+---
+
+## Entry 260 — exp_E15: BioCLIP Text Embeddings for 107K Species (2026-03-30)
+
+### Why this experiment
+
+The text tower provides FREE supervision for the ~105K species that have DNA but no images. BioCLIP text encoder maps "a photo of *Genus species*, *Family*" → 1024-dim, in the same space as visual centroids. For species without images, InfoNCE(W_DNA@g[s], t[s]) is the training loss.
+
+### Status
+
+RUNNING (job 12332810). Encoding 107,072 prompts through BioCLIP 2.5 ViT-H/14 text encoder in batches of 512 on GPU.
+
+**Output:** `results/exp_E15_text_embeddings/t1024_quaresma.npz` (107K, 1024) — training target for E16.
+
+---
+
+## Entry 261 — Full Plan: Plant ITS2 DNA Foundation Model — From POC to Publication (2026-03-30)
+
+### The Vision
+
+Build the DNA equivalent of BioCLIP 2.5 for plant ITS2 barcodes. Core architecture:
+
+```
+Tower A: DNABERT-2 (plant-adapted) → 768 → W_DNA → 1024  (TRAINED)
+Tower B: BioCLIP ViT-H/14 visual centroids → 1024         (FROZEN)
+Tower C: BioCLIP text encoder → 1024                       (FROZEN)
+                    ↕ shared 1024-dim space ↕
+```
+
+Text tower bridges DNA and vision without needing paired DNA+image data. A user's flower photo → BioCLIP → 1024-dim. Their ITS2 sequence → DNA encoder → W_DNA → 1024-dim. Both directly comparable via cosine.
+
+### Phased Execution
+
+| Phase | What | Status | Duration |
+|---|---|---|---|
+| 0 | E10a/b: ITS2 domain adaptation | RUNNING/PENDING | ~7h |
+| 1 | E12: POC 1,614 Israeli species + E13a color validation | PENDING | ~14h |
+| 2 | E13c/d: ITS2 structure↔color + attention analysis | Ready | ~2h |
+| 3 | E16: Full-scale 107K species + E17 zero-shot eval | Ready | ~26h |
+| 4 | NCBI+BOLD data + publication-grade model | Sketch | weeks |
+
+### Theory to prove at each phase
+
+**Phase 1:** ITS2 → W_DNA → correct visual neighborhood (top-k retrieval > 0%)
+**Phase 2:** ITS2 structure → phylogeny → flower color (mechanistic chain)
+**Phase 3:** Text tower bridges DNA and vision at 107K species without paired data
+
+### Bug Fixed
+
+E12 `exp_E12_three_tower.py` had a bug: `match_data.items()` on a list (not dict). Fixed: match files are lists of `{name, taxon_id, ...}`. Job 12331942 cancelled, resubmitted as 12332785.
+
+### Scripts Written and Ready
+
+| Script | Purpose | Dependencies |
+|---|---|---|
+| exp_E13a_color_prediction.py | Color prediction from DNA bridge | E12 |
+| exp_E14_wcvp_tree.py | WCVP taxonomy for 107K species | None (DONE) |
+| exp_E15_text_embeddings.py | Text embeddings for 107K species | E14 (RUNNING) |
+| exp_E16_full_scale.py | Full-scale 107K species training | E12 + E15 |
+
+### Decision Gates
+
+| After | If | Then |
+|---|---|---|
+| E12 (Phase 1) | Top-1 > 5%, color > 15% | Proceed to E16 at full scale |
+| E12 (Phase 1) | Top-1 < 5%, color < random | Diagnose: encoder or architecture? |
+| E16 (Phase 3) | Top-1 > 2× E12 | Scale works — prepare publication |
+| E16 (Phase 3) | No improvement | Text tower insufficient alone |
+
+### ITS2 Biology Memory (saved for presentations)
+
+Key biological knowledge documented in `memory/its2_biology.md`:
+- 4-helix secondary structure: Helix III = species barcode (fast-evolving loop)
+- Compensatory base changes (CBCs): paired mutations preserve helix structure — transformers detect these via long-range attention
+- NOR→pigmentation chain: ITS2 → rDNA array → NOR chromosomal location → heterochromatin shadow → MYB/bHLH silencing → flower color
+- Ranunculaceae prediction: NOR disorganized → expect high uncertainty in color prediction (biologically correct)
+
+---
+
