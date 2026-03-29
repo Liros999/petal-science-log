@@ -18610,3 +18610,88 @@ DFR (dihydroflavonol reductase) is the key color-determinant gene:
 | iNat audit | 12304278 | 250K species metadata audit (glob fix applied) |
 | Israel species | 12307040 | Israel angiosperm species + ITS2 cross-reference |
 
+---
+
+## Entry 243 — Architecture Clarification: Evo2 Is Diagnostic Only; Production DNA Encoder Is DNABERT-S (2026-03-29)
+
+### CRITICAL CORRECTION — DNA Encoder Architecture
+
+**Evo2 7B was NEVER the production DNA encoder. It was used diagnostically to understand the rank-1 collapse. The production target has always been DNABERT-S fine-tuned with InfoNCE.**
+
+This distinction matters for every future experiment and any publication narrative.
+
+#### What Evo2 Told Us (Diagnostic Role)
+- G-space rank = 4, pairwise_cos = 0.986: all 273 ITS2 barcodes map to the same point
+- Root cause: Evo2 is a genome-scale causal model (13B nt context). ITS2 is 250-400bp — catastrophically short for Evo2. It sees every barcode as nearly identical at its operating scale.
+- Reverse bridge LOO = 0.9929 but NN accuracy = 1/81 = 1.2%: confirms rank-1 in both directions
+- **Conclusion: rank-1 is an encoder artifact, not a biological fact**
+
+#### Production DNA Encoder: DNABERT-S
+- Model: `zhihan1996/DNABERT-S` (HuggingFace), 117M params, 768-dim output, BPE tokenized
+- Pre-trained on multi-species genomic sequences including barcode-length sequences
+- Architecture: bidirectional BERT with curriculum contrastive learning (C²LR) objective
+- ITS2 barcodes (250-400bp) are within DNABERT-S's natural context window
+- **Fine-tuning plan**: InfoNCE loss against frozen BioCLIP 2.5 visual centroids f_1024[s]
+
+#### Training Signal for Fine-Tuning
+```
+L = -log( exp(sim(g[s], f[s]) / τ) / Σ_s' exp(sim(g[s], f[s']] / τ) )
+```
+- g[s] = DNABERT-S(ITS2[s]) → projection head (768→1024) → L2-normalized
+- f[s] = frozen BioCLIP 2.5 visual centroid from flower mask crops
+- τ = temperature (0.07, standard InfoNCE)
+- Batch strategy: all species pairs in batch, online hard negative mining
+
+**Why InfoNCE and not MSE**: MSE drives all g[s] toward mean(f) — same rank-1 collapse.
+InfoNCE forces g[s] closer to f[s] than to f[s'] for ALL other species. Species discrimination is the objective.
+
+#### Why DNABERT-S Pairwise Diversity Will Be High
+- BERT bidirectional attention: every position attends to every other position
+- Contrastive pre-training: trained to discriminate species from the start
+- Short sequences play to BERT's strengths (Evo2's weakness)
+- Expected: pairwise_cos < 0.5 (vs Evo2's 0.986)
+
+#### The Architecture Chain (SEALED)
+```
+ITS2[s] (250-400bp)
+    → DNABERT-S (768-dim, fine-tuned with InfoNCE)
+    → projection head (768→1024, trained jointly)
+    → g_DNA[s] (1024-dim, L2-normalized, species-discriminative)
+    → W_evo (1024→1024, ridge regression OR fine-tuned)
+    → f_predicted[s] (BioCLIP visual centroid prediction)
+```
+
+W_evo is NOT removed — it becomes a diagnostic. If DNABERT-S g-space is already aligned with f-space via InfoNCE, W_evo becomes an identity map (LOO≈1.0 and Mantel r→1.0). If not fully aligned, W_evo captures residual linear structure.
+
+### polars `read_csv_batched` Fix — `glob` Parameter Not Supported
+
+**Root cause of all recent job failures**: `glob=False` is valid for `pl.read_csv()` but **not** for `pl.read_csv_batched()` in polars 1.35.2. Removed from both observations.csv.gz and photos.csv.gz batched readers.
+
+**Final fix applied to both scripts**:
+```python
+# read_csv() — supports glob=False ✓
+taxa = pl.read_csv(str(path), ..., glob=False, ignore_errors=True, truncate_ragged_lines=True)
+
+# read_csv_batched() — glob NOT supported, use ignore_errors + truncate_ragged_lines
+reader = pl.read_csv_batched(str(path), ..., ignore_errors=True, truncate_ragged_lines=True)
+```
+
+The `[Pipeline]` brackets in the path only affect `taxa.csv.gz` (which uses `read_csv`). Observations and photos paths have no brackets so glob=False was unnecessary there anyway.
+
+### Job Status (2026-03-29)
+
+| Job | ID | Status | Notes |
+|---|---|---|---|
+| iNat audit | 12310956 | **RUNNING** | Pass 2 streaming (250,995 species loaded) |
+| Israel species | 12310957 | **RUNNING** | Pass 2 streaming (250,995 species loaded) |
+| iNat audit (prev) | 12307083 | FAILED | `glob` in batched reader |
+| Israel species (prev) | 12307084 | FAILED | `glob` in batched reader |
+
+Both jobs confirmed: Pass 1 loads 1,620,653 taxa → 250,995 active angiosperm species, 417 families. CSV malformed warning (not error) from `ignore_errors=True`. Jobs expected to complete in ~45-60 minutes.
+
+### Next After Jobs Complete
+1. **iNat audit**: Read `summary_stats.json` → `training_corpus_ceiling_ge20` (expected: 30-60K species)
+2. **Israel species**: Read `summary.json` → how many Israeli angiosperms, how many have ITS2 (exp_E01b)
+3. **Quaresma cross-reference**: Download species name list from Quaresma 2024 (Zenodo, 232MB FASTA headers only), cross-reference with Israeli species list
+4. **DNABERT-S acquisition**: `from transformers import AutoTokenizer, AutoModel; model = AutoModel.from_pretrained("zhihan1996/DNABERT-S")`
+
