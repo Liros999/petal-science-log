@@ -19700,3 +19700,53 @@ E10b submitted as job 12341754. The primary MLM objective (70% of loss) is struc
 
 ---
 
+## Entry 270 — E10b Training: DNA Model Building on A100 (2026-03-30)
+
+### DNABERT-2 patches (4 total, all for missing config attributes)
+
+1. `pad_token_id` → `getattr(config, 'pad_token_id', 0)`
+2. ALiBi device None → `_device = device if device is not None else 'cpu'`
+3. `flash_attn_qkvpacked_func = None` forced (Triton JIT fails)
+4. `is_decoder` → `getattr(config, 'is_decoder', False)`
+
+### Training architecture fix
+
+DNABERT-2's `BertForMaskedLM.forward()` with `labels` optimizes by only returning hidden states for masked tokens. This breaks the Seq2Str head which needs ALL positions. Fix: use `model.bert()` directly for full (B, L, 768) hidden states, then apply `model.cls()` manually for MLM logits.
+
+### Data correction
+
+Quaresma ITS2 sequences are median **637bp** (full ITS1+5.8S+ITS2 region), not 220-250bp. Original filter (80-500bp) caught only 45K of 307K. Widened to 50-1000bp → 304,065 sequences. With reverse complement: 608,130 training samples.
+
+### Training progress (job 12342859, A100 80GB)
+
+| Step | Epoch | MLM loss | Seq2Str loss | Meaning |
+|---|---|---|---|---|
+| 0 | 0 | ~8.3 | 1.10 | Random (microbial priors) |
+| 200 | 1 | 5.62 | 1.09 | Universal ribosomal patterns transferring |
+| 6,200 | 1 | 2.72 | 1.08 | Family-level k-mers learned |
+| 14,000 | 2 | 1.82 | 1.05 | Genus-level patterns emerging |
+| 37,600 | 4 | **1.46** | 1.04 | Approaching species-level discrimination |
+| ~47,515 | 5 | ~1.3? | ~1.03? | Expected completion ~1.5h from logging |
+
+### Variance Decomposition Framework (theoretical, documented for future phases)
+
+The linear bridge W_DNA captures V_A (additive genetic variance). Planned extensions:
+- Phase 2: + geography (lat/lon, chorotype) → V_E
+- Phase 3: + MLP → V_D + V_I
+- Phase 4: + cross-attention DNA×geo → G×E
+
+**CAUSALITY WARNING**: Geography correlates with BOTH phylogeny and phenotype independently. Adding lat/lon may capture phylogenetic signal through geographic proxy. Required: partial correlation controlling for taxonomy at every step.
+
+### Key insight from discussion
+
+The loss function follows the ITS2 topography naturally: conserved features (Helix I) → steepest gradient → learned first (loss ~5→3). Family features (Helix II/IV) → moderate gradient → learned next (loss ~3→2). Genus/species features (Helix III loops) → shallow gradient → learned last (loss ~2→1).
+
+### After E10b completes
+
+1. Check geometry per epoch (eff_rank progression — the key metric)
+2. Re-run E12v2 with plant-adapted checkpoint → first retrieval test
+3. Re-run E13a color prediction → should improve from 21.9%
+4. Parallelize E10a (8 CPU nodes) for full structure annotations → retrain with Seq2Str at 100% coverage
+
+---
+
