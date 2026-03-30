@@ -19790,3 +19790,55 @@ E10b saved model weights but not custom code files (bert_layers.py, bert_padding
 
 ---
 
+## Entry 272 — Four Parallel Experiments Launched: Contrastive + MLM-ext + MLP Bridge (2026-03-31)
+
+### Why four experiments in parallel
+
+The linear bridge (E12v3, 0% retrieval) confirmed that the bottleneck is the DNA model's embedding quality (eff_rank=20, pairwise_cos=0.874). Four parallel experiments attack different parts of this bottleneck:
+
+### Experiment 1: E10c — DNABERT-2 Contrastive Fine-Tuning (job 12375911)
+
+**What:** Unfreeze DNABERT-2 (E10b checkpoint) and train with InfoNCE contrastive loss. The encoder receives gradients that push different species APART in embedding space — directly fixing the anisotropy caused by MLM training.
+
+- Encoder: DNABERT-2 117M, UNFROZEN, LR=5e-6
+- Bridge: W_DNA 768→1024, LR=3e-4
+- Memory bank: all 1,604 species as negatives
+- Three pooling strategies tested per epoch (mean, CLS, max)
+- 24h GPU allocation, up to 30 epochs
+
+### Experiment 2: E10c-NT — Nucleotide Transformer v2 500M Contrastive (job 12375912)
+
+**What:** Same contrastive approach but with a fundamentally different encoder:
+- **500M params** (4× DNABERT-2)
+- **1024-dim hidden** (matches BioCLIP natively — no 768→1024 projection needed)
+- **Pre-trained on multi-species data INCLUDING plants** (no domain mismatch)
+- **2,050 bp context** (covers full ITS region without truncation)
+- ESM2-based architecture
+- LR=1e-6 (even more conservative for larger model)
+
+### Experiment 3: E10b-ext — Extended MLM Training (job 12375895, RUNNING)
+
+**What:** Continue E10b MLM training for 20 more epochs (total 25). Control experiment — measures how far self-supervised training alone can improve eff_rank. Early stopping if eff_rank plateaus (<2 change for 3 consecutive epochs).
+
+### Experiment 4: E12-mlp — MLP Bridge (job 12375896)
+
+**What:** Replace linear W_DNA with 2-layer MLP (768→2048→1024). Tests V_I (nonlinear genetic effects). Two activation variants (GELU, SiLU) × three pooling strategies = 6 sub-experiments. Frozen E10b encoder.
+
+### The experiment matrix
+
+| Bridge | Base DNABERT-2 | E10b (MLM) | E10c (contrastive) | E10c-NT (NT-v2) |
+|---|---|---|---|---|
+| **Linear** | 0% (done) | 0% (done) | ? | ? |
+| **MLP** | — | ? (E12-mlp) | ? (after E10c) | ? (after E10c-NT) |
+
+Row difference = V_I. Column difference = encoder quality. Best combo expected: E10c-NT + MLP.
+
+### V_A Clarification
+
+The linear bridge DID find V_A at the family level:
+- 84% family NN (93× random) = family-level additive genetic variance confirmed
+- 21.9% color accuracy (3.5× random) = family-level pigmentation V_A confirmed
+- 0% species-level retrieval = V_A at species resolution needs >20 effective input dimensions
+
+---
+
