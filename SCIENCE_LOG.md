@@ -19750,3 +19750,43 @@ The loss function follows the ITS2 topography naturally: conserved features (Hel
 
 ---
 
+## Entry 271 — E10b COMPLETE + E12v3 + E13a: Plant-Adapted DNA Model Results (2026-03-30)
+
+### E10b Geometry (plant-adapted DNABERT-2)
+
+| Metric | Base DNABERT-2 | E10b (5 epochs) | Change |
+|---|---|---|---|
+| **Effective rank** | 8.08 | **20.38** | **+152%** |
+| Pairwise cosine | 0.617 | **0.874** | ↑ tighter cone |
+| Genus NN accuracy | 53.2% | **57.5%** | +4.3pp |
+| Family NN accuracy | — | **88.7%** | — |
+| PC1 variance | 62.8% | **44.2%** | ↓ more distributed |
+
+**Taxonomy hierarchy (E10b):** genus=0.969, family=0.924, different=0.859 (was 0.825/0.702/0.609).
+
+**Interpretation:** eff_rank doubled (8→20). PCA variance is more distributed (PC1 dropped 63→44%). But pairwise_cos increased (0.617→0.874) — the embeddings collapsed into a tighter cone. This is a known MLM artifact: continued training makes embeddings more similar. The 20 dimensions carry more information but in a narrower angular range.
+
+### E12v3 (three-tower with E10b checkpoint)
+
+W_DNA training converged. eff_rank expanded 16→100+ over 30 epochs. But retrieval still 0% — InfoNCE at 7.37 ≈ ln(1604) = random. The linear bridge cannot discriminate 1,604 species from 20 effective input dimensions.
+
+### E13a color prediction with E10b
+
+**17.9% accuracy (2.9× random)** — slightly worse than base DNABERT-2 (21.9%, 3.5×). The tighter embedding cone (cos=0.874) makes species harder to distinguish, hurting the linear bridge's color prediction.
+
+### Diagnosis
+
+The linear bridge (W_DNA, 786K params) is fundamentally limited by the DNA model's effective rank. Even after domain adaptation (eff_rank 8→20), 20 meaningful dimensions cannot discriminate 1,604 species through a linear projection. The information bottleneck is in the DNA embeddings, not the bridge.
+
+**Next steps (in priority order):**
+1. **More training epochs** (10-20 instead of 5) — MLM was still dropping at 1.44
+2. **Contrastive fine-tuning of encoder** — unfreeze DNABERT-2 with InfoNCE loss (this IS the model training, not just the bridge)
+3. **Nonlinear bridge** (MLP) — Phase 3 of variance decomposition plan
+4. **Full structure annotations** (parallelize E10a) → retrain with Seq2Str at 100% coverage
+
+### DNABERT-2 checkpoint bug fixed
+
+E10b saved model weights but not custom code files (bert_layers.py, bert_padding.py). Fixed by copying custom code from cache to all 5 checkpoints.
+
+---
+
