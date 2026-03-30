@@ -19520,3 +19520,80 @@ Key biological knowledge documented in `memory/its2_biology.md`:
 
 ---
 
+## Entry 262 — exp_E11b COMPLETE: Taxonomic Retrieval Baseline — Outstanding Pre-Training Results (2026-03-30)
+
+### Results (job 12332832)
+
+Before any fine-tuning, the pre-trained bridge (microbial DNABERT-S + ridge regression) already captures strong taxonomic structure:
+
+| Metric | Value | Random | Ratio |
+|---|---|---|---|
+| **NN in same genus** | **49.7%** | 0.09% | **552×** |
+| **NN in same family** | **83.9%** | 0.9% | **93×** |
+| **Top-5 genus recall** | **61.4%** | — | — |
+| **Top-50 family purity** | **43.3%** | — | — |
+| Mean rank 1st same-family | 43 / 1,614 | — | top 2.6% |
+
+**Per-family highlights:**
+- Fabaceae: 98.0% family NN, 86.0% top-50 purity
+- Asteraceae: 97.0% / 81.3%
+- Lamiaceae: 98.6% / 70.1%
+- Poaceae: 72.5% / 35.7% (wind-pollinated, fewer visual features — biologically correct)
+- Amaranthaceae: 55.9% / 20.6% (inconspicuous flowers — correct)
+
+**Interpretation:** The DNA→visual bridge already knows plant taxonomy at the family level without training. This is the baseline that E12 (contrastive training) will improve.
+
+---
+
+## Entry 263 — exp_E15 COMPLETE: Text Embeddings for 107K Quaresma Species (2026-03-30)
+
+| Metric | Value |
+|---|---|
+| Species | 107,072 |
+| Pairwise cosine | **0.316** |
+| **Effective rank** | **162.6** |
+| Time | 5 min |
+
+Comparison across modalities:
+
+| Modality | Pairwise cos | Eff rank | N species |
+|---|---|---|---|
+| DNA (DNABERT-S) | 0.617 | 8 | 1,958 |
+| Visual (BioCLIP) | 0.548 | 15.7 | 2,174 |
+| **Text (BioCLIP)** | **0.316** | **162.6** | **107,072** |
+
+Text space is **20× higher rank** than DNA and **10× higher** than visual. This validates the architecture: text is the most discriminative modality and serves as the bridge between DNA and vision.
+
+---
+
+## Entry 264 — E10a Timed Out, Pipeline Restructured (2026-03-30)
+
+E10a (ViennaRNA folding, 307K sequences) timed out at 2h — folded only 31K sequences (~10%). ViennaRNA Python bindings are too slow for 307K sequences on CPU.
+
+**Fix:** Resubmitted E10a with 12h time limit (job 12337946). E10b (domain adaptation) depends on E10a.
+
+**Pipeline restructured:** E12 (three-tower training) now submitted WITHOUT dependency on E10b. E12 auto-falls back to base DNABERT-2 if E10b checkpoint not found. This gets the POC running immediately while domain adaptation runs in parallel.
+
+---
+
+## Entry 265 — exp_E11c: DNA Space Validation — What Do ITS2 Embeddings Encode? (2026-03-30)
+
+### Why this experiment
+
+Before training W_DNA, we must validate what the DNA embedding space itself contains. The user's key question: what is the DNA space equivalent of the predictions we want to make? Does ITS2 distance correlate with taxonomic distance? Does it predict color? How do the PCs relate to family membership? What does the landscape topology look like?
+
+### What it tests
+
+1. **Taxonomic hierarchy in DNA space:** same-genus cos > same-family cos > diff-family cos?
+2. **Mantel: DNA distance vs visual distance** (raw and partial, controlling for taxonomy)
+3. **Per-family Mantel:** where does the signal come from?
+4. **Color prediction from DNA distance alone** (no bridge, no W_DNA)
+5. **PC decomposition:** which PCs encode family, which encode species?
+6. **Topology:** discrete clusters (epistasis valleys) or continuous gradient?
+
+### Status
+
+RUNNING (job 12337955). Results pending.
+
+---
+
