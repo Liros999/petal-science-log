@@ -19593,7 +19593,42 @@ Before training W_DNA, we must validate what the DNA embedding space itself cont
 
 ### Status
 
-RUNNING (job 12337955). Results pending.
+COMPLETE (job 12337955, 62 seconds).
+
+### Results
+
+**Taxonomy hierarchy confirmed:** Same-genus cos=0.825, same-family=0.702, different=0.609.
+**Mantel:** raw r=0.050 (p=0.003), partial (controlling taxonomy) r=0.009 (p=0.001).
+**Per-family:** Convolvulaceae r=+0.622 (strongest), Ranunculaceae r=+0.188.
+**Color:** gap=-0.004 (raw DNA distance doesn't predict color — need trained W_DNA).
+**PCs:** 51-768 give best genus NN (57.4% vs full 51.7%). Family signal in top PCs, species in low PCs.
+**Topology:** within-genus cos=0.825, between-genus=0.685, discriminability=0.140 → discrete clusters.
+
+---
+
+## Entry 266 — exp_E12 v1: Three-Tower Training Attempt — Phylo Converged, InfoNCE Bottlenecked (2026-03-30)
+
+### DNABERT-2 patches (3 fixes)
+
+1. `pad_token_id` → `getattr(config, 'pad_token_id', 0)` (line 42)
+2. ALiBi device None → `_device = device if device is not None else 'cpu'` (line 392)
+3. `flash_attn_qkvpacked_func = None` forced unconditionally (Triton JIT fails)
+
+### Results (30 epochs, batch=64, frozen encoder, W_DNA only)
+
+| Metric | Pre-training | Post-training |
+|---|---|---|
+| Pairwise cosine | 0.932 | **0.019** |
+| Effective rank | 21.9 | **112.3** (5× improvement) |
+| Phylo loss | 0.288 | **0.012** (converged) |
+| InfoNCE loss | — | 4.045 ≈ ln(64) = random for batch 64 |
+| Top-1 retrieval | 0% | 0% |
+
+### Diagnosis: batch-size bottleneck
+
+InfoNCE at 4.045 ≈ ln(64)=4.16 is random chance for batch_size=64. The model learned phylogenetic structure (rank 22→112) but can't learn species discrimination with only 64 negatives per batch for 1,604 species.
+
+**Fix needed:** Memory bank (cache all 1,604 species embeddings, use as negatives) so every batch sees the full species set. Or request A100 80GB for batch=512+.
 
 ---
 
