@@ -20337,3 +20337,38 @@ unchanged, confirming the ceiling is in the encoder, not the training objective.
 **The 22.5% CV floor is real. It is not an artifact of any auxiliary loss.**
 
 ---
+
+## Entry 234 — Exp22 Setup: ITS2-BERT Small — Purpose-Built ITS2 Encoder (2026-03-31)
+
+**Status**: PLANNED → SUBMITTED
+
+**Hypothesis**: A transformer encoder with single-nucleotide tokenization (vocab=7), full 637-token context, RoPE positional encoding, and species-contrastive InfoNCE pre-training on Quaresma multi-accession data will produce CLS representations with GC% R² < 0.70 (vs DNABERT-2 E10b baseline of 0.919) and sufficient species discriminability to exceed 22.5% CV top-1 in the downstream bridge.
+
+**Positive control**: InfoNCE training loss < ln(256) ≈ 5.55 within 5 epochs (encoder learning species discrimination, not random).
+
+**Negative control**: GC% R² > 0.85 after training indicates failure — encoder still solved the contrastive task via GC% fingerprinting. This would mean the adversarial gradient reversal layer is ineffective.
+
+**Why this experiment**: E12–E21 converged to a hard ceiling of 22.5% CV top-1. E18 probing identified the root cause: DNABERT-2 E10b CLS is 92% a GC content fingerprint (R²=0.919). The MLP bridge exploits GC%/MFE fingerprints as a species lookup table — not a geometric alignment. Three architectural changes address this:
+1. Single-nucleotide tokenization: positional identity = phylogenetic signal (BPE destroys it)
+2. Full 637-token context: Helix IV (positions 453-637) is most species-diagnostic, currently discarded by DNABERT-2 128-token limit
+3. Species-contrastive InfoNCE: intraspecific GC% variation is low (~1-2%), so GC% cannot solve the contrastive task — encoder must learn positional/structural patterns
+
+**Architecture**: ITS2-BERT-S (small)
+- Vocab: {A, T, G, C, N, PAD, CLS} = 7 tokens (vs DNABERT-2 4,096 BPE)
+- Context: 640 tokens = CLS + 637 nt (zero truncation for any ITS2)
+- Positional encoding: RoPE (no long-range attention penalty — critical for stem pairings)
+- Transformer: 6 layers, hidden=256, 8 heads, FFN=1024, pre-norm
+- Parameters: ~4M
+- Auxiliary tasks: (1) Adversarial GC% prediction via gradient reversal layer, (2) per-position binary structure prediction from structures.tsv.gz
+
+**Pre-training data**:
+- Quaresma DB: 307,977 sequences, 105,875 species
+- Usable (≥2 accessions, non-Israeli): ~48,505 species
+- Hold-out: all 1,624 Israeli species (bridge evaluation — never seen during pre-training)
+- Batch: 256 species × 2 accessions = 512 sequences per step
+
+**Script**: `petal_benchmark/experiments/exp_E22_its2bert_small.py`
+**Results dir**: `/scratch200/leardistel/petal_benchmark/results/exp_E22_its2bert_small/`
+**SLURM**: GPU 24h, 32GB, gpu-general-pool
+
+**Next**: After E22 completes, run E23 probing suite on the new encoder. If GC% R² < 0.70, proceed to E24 bridge training with 5-fold CV.
