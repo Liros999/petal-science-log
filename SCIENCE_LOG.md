@@ -20211,3 +20211,39 @@ To improve beyond the current ceiling, need an encoder that captures ITS2 *struc
 - Option C: Accept 22.5% as the V_A floor for GC%-mediated phenotypic signal and explore other data (geographic, phenological)
 
 ---
+
+---
+
+## Entry 231 — Exp20 Setup: ITS2 Structural Distance vs Visual Distance — Partial Mantel (2026-03-31)
+
+**Status**: RUNNING (job 12412151)
+
+**Hypothesis**: Controlling for GC% distance, ITS2 secondary structure distance
+predicts visual phenotype distance (partial Mantel r > 0, p < 0.05), indicating
+structural signal beyond the thermodynamic proxy.
+
+**Positive control**: `r(D_visual, D_GC) > 0` with p < 0.05 — replicates E18 GC% finding.
+If this fails, the visual centroids or GC% computation is broken.
+
+**Negative control**: `r(D_visual, D_struct | D_GC) ≈ 0` — structural features
+(stem_frac, MFE) add no information beyond GC%. This would mean the 22.5% CV
+ceiling is a true composition ceiling and structure-aware encoders cannot improve it.
+
+**What is tested** (823 species with both visual centroids and ViennaRNA structure data):
+- `r(D_visual, D_GC)` — raw Mantel, replicates E18 (positive control)
+- `r(D_visual, D_MFE | D_GC)` — does thermodynamic stability add beyond GC%?
+- `r(D_visual, D_sf | D_GC)` — does stem fraction add beyond GC%?
+- `r(D_visual, D_struct_fp | D_GC)` — does binned stem density (structural fingerprint) add?
+- `r(D_visual, D_struct_fp | D_MFE)` — additional control
+
+**Note on CBC**: True CBC computation requires MSA (multiple sequence alignment).
+Sequences are unaligned (variable length 134–798 bp). This experiment uses global
+structural features as proxy. If partial Mantel is significant → MSA + position-level
+CBC matrix is the justified next step. If null → CBC analysis unlikely to change conclusion.
+
+**Script**: `feature_analysis/exp20_cbc_structural_mantel.py`
+**Results dir**: `/groups/itay_mayrose_nosnap/leardistel/experiments/exp20_cbc_structural_mantel/`
+
+**Next**: Wait for job 12412151, then update this entry with results.
+
+---
