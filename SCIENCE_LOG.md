@@ -20296,3 +20296,44 @@ The ITS2→visual bridge works through species-level fingerprint memorization, n
 **Next scientific question**: Is the 22.5% ceiling due to ITS2 being the wrong marker, or due to visual phenotype being poorly predictable from ANY molecular marker at species resolution?
 
 ---
+
+---
+
+## Entry 233 — Exp21: Visual-Only InfoNCE CV — Text Tower NOT Contaminating (2026-03-31)
+
+**Status**: COMPLETE (job 12412290, A100 80GB, ~3 minutes)
+
+**Question**: Was the 22.5% CV performance inflated by species-name information
+injected via the BioCLIP text tower (L_text)?
+
+**Setup**: Identical to E19 except LAMBDA_TEXT=0, LAMBDA_PHYLO=0. Pure visual InfoNCE only.
+Same 1,624 species, same 5-fold family-stratified CV, same frozen E10b + GELU MLP.
+
+### Results
+
+| Fold | Train top-1 | Test top-1 | Gap |
+|---|---|---|---|
+| 1 | 0.647 | 0.237 | 0.410 |
+| 2 | 0.668 | 0.222 | 0.447 |
+| 3 | 0.656 | 0.240 | 0.416 |
+| 4 | 0.640 | 0.194 | 0.446 |
+| 5 | 0.662 | 0.201 | 0.461 |
+| **Mean** | **0.655** | **0.219 ± 0.019** | **0.436** |
+
+**E19 (visual + text + phylo): 22.5% ± 2.0%**
+**E21 (visual only): 21.9% ± 1.9%**
+**Difference: −0.7pp** (within noise, p > 0.05)
+
+### Conclusion
+
+**NO CONTAMINATION.** The text tower and phylo loss contributed essentially nothing
+to true cross-species generalization. The 22.5% CV result is the pure DNA→visual signal.
+
+Note: in-distribution train top-1 rose from 51.5% (E19) to 65.5% (E21). This is
+expected — without text/phylo pulling the MLP in multiple directions, it optimizes
+more aggressively toward visual targets. But the generalization (test CV) is
+unchanged, confirming the ceiling is in the encoder, not the training objective.
+
+**The 22.5% CV floor is real. It is not an artifact of any auxiliary loss.**
+
+---
