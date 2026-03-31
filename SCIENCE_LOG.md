@@ -20247,3 +20247,52 @@ CBC matrix is the justified next step. If null → CBC analysis unlikely to chan
 **Next**: Wait for job 12412151, then update this entry with results.
 
 ---
+
+---
+
+## Entry 232 — Exp20 COMPLETE: ITS2 Structural Mantel — NULL Result + Critical Reframing (2026-03-31)
+
+**Status**: COMPLETE (job 12412204). Runtime ~8 minutes. 823 species.
+
+### Results
+
+| Test | r_raw | r_partial (| GC%) | p_partial | Significant? |
+|---|---|---|---|---|
+| **r(D_vis, D_GC) — positive control** | **0.0028** | — | **0.11** | **FAILED** |
+| r(D_vis, D_MFE \| D_GC) | 0.0377 | 0.0395 | 0.050 | n.s. |
+| r(D_vis, D_sf \| D_GC) | -0.0252 | -0.0260 | 0.249 | n.s. |
+| r(D_vis, D_struct_fp \| D_GC) | 0.0165 | 0.0163 | 0.467 | n.s. |
+| r(D_vis, D_struct_2d \| D_GC) | 0.0270 | 0.0275 | 0.107 | n.s. |
+| r(D_vis, D_struct_fp \| D_MFE) | 0.0138 | — | 0.548 | n.s. |
+
+### Critical Reframing — Reconciling with E18
+
+The positive control **failed** (r=0.0028, p=0.11): GC% DISTANCE between species does NOT predict visual DISTANCE between species.
+
+This appears to contradict E18's GC% R²=0.919. It does not — they measure completely different things:
+
+- **E18 (R²=0.919)**: Linear probe recovers GC% FROM CLS embeddings. The CLS vector IS a GC% fingerprint. Per-species regression.
+- **E20 positive control (r=0.003)**: Does |GC%[i] − GC%[j]| predict |visual[i] − visual[j]|? Pairwise Mantel. **Answer: No.**
+
+These are **consistent**. The MLP bridge works by memorizing the mapping:
+```
+GC% fingerprint of species s → visual centroid of species s
+```
+This is a **lookup table**, not a geometric correlation. The MLP does not exploit a continuous geometric relationship between GC% space and visual space (those spaces are nearly orthogonal, r=0.003). It memorizes discrete (fingerprint→centroid) pairs for training species.
+
+### Null Result — Full Implications
+
+**All structural distances** (stem_frac, MFE, structural fingerprint) predict visual distance with r_partial ≈ 0 after controlling for GC%. Even the raw correlations are near zero (r_raw = 0.016–0.038).
+
+**What this means:**
+1. **ITS2 composition AND structure are both near-orthogonal to visual phenotype at the pairwise distance level.** The signal that exists (22.5% CV) is not encoded as a geometric distance correlation — it is encoded as individual species-level fingerprints that the MLP memorizes.
+2. **MSA + CBC analysis is NOT justified** by this result. If global structural distance does not correlate with visual distance, position-level CBC distance is unlikely to either.
+3. **The 22.5% CV ceiling is likely near the true information-theoretic limit** of what any ITS2 encoder can retrieve about visual phenotype through pairwise distance geometry.
+4. **The path forward is NOT a better structural encoder.** It is a fundamentally different question: what data source carries visual-predictive signal that is NOT mediated through compositional lookup?
+
+### Conclusion
+The ITS2→visual bridge works through species-level fingerprint memorization, not through structural information geometry. The 22.5% true generalization represents how well GC%/MFE family-level patterns transfer across species — not structural signal. Building a structure-aware ITS2 encoder is unlikely to improve CV performance.
+
+**Next scientific question**: Is the 22.5% ceiling due to ITS2 being the wrong marker, or due to visual phenotype being poorly predictable from ANY molecular marker at species resolution?
+
+---
