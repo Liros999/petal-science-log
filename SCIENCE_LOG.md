@@ -20614,3 +20614,62 @@ the best available DNA encoder. The 21.8%→24.3% improvement from color supervi
 - MYB gene acquisition (NCBI Entrez) for within-family color signal
 - E33: Direct nucleotide sequence features that avoid GC% correlation
   (position-specific substitution patterns, stem-loop topology, CBC distances)
+
+## Entry 248 — MYB Acquisition SUBMITTED (2026-04-02)
+
+**Status**: RUNNING (job 12548317, CPU 6h)
+
+**Targets**: R2R3-MYB SG6 (anthocyanin: MYB75/PAP1, MYB90/PAP2, MYB113, MYB114)
+             R2R3-MYB SG7 (flavonoid: MYB5, MYB10, MYB11, MYB12, MYBR2)
+
+**Species queried**: 2611 Israeli species from israel_species.db (via NCBI Entrez)
+
+**Outputs**:
+- `myb_sequences` table in israel_species.db
+- `myb_features.npz` — (2611, 6) binary per-species vector [has_SG6, has_SG7, has_PAP1, has_PAP2, has_MYB5, has_MYB10]
+- Null check: χ² test (MYB coverage × color label) — is coverage color-biased?
+- Checkpoint every 50 species (resumes on requeue)
+
+**Positive control**: Arabidopsis thaliana — expect ≥4 SG6 hits
+
+**Motivation**: ITS2 DNA carries r(DNA, color)=0.005 (no color signal).
+MYB SG6/7 directly controls CHS/CHI/DFR/ANS pathway → flower pigmentation.
+This is a direct genetic mechanism for within-family color discrimination,
+orthogonal to phylogenetic ITS2 signal.
+
+**Next**: E33 bridge — augment DNA_CLS with MYB 6-dim binary vector + redesigned MLP:
+- Pre-norm architecture: auxiliary heads on un-normalized trunk output
+- Depth: 256→512→1024→1024 with LayerNorm + residuals
+- Input: [ITS2_CLS_256 | MYB_6] → 262-dim
+
+---
+
+## Entry 249 — E32 Architecture Analysis (2026-04-02)
+
+**Key finding**: Color supervision works (col_prec@5=38.7% vs 11% random) but gain is small (+2.5pp).
+
+**Why the gain is small — three architectural reasons**:
+
+1. **Geometric competition at the output**: color_head and family_head both operate on the
+   L2-normalized bridge output `z`. InfoNCE pulls z toward visual_centroid. Color MSE pulls
+   z toward the Lab region. These are different directions for most species → compromise.
+   Fix: auxiliary heads on pre-norm trunk representation `h`, only InfoNCE sees normalized `z`.
+
+2. **Single hidden layer is insufficient**: 256→2048→1024 is a rank-2048 linear map with
+   one nonlinearity. Cannot simultaneously disentangle phylogeny + color + visual structure.
+   The color supervision gradient (λ=0.20) is ×10 weaker than InfoNCE at τ=0.07 → whisper.
+
+3. **Fixed τ=0.07 overwhelms auxiliary losses**: At batch=128 with τ=0.07, InfoNCE
+   gradient ≈2.0; color MSE gradient ≈0.02×λ. Color supervision is marginal noise on InfoNCE.
+   Fix: softer τ=0.10 or adaptive τ, giving auxiliary losses proportionally more weight.
+
+**E33 proposed architecture**:
+```
+DNA_CLS (256) [+ MYB_6 (6)] → Linear(262→512) → LN → GELU
+                             → Linear(512→1024) → LN → GELU   [depth]
+                             → Linear(1024→1024) → h           [pre-norm trunk]
+Auxiliary heads on h (NOT on normed z):
+  color_head:  Linear(1024→3)   → MSE(·, lab_centroid_norm)
+  family_head: Linear(1024→101) → CE(·, family_label)
+Output: z = L2-norm(h) → InfoNCE(z, visual_centroid)
+```
