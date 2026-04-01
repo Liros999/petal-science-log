@@ -20516,3 +20516,22 @@ regardless of auxiliary supervision strategy.
 
 **Next**: E32 with BioBits2B encoder (job 12547556) — running now.
 **Critical question**: Can BioBits2B CBC features break within-family ceiling?
+
+## Entry 244 — Exp32 COMPLETE: Color-Supervised Bridge — BioBits2B Encoder (2026-04-01)
+
+**Status**: COMPLETED — CONFIRMED FAILURE (as predicted from E29 GC% result)
+
+**Results**:
+| Config | top1(fold) | top1(full) | Δ E25c |
+|---|---|---|---|
+| D_baseline | 3.07% | 0.73% | -18.7pp |
+| B_color_tax (primary) | **3.54%** | 0.87% | -18.3pp |
+
+**Conclusion**: BioBits2B encoder (GC% R²=0.942) is useless as bridge input.
+The bridge cannot learn visual structure from a GC%-dominated representation.
+ITS2-BERT-S (E22, 23.5%) is 7× better as bridge encoder despite smaller dim (256 vs 768).
+
+**What this proves**: The encoder representation quality (GC% suppression) matters MORE
+than model scale (85M params) or input biochemistry (6-channel vs k-mer tokens).
+
+**Next**: E29b — BioBits2B with GC%-whitened inputs.
