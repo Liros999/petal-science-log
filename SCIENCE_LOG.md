@@ -20673,3 +20673,37 @@ Auxiliary heads on h (NOT on normed z):
   family_head: Linear(1024→101) → CE(·, family_label)
 Output: z = L2-norm(h) → InfoNCE(z, visual_centroid)
 ```
+
+## Entry 250 — Exp33 SUBMITTED: Bridge v2 Disentangled Color (2026-04-02)
+
+**Status**: RUNNING (job 12548425, GPU 12h)
+
+**Encoder**: ITS2-BERT-S E22 (256-dim) + MYB_6 if available = 262-dim
+
+**Architecture changes vs E32** (all motivated by analysis of E32 failure modes):
+
+| Change | Problem solved |
+|--------|---------------|
+| Pre-norm aux heads: color/family heads on `h`, NOT on `z` | Eliminates InfoNCE ↔ color MSE geometric competition on sphere |
+| Residual trunk: proj(262→1024) + Block1(1024→512→1024) + Block2 | Each block adds to representation without destroying prior structure |
+| Color lane: dedicated 262→256→1024 path + learned gate | Color gets own weights; gate controls injection (starts ~0, grows if useful) |
+| Orthogonal color loss: MSE on z - proj_family(z) | Neural partial Mantel — color supervision controlling for phylogeny |
+| Annealed τ: 0.20→0.07 over ep 1–20 | Family emerges at soft τ; color refines at sharp τ without being drowned |
+| Weighted CE: inv-sqrt frequency, no singletons/doubletons | Prevents Fabaceae(237sp) from dominating; generalizable family signal |
+
+**Configs**: D_baseline / A_prenorm / B_ortho (PRIMARY) / C_ortho_strong
+
+**Targets**:
+- B_ortho top1 > 24.31% (E32 C_strong) — overall improvement
+- wf_top1 > 0.000 — any within-family improvement (hard ceiling in E32)
+- col_prec@5 > 38.7% (E32 C_strong) — color supervision quality
+- gate > 0.5 → color lane is actively contributing
+
+**Theory**: Orthogonal color loss is the neural equivalent of a partial Mantel test.
+By projecting out family direction from z before computing color MSE, we force
+the color head to learn color from the residual space only accessible if DNA
+carries within-family color signal.
+
+**E32 architecture note**: The 101 families in E32 were correct (1489 Israeli species,
+not Citadel's 92 flower species). The real issue was: (1) L2-norm before aux heads,
+(2) no depth/residuals, (3) τ=0.07 drowning color gradient, (4) equal CE weights.
