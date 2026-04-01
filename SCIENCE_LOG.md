@@ -20535,3 +20535,49 @@ ITS2-BERT-S (E22, 23.5%) is 7× better as bridge encoder despite smaller dim (25
 than model scale (85M params) or input biochemistry (6-channel vs k-mer tokens).
 
 **Next**: E29b — BioBits2B with GC%-whitened inputs.
+
+## Entry 245 — Exp32 COMPLETE: BioBits2B Encoder Confirms Failure (2026-04-01)
+
+**Status**: COMPLETE — CONFIRMS E29 FAILURE
+
+**Encoder**: BioBits2B (E29, GC% R²=0.942 — failed)
+**Encoder dim**: 768
+
+**Results** (fold-local / full-gallery):
+- D_baseline: 3.07% / 0.73%
+- A_color_only: 3.27% / 0.60%
+- B_color_tax: 3.54% / 0.87%
+- C_strong: 3.21% / 0.67%
+
+**Interpretation**: BioBits2B at 3.5% fold-local vs ITS2-BERT-S at 23.5%.
+GC%-dominated CLS cannot learn cross-space alignment. Encoder quality >> model scale.
+As expected from E29 GC% R²=0.942.
+
+**Geometry**: r(Lab, visual)=0.308 confirmed (independent of encoder quality).
+
+**Next**: E29b (job 12547577) — GC%-whitened inputs + lambda_grl=1.0. 
+If GC% R²<0.40 and eff_rank>150, re-run E32 with E29b CLS (auto-detected).
+
+---
+
+## Entry 246 — Exp29b SUBMITTED: BioBits2B GC%-Whitened (2026-04-01)
+
+**Status**: RUNNING (job 12547577, GPU 12h)
+
+**Fix from E29**:
+- E29 root cause: struct_entropy/partner_prob physically correlated with GC%
+  (high-GC sequences → more stems → lower entropy at every position)
+- GRL at λ=0.1 cannot overcome INPUT-LEVEL GC% correlation
+
+**Fixes applied**:
+1. GC%-whiten all input channels before encoding:
+   - gc_proxy = mean(struct_entropy) per sequence (proxy for GC%)
+   - beta = OLS regression coefficients (X_flat.T @ gc_norm) / N
+   - X_whitened = X_flat - outer(gc_norm, beta)  [removes GC% linear component]
+2. lambda_grl increased 0.1 → 1.0 (stronger adversarial GC% suppression)
+
+**Targets**: GC% R² < 0.40, eff_rank > 150/768, r(BioBits2B, visual) > 0.011
+**Output**: exp_E29b_biobits2b_gcwhiten/cls_israeli_biobits2b.npz
+           → E32 auto-detects E29b output (checks E29b before E29 before E22)
+
+**Script**: experiments/exp_E29b_biobits2b_gcwhiten.py
