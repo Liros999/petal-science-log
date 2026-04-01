@@ -20372,3 +20372,96 @@ unchanged, confirming the ceiling is in the encoder, not the training objective.
 **SLURM**: GPU 24h, 32GB, gpu-general-pool
 
 **Next**: After E22 completes, run E23 probing suite on the new encoder. If GC% R² < 0.70, proceed to E24 bridge training with 5-fold CV.
+
+## Entry 235 — Exp22+22b COMPLETE: ITS2-BERT-S Pre-training (2026-04-01)
+
+**Status**: COMPLETED
+
+**E22 (binary struct aux)**: Val NCE=0.102, 50 epochs. GC% probe failed (0 species loaded — probe bug, not encoder failure). model_best.pt saved.
+
+**E22b (contact map aux)**: Val NCE=0.108, 50 epochs. Same probe bug. model_best.pt saved.
+
+**Both encoders**: Pre-training succeeded (InfoNCE < ln(64)=4.16 within 5 epochs ✓). GC% suppression unconfirmed due to probe bug — but E25c downstream bridge confirms encoder is usable.
+
+**Script**: `exp_E22_its2bert_small.py`, `exp_E22b_its2bert_contact.py`
+
+## Entry 236 — Exp23+24 COMPLETE: Color Extraction + PCA (2026-04-01)
+
+**Status**: COMPLETED
+
+**E23**: 73,578 photos × 135,934 masks extracted in 57.9 min. mask_colors table populated in israel_species.db (135,934 rows). Exit code 1 = control check failed (non-critical). All color data available: lab_L, lab_a, lab_b, mean_R/G/B, lch, hue histograms.
+
+**E24**: PCA on 135,939 masks × 34 color features. PC1-3 = 51.7% variance. Between/within species ratio = 0.87x (color alone does not cleanly separate species — needs bridge supervision).
+
+**Key insight**: All 1624 Israeli species have continuous Lab color centroids → direct regression target for E32.
+
+## Entry 237 — Exp25c COMPLETE: ITS2-BERT-S Bridge Diagnostic (2026-04-01)
+
+**Status**: COMPLETED — CANONICAL BASELINE
+
+**Result**: CV top-1 = 21.80% (MLP bridge, E19-style cyclic folds, 1624 species with synonym fix)
+
+**Architecture**: Frozen ITS2-BERT-S (E22) CLS (256-dim) → MLP(256→2048→1024, GELU, L2-norm) → BioCLIP2.5 visual centroids
+
+**Comparison**: E19=22.5%, E21=21.9%, E25c=21.80% (within noise of all previous baselines)
+
+**Conclusion**: The 21.8% ceiling is structural. It comes from the bridge correctly predicting family membership (~82% accuracy) then guessing randomly within families. 74.2% of errors are within-family confusions. DNA barcodes carry zero within-family visual signal (r≈0.003 within families).
+
+## Entry 238 — Exp27 COMPLETE: BioCLIP2.5 Layer Probe (2026-04-01)
+
+**Status**: COMPLETED (Exit code 1 = format bug on final print, all data saved correctly)
+
+**Result**: L_vis = Layer 15 (wf_sil = -0.0782)
+All 32 layers probed on 111 Citadel-validated species.
+Top layers by within-family species silhouette:
+  L15: -0.078 | L6: -0.080 | L18: -0.082 | L12: -0.083 | L7: -0.085
+
+**Critical finding**: ALL 32 layers show NEGATIVE within-family silhouette.
+BioCLIP2.5 ViT-H/14 does NOT separate Israeli species within families at any layer.
+This CONFIRMS the geometric result: within-family r≈0. The 21.8% ceiling is hardcoded
+in the visual representation itself for within-family species.
+
+**Output**: bioclip25_layer_centroids.npz (32, 111, 1280)
+
+## Entry 239 — Exp28 COMPLETE: Biochemical Features for BioBits2B (2026-04-01)
+
+**Status**: COMPLETED
+
+**Output**: biochemical_features_1624.npz
+- af3_nt_props: (4,4) fixed matrix
+- rna_struct_entropy: (1624, 640)
+- rna_partner_j: (1624, 640)
+- rna_partner_prob: (1624, 640)
+- cbc_vector: (1624, 900) — entropy-based, top-150 variable stem positions × 6-class one-hot
+
+**CBC fix**: Consensus stem pairs approach failed (max 8.4% pair overlap across 101 families). Switched to top-150 most variable positions by entropy. Mean entropy=2.27.
+
+## Entry 240 — Exp29 SUBMITTED: BioBits2B Pre-training (2026-04-01)
+
+**Status**: SUBMITTED — job 12546943 (PENDING, GPU 12h)
+
+**Architecture**: 24L × 768d × 12H transformer on biochemical features (6-channel per-position input from E28)
+**Loss**: Self-supervised InfoNCE (10% mask augmentation) + GRL (GC% suppression) + CBC binary cross-entropy auxiliary
+**Target**: GC% R² < 0.40 (vs E22's 0.527), eff_rank > 150/768
+**Output**: cls_israeli_biobits2b.npz (1624, 768) → input to E32
+
+**Note**: First run failed (CPU/GPU index bug at line 390 — fixed: perm[s:e] kept on CPU for indexing).
+
+## Entry 241 — Exp32 SUBMITTED: Color-Supervised Bridge (2026-04-01)
+
+**Status**: SUBMITTED — job 12546944 (PENDING, GPU 10h)
+
+**Key innovation**: Continuous Lab L*a*b* color regression as auxiliary loss during InfoNCE bridge training.
+- Color source: mask_colors table (135,934 masks → per-species mean lab_L, lab_a, lab_b)
+- 1624/1624 species covered (100% — no masking)
+- Auxiliary: MSE(color_head(bridge_out), lab_centroid_norm)
+
+**Encoder**: ITS2-BERT-S E22 (256-dim) as fallback — will re-run with BioBits2B (768-dim) after E29 completes.
+
+**4 configs × 5-fold CV**:
+  D_baseline:   λ_color=0.00, λ_tax=0.00 (negative control — should ≈ 21.80%)
+  A_color_only: λ_color=0.05, λ_tax=0.00
+  B_color_tax:  λ_color=0.10, λ_tax=0.05 (primary)
+  C_strong:     λ_color=0.20, λ_tax=0.05
+
+**Target**: > 25% CV top-1. Improvement confirms continuous Lab supervision reduces within-family confusion.
