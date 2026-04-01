@@ -20465,3 +20465,54 @@ in the visual representation itself for within-family species.
   C_strong:     λ_color=0.20, λ_tax=0.05
 
 **Target**: > 25% CV top-1. Improvement confirms continuous Lab supervision reduces within-family confusion.
+
+## Entry 242 — Exp29 COMPLETE: BioBits2B Pre-training Results (2026-04-01)
+
+**Status**: COMPLETED — FAILED TARGETS
+
+**Architecture**: 12L × 768d × 12H, 85.7M params, self-supervised InfoNCE + GRL + CBC aux
+
+**Results**:
+- GC% R² = **0.942** — WORSE than ITS2-BERT-S (0.527). Target was <0.40. MISS.
+- eff_rank = 136/768. Target was >150. MISS.
+- r(BioBits2B_dist, visual_dist) = 0.007. Worse than ITS2-BERT-S (0.011).
+
+**Root cause**: The biochemical input features (struct_entropy, partner_prob) are physically
+correlated with GC% — high-GC sequences form more stems → lower entropy. The GRL cannot
+disentangle GC% from structural signal when the input itself encodes GC%. GRL lambda=0.1
+was also too weak.
+
+**Fix required for E29b**:
+  1. Whiten GC% from input features: X_whitened = X - beta * gc_fraction (per sequence)
+  2. Strengthen GRL: lambda_grl = 1.0 (was 0.1)
+  3. Or: use residual features = struct_entropy - expected_entropy(gc%) as input
+
+**Output saved**: cls_israeli_biobits2b.npz (1496, 768) — but GC%-dominated, use with caution.
+**E32 with BioBits2B submitted** (job 12547556) to measure downstream impact.
+
+## Entry 243 — Exp32 COMPLETE: Color-Supervised Bridge — ITS2-BERT-S Encoder (2026-04-01)
+
+**Status**: COMPLETED — POSITIVE RESULT
+
+**Results** (fold-local gallery, E25c-comparable):
+
+| Config | top1 | Δ E25c | col_prec@5 | wf_top1 |
+|---|---|---|---|---|
+| D_baseline (λ=0) | 23.51% | +1.71pp | 37.88% | 0% |
+| A_color_only (λ=0.05) | 24.18% | +2.38pp | 38.67% | 0% |
+| B_color_tax (λ=0.10) | 23.84% | +2.04pp | 39.24% | 0% |
+| C_strong (λ=0.20) | **24.31%** | **+2.51pp** | 38.74% | 0% |
+
+**Key findings**:
+1. r(Lab_dist, visual_dist) = 0.31 — continuous Lab is 3× more predictive than discrete color_en (0.096)
+2. Color supervision is working: col_prec@5 = 38.7% vs 11% random baseline
+3. All color configs beat baseline by +1.7 to +2.5pp — consistent positive effect
+4. wf_top1 = 0% — within-family still zero. Color supervision does NOT resolve within-family confusions.
+5. D_baseline = 23.51% vs E25c 21.80% — 1.7pp gap from different species set (1489 mean-CLS vs 1624 first-accession)
+
+**Conclusion**: Color supervision gives modest improvement (+2.5pp) but does NOT break the ceiling.
+Within-family wf_top1=0% confirms the ceiling is hard: ITS2 DNA has NO within-family visual signal
+regardless of auxiliary supervision strategy.
+
+**Next**: E32 with BioBits2B encoder (job 12547556) — running now.
+**Critical question**: Can BioBits2B CBC features break within-family ceiling?
