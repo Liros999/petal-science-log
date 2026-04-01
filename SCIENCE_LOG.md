@@ -20581,3 +20581,36 @@ If GC% R²<0.40 and eff_rank>150, re-run E32 with E29b CLS (auto-detected).
            → E32 auto-detects E29b output (checks E29b before E29 before E22)
 
 **Script**: experiments/exp_E29b_biobits2b_gcwhiten.py
+
+## Entry 247 — Exp29b COMPLETE: GC%-Whitening FAILED (2026-04-02)
+
+**Status**: COMPLETE — FAILED TARGETS
+
+**Results**:
+- GC% R² = 0.925 (target <0.40) — MISS (was 0.942 in E29)
+- eff_rank = 139.5/768 (target >150) — MISS (was 136 in E29)
+- r(BioBits2B_dist, visual_dist) = 0.0099 (target >0.011) — MISS
+
+**Root cause analysis**:
+Input-level OLS whitening removes the *linear* GC% component from struct_entropy and
+partner_prob, but the **transformer re-learns GC% from CBC features** (cbc_vector encodes
+stem pair composition → GC% proxy). The 85M parameter model can trivially reconstruct
+GC% from any correlated combination of the 6 input channels.
+
+**Why whitening cannot work for this architecture**:
+- All 6 channels are mechanistically derived from RNA secondary structure
+- RNA structure is directly determined by GC% (GC pairs more stable → more stems)
+- OLS whitening removes linear correlation but not nonlinear structure
+- With 85M params + 6 correlated channels, the model finds GC% in any basis
+
+**Conclusion**: BioBits2B architecture (biochemical features → transformer) is fundamentally
+incompatible with GC% independence. The features themselves ARE GC%. 
+
+**Decision**: HALT BioBits2B development. ITS2-BERT-S (E22, GC% R²=0.527) remains
+the best available DNA encoder. The 21.8%→24.3% improvement from color supervision
+(E32 Config C) is the current best result.
+
+**Next focus**:
+- MYB gene acquisition (NCBI Entrez) for within-family color signal
+- E33: Direct nucleotide sequence features that avoid GC% correlation
+  (position-specific substitution patterns, stem-loop topology, CBC distances)
