@@ -20838,3 +20838,73 @@ E34 B_fam_ortho (all bugs fixed):        30.76%  (+1.41pp vs E33)
 - Longer training (200 epochs) with cosine warmup
 - Paper write-up: the core result (color-supervised orthogonal bridge) is now established and reproducible.
 
+
+---
+
+## Entry 254 — Exp35 SUBMITTED: Linear Algebra Bridge with Ecological Structure (2026-04-02)
+
+**Status**: RUNNING (job 12569225, CPU 12h)
+
+**Paradigm shift**: Abandon MLP+InfoNCE. Replace with closed-form linear maps (ridge,
+CCA, PLS, Procrustes) + structured ecological injection via multi-scale orthogonal
+decomposition. No training loop. No competing λ's. No gradient descent.
+
+**Core principle**: STRUCTURE THE SPACE, DON'T PILE LOSSES.
+
+**Motivation from E34 dissection:**
+- InfoNCE dominates auxiliary losses 20-70× → color/family supervision is noise
+- 54pp train-test gap → MLP memorizes training species perfectly, can't generalize
+- Val loss plateaus at epoch 25 → 75 wasted epochs
+- CCA canonical correlations 0.99+ (on 35sp) → mapping is nearly perfectly linear
+- Partial Mantel r(DNA, visual | taxonomy) = 0.009 → DNA carries NO within-family signal
+- BUT r(color, visual) within-family = 0.312 → color IS the key within-family discriminator
+- wf_top1 metric was BROKEN (always 0) → replaced with wf_mrr
+
+**Phase A — Closed-form DNA-only baselines:**
+- A1: Ridge W = F^T B (B^T B + λI)^{-1}, LOO lambda selection
+- A2: CCA at ranks {4,8,16,32,64,128}
+- A3: Orthogonal Procrustes (distance-preserving rotation)
+- A4: PLS regression at ranks {4,8,16,32,64,128}
+
+**Phase B — Structured ecological injection:**
+- B1: Multi-scale orthogonal decomposition:
+  - Family subspace ← DNA (ridge, DNA carries family signal)
+  - Genus subspace ← DNA (ridge, DNA carries genus signal)
+  - Residual subspace ← ECOLOGY (ridge on 14-dim ecological features)
+  - No competing losses — orthogonal decomposition separates subspaces
+- B1b: DNA-only ablation (no ecology)
+- B1c: Ecology-only ablation (no DNA)
+- B2: Chorotype-conditioned per-region maps
+- B3: Spectral bridge W = V @ M @ U^T with biologically-informed bases
+
+**Ecological features (14-dim per species, from israel_species.db):**
+- Color: [sin_H, cos_H, a*, b*, S, V] — CV-weighted (a* CV=4.54, 5.3× weight)
+- Color variability: [std_lab_a, std_lab_b]
+- Phenology: [sin(2π·doy/365), cos(2π·doy/365)] — circular flowering season
+- Geography: [lat, lon] — observation location
+- Morphology: [area_frac] — flower size proxy
+- Life form: [annual=0/perennial=1]
+
+**New metrics:**
+- wf_mrr: within-family mean reciprocal rank (replaces broken wf_top1)
+- wf_topK: within-family top-K accuracy (K=1,3,5)
+- wg_mrr: within-genus mean reciprocal rank
+
+**Leakage prevention**: Every W computed from TRAINING fold ONLY. Ecology features from
+full DB (external signal, acceptable). Verified by 5 automated checks in script.
+
+**Verified geometric facts:**
+- Visual effective rank: 337 (not 15.7 as previously cited — corrected)
+- DNA (E22) effective rank: 126 (not 45.9 — that was DNABERT-S)
+- CCA 0.99+ was on 35 species only — LIKELY INFLATED, recomputing on 1489
+
+**Expected outcomes:**
+- Phase A: 20-30% top-1, <10pp gap (linear maps cannot memorize)
+- Phase B: +2-5pp from ecological injection into residual subspace
+- wf_mrr > 1/mean_family_size (better than random within-family)
+
+**Targets:**
+- A1 Ridge ≥ 20% (closed-form is viable)
+- B1 Multi-scale > A1 Ridge (ecology adds signal beyond DNA)
+- All methods gap < 15pp (no memorization)
+
