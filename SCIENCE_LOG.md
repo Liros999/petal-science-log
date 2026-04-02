@@ -21002,3 +21002,87 @@ The clean decomposition is now clear:
   losing ecology signal in the residual subspace?
 - Compute fold-local top1 for ecology-only to compare fairly with E34's 30.76%
 
+
+---
+
+## Entry 256 — Exp35b COMPLETE: Ablation Controls — Color Leakage Quantified (2026-04-02)
+
+**Status**: COMPLETED (job 12569266)
+
+**Purpose**: Validate E35 B1c_Eco_only wf_mrr=0.456 claim. 8 of 14 ecological features
+are pixel-level color derived from the SAME photographs as BioCLIP visual centroids.
+BioCLIP CLS encodes color (max r=0.66 with saturation). Is the result circular?
+
+### Ablation Results
+
+```
+Method                     top1_local  gap      wf_mrr   wf_t1   fam_t1
+─────────────────────────────────────────────────────────────────────────
+RANDOM BASELINE              —         —       0.1336    4.5%     —
+CTRL6 DNA-only              9.60%    -2.0pp    0.1533    4.7%   72.7%
+CTRL1 Color-FREE eco        2.89%    -2.0pp    0.2408   11.2%    3.2%
+CTRL2 Color-ONLY           10.14%    -6.4pp    0.3960   24.4%    5.0%
+CTRL3 Full eco (=E35 B1c)  17.39%    -8.3pp    0.4561   29.3%    6.9%
+CTRL5 DNA + clean eco      12.43%    -0.6pp    0.1877    6.9%   73.1%
+CTRL4 DNA + full eco       31.63%    -3.2pp    0.3682   22.1%   68.1%
+─────────────────────────────────────────────────────────────────────────
+E34 B_fam_ortho            30.76%    54.0pp    N/A       0.0%   74.9%
+E34 B_fam_ortho (full gal)  4.16%    54.0pp    N/A       0.0%   74.9%
+```
+
+### Color Leakage Decomposition
+
+```
+Total wf_mrr signal above random:    0.3226 (100%)
+Color-only contribution:              0.2624 (81.4%)  ← COLOR DOMINATES
+Color-free eco contribution:          0.1073 (33.3%)  ← genuine but smaller
+(>100% because color+eco interact non-additively)
+```
+
+### Validated Findings
+
+**1. Color drives 81.4% of within-family signal.** The wf_mrr=0.456 is real but 81%
+comes from pixel-level color → BioCLIP CLS correlation. This is NOT cheating — BioCLIP
+encodes color because color IS visual appearance. But it's color-supervised prediction,
+not a novel ecological signal.
+
+**2. Color-free ecology IS above random.** wf_mrr=0.241 vs random=0.134 (1.8× above random).
+Phenology + geography + flower size carry genuine within-family signal independent of color.
+
+**3. CTRL4 (DNA + full ecology) = 31.63% fold-local — matches E34's 30.76%.** A single
+ridge regression on [DNA₂₅₆ | ecology₁₄] = 270 dims matches the MLP+InfoNCE bridge
+trained for 100 epochs with 5 competing loss terms. Gap = 3.2pp (vs E34's 54pp).
+
+**4. E34 full-gallery comparison**: E34 B_fam_ortho = 4.16% on full 1489-species gallery.
+E35 CTRL3 ecology-only = 5.44% on same metric. Ecology-only BEATS E34 MLP on the harder
+full-gallery metric despite having no DNA input.
+
+### E2E Mathematical Dissection of CTRL4
+
+CTRL4 computes: `f̂ = W @ [b_dna | e_eco]` where `W = F^T X (X^T X + λI)^{-1}`
+
+**Spectral structure**: W has effective rank 129/270. Top-5 singular directions are
+>99.6% DNA — the dominant axis is the family phylogenetic signal.
+
+**Energy vs variance paradox**: W_dna has 99.7% of W's Frobenius energy but produces
+only 54.2% of output variance. W_eco has 0.3% of energy but 44.6% of variance — because
+z-scored eco features arrive at ~16× larger scale than L2-normalized DNA on a 256-dim sphere.
+
+**DNA and ecology are orthogonal**: cos(W_dna@b, W_eco@e) = 0.028 mean. The two
+contributions operate in nearly disjoint subspaces of the 1024-dim visual space.
+
+**Within-family, ecology dominates DNA in every large family**:
+```
+Fabaceae (237sp):    r_dna=+0.209  r_eco=+0.438
+Asteraceae (183sp):  r_dna=+0.060  r_eco=+0.412
+Brassicaceae (91sp): r_dna=+0.004  r_eco=+0.455
+Lamiaceae (67sp):    r_dna=-0.011  r_eco=+0.439
+```
+
+### Metric Correction
+
+**E34's 30.76% is fold-local** (test vs 298 test species).
+**E34's full-gallery top-1 = 4.16%** (test vs all 1489 species).
+All E35 cross-experiment comparisons must use matching metrics.
+The wf_top1=0.000 in E34 was a broken metric — replaced by wf_mrr in E35.
+
