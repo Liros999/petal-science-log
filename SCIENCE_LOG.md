@@ -20908,3 +20908,97 @@ full DB (external signal, acceptable). Verified by 5 automated checks in script.
 - B1 Multi-scale > A1 Ridge (ecology adds signal beyond DNA)
 - All methods gap < 15pp (no memorization)
 
+
+---
+
+## Entry 255 — Exp35 COMPLETE: Linear Algebra Bridge — Ecology Dominates DNA (2026-04-02)
+
+**Status**: COMPLETED (job 12569232)
+
+### HEADLINE RESULT
+
+**Ecology-only ridge regression (B1c) achieves wf_mrr=0.456 and wf_top1=29.3% — a metric
+that was ZERO across ALL prior experiments (E25c through E34).** The fixed wf_mrr metric
+reveals that ecological features (color, phenology, geography, morphology) predict
+within-family visual structure FAR better than DNA.
+
+### Full Results Table (top1_full = full 1489-species gallery)
+
+```
+Method            top1_full  gap     wf_mrr  wf_t1   wf_t5   wg_mrr  fam_t1  col@5
+E34 B_fam_ortho   30.76%*   54.0pp  N/A     0.0%*   N/A     N/A     74.9%   42.3%
+A1 Ridge           2.22%    28.2pp  0.167   4.5%    27.6%   0.381   77.4%   32.1%
+A2 CCA R64         3.36%    82.5pp  0.193   5.6%    33.6%   0.327   42.3%   32.1%
+A3 Procrustes      0.07%     0.0pp  0.131   4.2%    18.7%   0.434    1.0%   11.9%
+A4 PLS R128        2.82%    12.7pp  0.168   5.6%    26.5%   0.395   76.7%   30.6%
+B1 MultiScale      1.88%     2.8pp  0.155   5.2%    23.9%   0.420   70.9%   29.3%
+B1b DNA-only       1.75%     4.9pp  0.153   4.7%    23.5%   0.400   72.7%   28.4%
+B1c ECO-ONLY       5.44%     2.7pp  0.456  29.3%    65.7%   0.700    6.9%   39.6%
+B2 Chorotype       3.29%    48.4pp  0.218   8.5%    35.8%   0.465   60.7%   34.5%
+B3 Spectral        1.81%     1.1pp  0.157   5.5%    23.9%   0.425   66.7%   27.2%
+```
+
+*E34's 30.76% was fold-local (298 species gallery), not full-gallery (1489 species).
+
+### Key Findings
+
+**1. wf_top1 was broken; wf_mrr reveals hidden structure.**
+- E25c–E34: wf_top1 = 0.000 across ALL experiments (broken metric)
+- E35 Ridge: wf_mrr = 0.167, wf_top1 = 4.5% (fixed metric — nonzero!)
+- E35 Eco-only: **wf_mrr = 0.456, wf_top1 = 29.3%** — massive within-family signal
+
+**2. Ecology crushes DNA for within-family discrimination.**
+
+| | DNA-only (B1b) | Eco-only (B1c) | Ratio |
+|---|---|---|---|
+| wf_mrr | 0.153 | **0.456** | **3.0×** |
+| wf_top1 | 4.7% | **29.3%** | **6.2×** |
+| wg_mrr | 0.400 | **0.700** | **1.8×** |
+
+Ecology (color, phenology, geography, flower size) predicts within-family visual
+structure 3-6× better than DNA. This confirms the biological fact: ITS2 DNA encodes
+phylogeny (CBCs, reproductive isolation) not visual phenotypes.
+
+**3. DNA dominates for family-level retrieval.**
+
+| | DNA-only (B1b) | Eco-only (B1c) | Ratio |
+|---|---|---|---|
+| fam_top1 | **72.7%** | 6.9% | **10.5×** |
+
+DNA gets the family right 73% of the time; ecology essentially can't predict family
+(6.9% ≈ random for large families). The two signals are complementary and orthogonal.
+
+**4. Multi-scale combination (B1) doesn't improve over DNA-only.**
+- B1 MultiScale: wf_mrr=0.155, fam_top1=70.9%
+- B1b DNA-only: wf_mrr=0.153, fam_top1=72.7%
+- The orthogonal decomposition barely helps. The ecological signal in the residual
+  subspace after projecting out family/genus is too weak compared to the ecology-only
+  regression where ecology has access to the FULL visual space.
+
+**5. CCA on 1489 species confirms 0.99+ was inflated.**
+- CCA R128: gap = 89.7pp → worse overfitting than the E34 MLP
+- CCA R4: gap = -0.7pp, top1_full = 1.5% → too constrained
+- Best CCA R32-64: top1_full ≈ 3.4%, gap 58-83pp → NOT nearly linear
+- The 0.99+ canonical correlations on 35 species were pure overfitting (35 << 256 dims)
+
+**6. Ridge gap = 28pp confirms linear maps resist memorization less than expected.**
+- Ridge top1_full = 2.2%, train = 30.3%, gap = 28pp
+- Still less than E34's 54pp, but NOT the <10pp predicted
+
+**7. Procrustes fails completely** — orthogonal rotation is too rigid (0.07% top-1).
+
+### Implications for the Bridge Architecture
+
+The clean decomposition is now clear:
+- **Family/genus** → use DNA (ridge regression, fam_top1 = 73-77%)
+- **Within-family species** → use ECOLOGY (wf_mrr = 0.456, wf_top1 = 29.3%)
+- **The optimal bridge** should predict family from DNA, then discriminate within-family
+  from ecology. These are separate problems requiring separate maps.
+
+### Next steps
+- E36: Hierarchical bridge — DNA selects family, then ecology discriminates within-family
+  (two-stage retrieval, not one combined prediction)
+- Investigate why B1 MultiScale doesn't beat B1b: is the orthogonal decomposition
+  losing ecology signal in the residual subspace?
+- Compute fold-local top1 for ecology-only to compare fairly with E34's 30.76%
+
