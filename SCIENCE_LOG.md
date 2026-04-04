@@ -22497,3 +22497,74 @@ FUTURE (Phase C/D):
   E46: Graph Laplacian W_bridge regularization
   UV features: photograph in UV → add to pressure vector → test ε shrinkage
   Ploidy data: would explain large dark pressure in polyploid families
+
+---
+
+## Entry 263 — E46: Graph Laplacian Regularization on W_bridge (2026-04-04)
+
+**Job:** 12696525 (power-general-public-pool, 2h, 32G, 4 CPU)
+**Script:** `exp_E46_graph_laplacian_bridge.py`
+
+### Motivation
+Standard ridge W_bridge minimizes ‖B − WF‖² + λ‖W‖². This can project f_vis into low-density
+voids in DNA space — regions where no real species exist. A Graph Laplacian penalty prevents this.
+
+### Method
+Build symmetric k=10 NN graph on DNA embeddings of 1489 overlap species.
+L_graph = D − A (sparse, N×N).
+
+Extended loss:
+  L = ‖B − WF‖² + λ‖W‖² + γ · tr((WF)^T · L_graph · (WF))
+
+Gradient (analytical, used in L-BFGS-B):
+  ∂L/∂W = 2(WF−B)F^T + 2λW + 2γ · L_graph · (WF) · F^T
+
+Sweep: γ ∈ {0.0, 0.01, 0.1, 1.0}
+γ=0.0 must reproduce standard ridge (sanity check, expected LOO ≈ 0.4668).
+
+### Theoretical context
+See `04_bridge_architecture/bridge_improvement_tension.md` for the orthogonal decomposition
+theorem. Improving W_bridge is safe for r(vis_resid, b_resid) IFF the Laplacian regularizer
+compresses the row space toward the angle (speciation-clock) subspace rather than the
+ecological-signal subspace.
+
+### Key output
+`/scratch200/leardistel/petal_benchmark/results/exp_E46_graph_laplacian_bridge/summary.json`
+Per-γ: LOO cosine, r(vis_resid, b_resid), frobenius norm of W.
+
+---
+
+## Entry 264 — E47: LoRA Per-Family Adaptation (2026-04-04)
+
+**Job:** 12696526 (power-general-public-pool, 1h, 16G, 4 CPU)
+**Script:** `exp_E47_lora_family_bridge.py`
+
+### Motivation
+Global W_bridge (LOO=0.4668) learns a single mapping for all 1489 species. Each plant family
+has a distinct ecological context. Per-family LoRA correction:
+  W_f = W_bridge + A_f · B_f  (A_f ∈ R^{256×r}, B_f ∈ R^{r×1024})
+
+### Method
+For each family with ≥5 species in the overlap:
+1. Compute family residuals: R_f = B_f − W_bridge · F_f  (shape n_f × 256)
+2. Get rank r_f = n_nonzero(α_fam) from E43 LASSO fingerprints (fallback: r_f=2)
+   - Ranunculaceae: rank=4, Liliaceae: rank=2, Orobanchaceae: rank=3
+3. Full-rank family ridge update: ΔW = R_f^T · F_f · (F_f·F_f^T + λI)^{-1}
+4. SVD(ΔW), keep top-r_f: LoRA factors A_f, B_f_lora with symmetric sqrt-split
+5. Within-family LOO: refit ΔW on n_f−1 species, predict held-out, compare to global
+
+### Connection to E43 LASSO
+Rank is biologically motivated: n_nonzero from LASSO = number of ecological pressures
+that have non-trivial signal in that family. Ranunculaceae has 4 pressures active →
+4 LoRA dimensions needed to capture family-specific bridge correction.
+
+### Key output
+`/scratch200/leardistel/petal_benchmark/results/exp_E47_lora_family_bridge/`
+- `per_family_lora_summary.json`: delta_loo per family
+- `summary.json`: headline families, mean_delta_loo
+
+### Validation criterion
+- At least one family improves LOO by >0.05 (headline result)
+- Mean delta_loo > 0 across all tested families
+- Ranunculaceae (most LASSO signal) should show largest improvement
+
