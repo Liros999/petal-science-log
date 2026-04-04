@@ -22693,3 +22693,73 @@ This is a richer representation of dark pressure than the scalar V alone.
 - per_pair_stats.json: derived statistics per pair
 - summary.json: aggregate statistics + mean arch shapes per family
 
+
+---
+
+## Entry 267 — Six New Experiments Submitted: Geometry Phase (2026-04-04)
+
+All six submitted to power-general-public-pool / public QOS.
+
+| Job | Exp | Description | Time | Mem |
+|---|---|---|---|---|
+| 12699114 | E49 | Photoperiod sensitivity signal d_photoperiod | 1h | 16G |
+| 12699115 | E54 | Color space audit: LCH, dominant wavelength, bee channels | 1h | 16G |
+| 12699116 | E50 | Effective resistance R_eff on k-NN graph | 1h | 32G |
+| 12699117 | E51 | Persistent homology (TDA) — H0 and H1 barcodes | 2h | 64G |
+| 12699118 | E52 | Riemannian density-weighted valley metric (alpha sweep) | 2h | 32G |
+| 12699119 | E53 | Hyperbolic embedding (Poincaré disk, geoopt/MDS) | 4h | 32G |
+
+### Scientific motivations
+
+**E49 — Photoperiod sensitivity:**
+d_photoperiod(s_i, s_j) = |P(s_i) - P(s_j)| where P(s) = Pearson r(day_length, obs_doy)
+across observations of species s. Long-day vs short-day plants experience different
+photoperiod windows → allochrony → reproductive isolation → additional dark pressure.
+Key test: r(d_photoperiod, valley_residual | d_pheno) — does it add information BEYOND
+raw flowering time distance?
+
+**E54 — Color space audit:**
+Current d_color uses 4D Euclidean on [a*, b*, sin_H, cos_H]. Testing: LCH chroma only,
+hue only (circular), lightness only, dominant wavelength (hue → nm mapping), bee-visible
+approximation (red-penalty since bees cannot see >650nm). Goal: identify whether a
+different color representation predicts valley_residual better.
+
+**E50 — Effective resistance:**
+R_eff(i,j) = (e_i - e_j)^T * L^+ * (e_i - e_j) where L^+ = pseudoinverse of graph Laplacian.
+Generalizes minimax: uses ALL paths, not just the best one. Prediction: r(R_eff, valley) >
+rho(minimax, valley) = -0.491. Also tests conditional: pairs with low minimax but high R_eff
+= "connected but through void regions only."
+
+**E51 — Persistent homology:**
+Vietoris-Rips complex on DNA embedding cloud. H1 barcodes = topological loops (rings of
+species around empty voids). A persistent H1 cycle means the family has evolved to avoid
+a central region of DNA space. Complements per-pair valley score with global topology.
+Correlation: n_separating_cycles vs valley_score per pair.
+
+**E52 — Riemannian density-weighted metric:**
+Replace uniform arc-length ds^2 = ||dx||^2 with density-weighted:
+ds^2 = rho(x)^{-alpha} * ||dx||^2. Alpha sweep: {0.0, 0.5, 1.0, 2.0}.
+Alpha=0 recovers standard V. Alpha=1: void traversal costs 1/rho more.
+Reuses E48 SLERP profiles when available.
+
+**E53 — Hyperbolic embedding:**
+Embed 1489 species into Poincaré disk (H^2). Phylogenetic trees are hyperbolic — exponential
+branching maps to hyperbolic volume growth. Species near disk center = ancient lineages;
+near boundary = modern rapid radiators. Tests whether d_H predicts valley scores differently
+than cosine theta, especially for families with different diversification rates.
+
+### d_k Discovery Protocol (formalized)
+
+A new d_k must pass three sequential tests before entering the pressure vector:
+1. Individual Mantel: r(D_k, D_resid) > 0, p < 0.001 (999 permutations)
+2. Isotonic survival: r(d_k, valley_residual | theta) significant after isotonic angle removal
+3. Family pattern: interpretable signal in ≥3 families with biological mechanism
+
+Only then: rerun E43 variant with new d_k added → check if LASSO alpha_k is non-zero.
+
+### Phase C Data Structure Plan
+
+Root: `/groups/itay_mayrose_nosnap/leardistel/fitness_topology_v2/`
+Subdirs: 00_data/, 01_gallery/, 02_valley_scores/, 03_pressure_signals/, 04_results/, 05_bridge/
+Navigation: PHASE_C_INDEX.md + EXPERIMENT_REGISTRY.md at root
+
