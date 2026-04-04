@@ -22380,3 +22380,120 @@ This means unmeasured ecological forces drive most of the within-angle valley st
 
 This is scientifically interesting: the framework has identified the ABSENCE of measurable signal
 as the main finding. Dark pressure is real, large, and currently unmeasured.
+
+---
+
+## Entry 262 — Full Pipeline Mathematical Trace + Open Questions Log (2026-04-04)
+
+**Date**: 2026-04-04
+**Purpose**: Complete reproducibility record of the full pipeline from BioCLIP→masks→ITS2→bridge→topology,
+addressing all scientific questions raised in review.
+
+### Clarification: W_SAM3 vs W_bridge vs ITS2-BERT-S
+
+Three separate linear maps — completely independent systems:
+
+| Matrix | Domain | Codomain | Method | Purpose |
+|--------|--------|----------|--------|---------|
+| W_SAM3 | species text name → BioCLIP text encoder | SAM3 FPN injection | MLP trained on flower/background masks | Segmentation guidance |
+| W_bridge | f_vis ∈ R^1024 | b_dna_pred ∈ R^256 | Closed-form ridge (λ=0.1) | Cross-modal DNA prediction |
+| ITS2-BERT-S | ITS2 nucleotide sequence | b_dna ∈ R^256 | Contrastive training 46,397 sp | DNA geometry |
+
+W_SAM3 is ONLY active during mask extraction (Stage 1). It has zero effect on the DNA bridge or fitness topology computation. The "linear bridge" in the fitness topology context is exclusively W_bridge.
+
+### Why d_color Must Stay Pixel-Level (Not BioCLIP-Probed)
+
+d_color extracted from raw Lab pixels is INDEPENDENT of BioCLIP. This independence is the foundation
+of the triple-convergence argument for Consolida↔Ranunculus:
+- DNA signal: ITS2-BERT-S (sequence-based, independent instrument)
+- Visual signal: BioCLIP 2.5 (image encoder)
+- Color signal: Lab pixel extraction (photometric measurement, independent of both)
+
+If color were extracted from BioCLIP CLS features, d_color and f_vis would share the same encoder.
+Any correlation between them would be partially circular. Keep pixel extraction.
+
+### Dark Pressure and the Pressure Direction
+
+The pressure fingerprint Φ_fam = normalize(α_color, α_morph, α_pheno, α_geo) is a DIRECTION in
+pressure space. When LASSO gives R²≈0, Φ_fam is undefined (all α≈0) — the measured directions
+don't span the actual force. Dark pressure ε has a direction pointing toward:
+- UV floral patterns (require UV photography)
+- Volatile organic chemistry (require GC-MS)
+- Ploidy (require chromosome counts)
+- Pollinator community (require field surveys)
+
+The dark matter analogy is structurally exact: just as dark matter was identified by the residual
+between observed galaxy rotation and visible matter prediction, dark pressure is identified by
+the residual between observed valley depth and measured ecological pressures.
+
+### Why 1,489 Species Not 46,397
+
+46,397 Quaresma species: ITS2 sequences only → train ITS2-BERT-S + serve as density gallery
+1,489 Israeli species: have BOTH ITS2 sequences AND field photographs with validated flower masks
+This intersection (sequence + photo + ecological data) is the constraint. It is a data availability
+limit, not a design choice.
+
+### Valley Gradient 0-120°: Why Not 0-180°
+
+0-120° is the biologically valid range for WITHIN-FAMILY pairs in the Israeli dataset.
+No two congeneric/confamilial Israeli species exceed ~120° DNA divergence — this is expected
+biologically (family membership implies shared ancestry and limited divergence).
+0-180° range would require across-family comparisons, which are biologically meaningless for
+fitness valleys (trivial reproductive barriers between unrelated families).
+The 12 bins across 0-120° with non-overlapping bootstrap CIs is the complete validated gradient.
+
+### R1/R2/R3 Formal Metrics
+
+From the fitness topology triple T(s_i, s_j) = (R1, R2, R3):
+- R1 = θ(s_i, s_j) = arccos(b_i · b_j) — genotype distance [Stage 4]
+- R2 = V(s_i, s_j) = min_path_density/endpoint_density — valley depth [Stage 5]
+- R3 = d_pressure = [d_color, d_morph, d_pheno, d_geo] — pressure vector [Stage 3]
+Documented in fitness_topology/01_theory/R1_genotype_distance.md, R2_valley_depth.md, R3_selective_pressure.md
+
+### W_bridge Improvement: What Is and Is Not Safe
+
+SAFE (no gradient through ITS2-BERT-S trunk):
+  - Graph Laplacian regularization on W (planned E46)
+  - LoRA family adaptation: rank = n_nonzero(α_fam) from LASSO (Gap 3)
+  - Adding more (B, F) training pairs as Israeli dataset grows
+
+UNSAFE (destroys manifold):
+  - Fine-tuning ITS2-BERT-S with any contrastive or reconstruction loss
+  - MLP head on top of W_bridge output (the residual IS the signal, don't correct it)
+
+Theoretical ceiling: 0.9229 (within-modality LOO). Gap to 0.4668 reflects genuine
+information asymmetry — visual features encode things (UV, texture, individual variation)
+with no ITS2 analog. The gap cannot be closed by architecture changes.
+
+### CRITICAL TENSION: Improving W_bridge Shrinks the r=0.607 Signal
+
+f_vis_resid captures what W_bridge CANNOT predict. r(vis_resid, b_resid) = 0.607.
+If W_bridge improves, the residual shrinks → r=0.607 would decrease.
+This is not a contradiction — it reveals that the cross-modal mapping and the
+within-family ecological signal are in DIFFERENT subspaces of f_vis.
+W_bridge uses the between-family subspace. The residual is the within-family subspace.
+They are orthogonal by construction — improving W_bridge should not hurt r=0.607.
+This must be verified experimentally once Graph Laplacian W is built (E46).
+
+### Isotonic vs Linear Partial Correlation — Permanent Rule
+
+r(color, valley | angle) with LINEAR residualization = -0.007 (E38c, CI crosses zero)
+r(color, valley | f(θ)) with ISOTONIC residualization = -0.026 (E42, p=2e-10, robust)
+Rule: always use isotonic residual for partial correlations involving θ. Linear undercorrects
+because angle→valley is a monotone curve, not a straight line.
+
+### Open Validation Items (Prioritized)
+
+CRITICAL:
+  Gap 19: Test normalize-before vs normalize-after for f_vis_resid
+  Gap 11: Within-family E36 top-1 (diagnose species-level collapse)
+
+SIGNIFICANT:
+  Gap 10: Name cross-modal efficiency (0.4668/0.9229 = 50.6%)
+  Gap 17: Verify Fabaceae positive r via pollination mode data
+  Gap 18: FAISS gate calibration with valley_score as confidence weight
+
+FUTURE (Phase C/D):
+  E46: Graph Laplacian W_bridge regularization
+  UV features: photograph in UV → add to pressure vector → test ε shrinkage
+  Ploidy data: would explain large dark pressure in polyploid families
