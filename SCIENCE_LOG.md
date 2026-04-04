@@ -22763,3 +22763,86 @@ Root: `/groups/itay_mayrose_nosnap/leardistel/fitness_topology_v2/`
 Subdirs: 00_data/, 01_gallery/, 02_valley_scores/, 03_pressure_signals/, 04_results/, 05_bridge/
 Navigation: PHASE_C_INDEX.md + EXPERIMENT_REGISTRY.md at root
 
+
+---
+
+## Entry 268 — E49 & E54 Results: Photoperiod and Color Space Audit (2026-04-04)
+
+### E49 — Photoperiod Sensitivity Signal
+
+**Species P(s) distribution (N=2045 valid species):**
+- Long-day plants |P|>0.5, P>0: 1,280 species (62.6%)
+- Short-day plants |P|>0.5, P<0: 402 species (19.7%)
+- Day-neutral: 363 species (17.7%)
+
+**Signal correlations (52,794 pairs with valid photoperiod and phenology data):**
+
+| Metric | Value | Test |
+|---|---|---|
+| r(d_photoperiod, valley_score) | −0.161 | p=0.001 |
+| r(d_photoperiod, valley_resid) | −0.025 | p=0.001, CI [−0.033, −0.016] |
+| r(d_photoperiod, valley_resid | d_pheno) | +0.009 | p=0.041, CI [−0.000, +0.017] |
+| Mantel r(D_photoperiod, D_resid) | **+0.534** | p=0.001, N=1272 species |
+
+**Conclusion:** Photoperiod passes Test A (Mantel r=+0.534, p=0.001) and Test B (isotonic
+partial survives). The partial r after removing d_pheno is marginal (CI nearly crossing zero),
+meaning d_photoperiod is partially redundant with d_pheno but carries independent signal.
+Matrix-level Mantel r=0.534 is the third strongest signal after phenology (0.811) and
+angle-removed morph/pheno. This signal should be added to the pressure vector.
+
+**Top headline families:** Plantaginaceae (r=−0.293, n=946 pairs, n=44sp) — robust.
+Iridaceae (r=−0.593, n=10sp) — preliminary but striking for Iris complex.
+
+---
+
+### E54 — Color Space Audit
+
+| Representation | r_global | r_partial_theta | Verdict |
+|---|---|---|---|
+| Current CIELab 4D | −0.025 | −0.025 | Baseline |
+| **Chroma C=√(a*²+b*²)** | **−0.058** | **−0.057** | **2.3× better** |
+| Lightness L* | −0.032 | −0.032 | 1.3× better |
+| Dominant wavelength | −0.031 | −0.031 | 1.2× better |
+| Hue circular | −0.022 | −0.021 | Worse |
+| Saturation | −0.018 | −0.018 | Worst |
+| Bee approximation | −0.022 | −0.021 | Same as hue |
+
+**Critical finding: chroma (color saturation magnitude) is 2.3× more predictive of valley
+depth than the current 4D CIELab distance.** The current d_color conflates hue and chroma.
+Splitting into separate components reveals chroma as the dominant predictor globally.
+
+**Family highlights:**
+- Scrophulariaceae: lightness r=−0.704 (strongest family-level color signal found)
+- Papaveraceae: current r=−0.408, chroma positive (+0.150) — hue dominates for poppies
+- Liliaceae: chroma r=−0.231 > current −0.191
+- Apiaceae: lightness r=−0.231 best (white/pale vs yellow Apiaceae)
+
+**Action (E43 rerun):** Split d_color into d_chroma + d_lightness + d_hue as three separate
+LASSO inputs. This is a zero-cost improvement using existing mask_colors data.
+
+---
+
+### Ecological Disaster Speciation Candidates
+
+Upper-left outliers (V>0.95, theta>80°): **905 pairs** — genetically distant but no fitness barrier.
+These are candidate allopatric speciations, polyploidization events, or cultivar inclusions.
+Top: Lablab purpureus vs Spartium junceum (Fabaceae, V=1.000, theta=101.2°) — both pantropical
+cultivars present in Israel, genetically isolated by origin not ecology.
+
+Deep-early-valley pairs (V<0.80, theta<30°): **0 pairs** — no closely related species show
+deep isolation. Consistent: young divergences haven't yet accumulated deep fitness valleys.
+
+---
+
+### New d_k Priority List (Updated After E49/E54)
+
+| Signal | Status | Action |
+|---|---|---|
+| d_chroma (from E54) | Split from d_color | Add to E43 rerun immediately — zero new data |
+| d_lightness (from E54) | Split from d_color | Same |
+| d_photoperiod (from E49) | New signal, Mantel r=+0.534 | Add to E43 rerun |
+| d_ploidy | Missing, HIGH PRIORITY | Download CCDB for Israeli species |
+| d_pollinator | Missing, HIGH PRIORITY | TRY/LEDA databases |
+| d_UV_RNL | Missing, FReD available | Download FReD spectra → RNL JND distance |
+| d_edaphic | Missing | SoilGrids 250m + Israeli soil survey |
+
