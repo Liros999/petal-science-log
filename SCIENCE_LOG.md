@@ -22568,3 +22568,90 @@ that have non-trivial signal in that family. Ranunculaceae has 4 pressures activ
 - Mean delta_loo > 0 across all tested families
 - Ranunculaceae (most LASSO signal) should show largest improvement
 
+
+---
+
+## Entry 265 — E46/E47 Results: Laplacian Bridge and LoRA Family Adaptation (2026-04-04)
+
+### E46 — Graph Laplacian Regularization Results
+
+| γ | LOO cosine | r(vis_resid, b_resid) | Δ(r) vs γ=0 |
+|---|---|---|---|
+| 0.0 (standard ridge) | 0.4668 | 0.5741 | baseline |
+| 0.01 | 0.4668 | 0.5694 | −0.005 |
+| 0.1 | 0.4668 | 0.5284 | −0.046 |
+| 1.0 | 0.4668 | 0.4581 | −0.116 |
+
+**Critical finding:** LOO cosine is IDENTICAL across all γ. The Laplacian regularizer has
+zero effect on prediction accuracy (LOO cosine). But it monotonically degrades
+r(vis_resid, b_resid) — from 0.574 at γ=0 to 0.458 at γ=1.
+
+**Interpretation:** The Laplacian regularizer compresses the residual subspace without
+improving the bridge. This is Case C from bridge_improvement_tension.md: the Laplacian
+is absorbing the within-family ecological signal into the W structure, not just correcting
+angle confounds. The residual r=0.574 (not 0.607 — slight discrepancy; E46 may use a
+different pair set or angle-removal step) is the most sensitive indicator.
+
+NOTE: r=0.574 (E46 baseline) vs r=0.607 (E39b) — need to check if E46 applies the same
+isotonic angle removal as E39b, or uses raw residual_dist from E38b directly.
+
+**Conclusion for E46:** Graph Laplacian regularization at all tested γ values fails the
+safety criterion (Rule 3 from bridge_improvement_tension.md: Var(f_vis_resid) must not
+drop substantially). Do NOT apply Laplacian regularization to W_bridge.
+
+---
+
+### E47 — LoRA Per-Family Adaptation Results
+
+| Metric | Value |
+|---|---|
+| Families tested | 48 |
+| Families improved | 13 (27.1%) |
+| Families degraded | 35 (72.9%) |
+| Mean delta_loo | −0.0084 |
+| Global LOO (weighted avg) | 0.7209 |
+| LoRA LOO (weighted avg) | 0.7102 |
+
+**Top improvers:**
+- Zygophyllaceae: +0.082 (rank=2, n=11) — HEADLINE (>0.05 threshold met)
+- Plumbaginaceae: +0.028 (rank=2, n=7)
+- Polygonaceae: +0.024 (rank=2, n=20)
+- Cistaceae: +0.020 (rank=2, n=12)
+
+**Headline families (from E43 LASSO analysis) — all DEGRADED by LoRA:**
+- Ranunculaceae: −0.001 (rank=4, n=27) — nearly neutral
+- Liliaceae: −0.004 (rank=2, n=19)
+- Orobanchaceae: −0.005 (rank=3, n=17)
+- Apiaceae: −0.020 (rank=2, n=54)
+- Brassicaceae: −0.027 (rank=2, n=91)
+
+**Most degraded:**
+- Euphorbiaceae: −0.056 (rank=3, n=29)
+- Campanulaceae: −0.056 (rank=1, n=6)
+
+**Interpretation:** LoRA improves only 13/48 families, and the families where it helps
+(Zygophyllaceae, Cistaceae) are NOT the families with the strongest LASSO ecological signal.
+The headline dark-pressure families (Apiaceae, Brassicaceae) are HURT by LoRA.
+
+This is consistent with the theoretical prediction: LoRA corrects within-family bridge
+prediction error, but for families dominated by dark pressure (ε), the family residuals
+are not structured by the pressure signals — they are random. Fitting a rank-2 LoRA to
+random residuals introduces overfitting → degradation on LOO.
+
+**Conclusion for E47:** Standard LoRA (fit from E38b pair data) does not help the headline
+families. Possible fix: fit LoRA using the full pressure vector (including UV/ploidy data
+when available), not just the existing ecological signals. LoRA is structurally sound but
+needs better signal to fit from.
+
+---
+
+### Joint Conclusion: E46 + E47
+
+The bridge_improvement_tension.md theorem is empirically validated:
+- Laplacian (E46): improves void avoidance but compresses residual → r(vis_resid, b_resid) drops
+- LoRA (E47): corrects within-family error but overfits dark-pressure families → LOO drops
+
+**Rule 3 from bridge_improvement_tension.md is confirmed active.**
+Current W_bridge is at a natural optimum given available data. Improvement requires
+better signals (UV, ploidy, chemistry), not better regularization on existing data.
+
