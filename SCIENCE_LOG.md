@@ -22655,3 +22655,41 @@ The bridge_improvement_tension.md theorem is empirically validated:
 Current W_bridge is at a natural optimum given available data. Improvement requires
 better signals (UV, ploidy, chemistry), not better regularization on existing data.
 
+
+---
+
+## Entry 266 — E48: SLERP Sweep Profile Experiment Submitted (2026-04-04)
+
+**Job:** 12698551 (power-general-public-pool, 2h, 32G, 8 CPU)
+**Script:** `exp_E48_slerp_sweep.py`
+
+### Motivation
+Valley score V(s_i, s_j) currently saves only the MINIMUM of ρ(v(t)) along the geodesic.
+The full ρ(t) profile contains richer information: barrier width, asymmetry, multi-dip structure.
+This experiment saves the complete profile at 21 t-values (t ∈ {0.0, 0.05, ..., 1.0}) for all
+64,871 within-family pairs, using the Quaresma 108,847-species DNA gallery for density.
+
+### Key derived statistics per pair
+- valley_t_sweep: argmin position (is the barrier centered or shifted toward one species?)
+- valley_width: half-depth width in t-units (narrow sharp barrier vs broad plateau)
+- n_local_minima: 1 = simple barrier, >1 = multiple genus boundaries crossed
+- asymmetry: (valley_t_sweep − 0.5) × 2 (negative = barrier closer to species_i)
+- normalized_depth: min(ρ)/endpoint_mean (= local valley score using gallery)
+
+### Expected findings
+- Mean arch shape: inverted arch deepest at t=0.5
+- Peak variance at t=0.5 (largest pair-to-pair spread at midpoint)
+- Valley width correlates with θ (larger divergence = broader barrier)
+- Some pairs show n_local_minima > 1 (crossing multiple genus boundaries)
+
+### Variance decomposition
+ρ(v(t)) = f_clock(t, θ) + Σ_k α_k·g_k(t)·d_k + ε(t)
+Full profile enables: between-t variance (arch shape) + within-t variance (pair spread at each t)
+This is a richer representation of dark pressure than the scalar V alone.
+
+### Output
+`/scratch200/leardistel/petal_benchmark/results/exp_E48_slerp_sweep/`
+- rho_profiles.npz: 64871 × 21 full profiles
+- per_pair_stats.json: derived statistics per pair
+- summary.json: aggregate statistics + mean arch shapes per family
+
