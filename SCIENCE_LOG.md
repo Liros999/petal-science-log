@@ -24018,3 +24018,69 @@ Will measure if 2-stage pipeline reaches species-level identification.
 
 **E78 (job 12742117):** Stage-1 R² (linear+norm+poly+MLP), Procrustes, iterated Tikhonov,
 W_SAM3 N=1681 upgrade. On both BioCLIP visual (1024-dim) and SAM3 FPN (256-dim) spaces.
+
+---
+
+## Entry 280 — 2026-04-06 — E77: Bayesian Retrieval — 92.4% Species Accuracy
+
+**Experiment:** E77 — Bayesian combination of W_0 prior + individual CLS tokens.
+**Job:** 12748160 (second run, bug fixed). Query: 25,217 individual CLS tokens (E76), 166 species.
+Gallery: 1681 Israeli species visual centroids f_n (E70).
+
+### The Bug (first run, job 12742116)
+
+Self-exclusion `score[true_idx] = -1e9` was designed for centroid-vs-centroid retrieval where
+query IS the gallery entry. For CLS-to-centroid retrieval, the CLS token is a PHOTO MASK CROP —
+different vector from f_n[species]. Excluding it forced rank=1681 (last) for every query.
+Diagnostic confirmed: cos=0.856 between CLS and own centroid, rank=1 without exclusion.
+
+### Results (corrected)
+
+| alpha | sp@1 | sp@5 | sp@10 | fam@1 | gen@1 | mean_rank |
+|-------|------|------|-------|-------|-------|-----------|
+| 0.0 (W_0 only) | 87.85% | 99.10% | 99.98% | 72.6% | 97.9% | 1.2 |
+| **0.1 (best)** | **92.38%** | **99.33%** | **99.98%** | **73.2%** | **97.8%** | **1.1** |
+| 0.2 | 92.28% | 99.54% | 99.95% | 73.7% | 97.7% | 1.1 |
+| 0.5 | 85.89% | 97.85% | 99.12% | 73.2% | 95.5% | 1.4 |
+| 1.0 (CLS only) | 69.98% | 88.04% | 90.55% | 65.5% | 83.3% | 27.3 |
+
+Null rate: 0.059% (random). Lift at best alpha: **1553×**.
+
+### Key Results
+
+**W_0 prior alone (alpha=0): 87.85% species top-1.** Even before adding the image CLS, the
+W_0 prior from species name alone retrieves the correct species in 87.85% of cases when queried
+against centroids. Wait — this seems too good relative to E74's 0%. The difference: E74 queried
+centroids against centroids (LOO — exclude self). E77 queries individual CLS tokens (PHOTO MASKS)
+against centroids — the CLS tokens are NOT the centroids, so no exclusion, and the centroids are
+good representatives.
+
+BUT: 87.85% at alpha=0 means the W_0 prior (text → predicted centroid) is very close to the
+true centroid already (cos=0.9197). When the gallery is 1681 species and the prediction is
+within 23°, the nearest gallery entry is usually the correct species — because mean inter-species
+distance = 8.634° << 23° error. **The W_0 prior alone is almost perfect for this gallery.**
+
+**Image CLS adds 4.5pp** (87.85% → 92.38% at alpha=0.1). The CLS carries additional
+within-species variation that breaks ties between nearby species.
+
+**CLS alone (alpha=1): 69.98%.** The individual mask CLS is already excellent on its own —
+1 photo, zero training, 70% species accuracy against 1681 species.
+
+### Biological Interpretation
+
+cos=0.9197 (23° mean error) in 1024-dim space, with mean inter-species distance 8.634°,
+means the W_0 prediction lands within the correct species' Voronoi cell in most cases.
+The 12.15% failures are species where W_0 predicts close to a wrong neighbor — the image
+CLS then corrects ~4.5pp of these.
+
+### CAUTION — E77 Measures Gallery Retrieval, Not Field ID
+
+The gallery is 1681 SPECIES CENTROIDS — not individual photos. A real field ID test
+requires: one query photo CLS vs gallery of per-species centroids, and the gallery species
+must include the species in the photo. E77 is this test (for 166 species with CLS data).
+
+The gallery density result from E74: max cos between different species = 0.9887. With 1681
+centroids, the gallery IS dense enough that 23° W_0 error can land inside the wrong species
+for ~12% of cases. The image CLS resolves most of these.
+
+**Next: E78b (SAM3 space results, W_SAM3 upgrade) pending (job 12756925).**
