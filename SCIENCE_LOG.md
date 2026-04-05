@@ -23634,3 +23634,53 @@ The 1681-species BioCLIP visual cloud on S^1023:
 **Implication for zero-training injection:**
 The absence of family clustering means k-NN retrieval at k=18 works as well as any supervised approach — there's no family-level shortcut to exploit. The 20-dim intrinsic dimension means the cross-modal SVD directions (9 with r>0.80) are capturing ~45% of the true intrinsic structure. Room for improvement exists in the remaining 11 dims.
 
+
+---
+
+## Entry 275 — E73: Weighted Cross-Modal + Optimal k + Mixed Model — 2026-04-05
+
+**Job 12740558** — CPU, power-general-public-pool, 2:00:00, 64G
+**Script:** `experiments/exp_E73_weighted_crossmodal.py`
+**Baseline:** E70 k=5 LOO cos=0.8773, θ=28.68°
+
+### What E73 Tests
+
+All four methods are zero-training — no new data needed, only E70 cone_geometry.npz.
+
+**Option 1 — sin²(θ)-Weighted Cross-Covariance SVD:**
+```
+Sbt_w = Σ_s sin²(θ_s) · (b_text[s]-b̄)^T · (f_vis[s]-f̄)
+```
+Fully continuous (no bands). High-θ species dominate the SVD. Hypothesis: sharper
+cross-modal directions with stronger r values. Also fits weighted ridge W_w.
+
+**Option 2 — Nadaraya-Watson θ-Kernel k-NN:**
+```
+weight_j(i) = cos_text(i,j) × exp(-½((θ_j - θ̂_i)/σ)²)
+```
+θ̂_i estimated from text k-NN. Sweep: k∈{18,25}, σ∈{2°,5°,10°,20°,∞}.
+σ=∞ reduces to standard uniform k-NN.
+
+**Option 3 — Mixed Model W(θ) = W_0 + sin(θ̂)·W_1:**
+```
+f̂[s] = normalize((W_0 + sin(θ̂_s)·W_1) @ b_text[s])
+```
+Stage 1: scalar ridge predicts sin(θ_s) from b_text.
+Stage 2: combined matrix applied at inference. Zero training — both W matrices
+fitted on the 1681-species dataset.
+
+**Option 4 — k=18 LOO (E72 optimal k):**
+Sweep k∈{5,10,15,18,20,25,30}. Intrinsic dim=20.3 predicts k=18 is optimal.
+Will show whether the k=5 choice in E70 was suboptimal.
+
+**Stage 1/2 Amplitude Analysis:**
+- R²(sin(θ) predicted from b_text k-NN): how well does text predict azimuth amplitude?
+- sin(θ)-conditioned k-NN: filter neighbors to those with similar sin(θ_j) to the query
+- Sweep σ_sin∈{0.03, 0.05, 0.10, 0.20}
+
+### Running Jobs
+
+| Job | ID | Status |
+|---|---|---|
+| E71 (GPU) | 12736940 | RUNNING — SAM3 FPN polygon-mask extraction |
+| E73 (CPU) | 12740558 | QUEUED — weighted cross-modal, mixed model |
