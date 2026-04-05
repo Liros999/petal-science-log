@@ -23973,3 +23973,48 @@ When we move to ITS2-BERT or Evo 2 DNA models:
 - The kernel trick failure is structural — avoid at all N
 
 Next: E76 CLS extraction running (job 12740684) → then E77 Bayesian retrieval with real images.
+
+---
+
+## Entry 279 — 2026-04-05 — Architecture Decision: Polar is Production, W_SAM3 Upgrade
+
+### Clarification: W_SAM3 is NOT an MLP
+
+Both W_SAM3 and W_0 use identical closed-form ridge regression:
+```
+W_SAM3 = (B_85^T B_85 + lambda*I)^{-1} B_85^T F_SAM3    [256-dim, SAM3 FPN space]
+W_0    = (B_1681^T B_1681 + lambda*I)^{-1} B_1681^T F_vis [1024-dim, BioCLIP visual]
+```
+The production MLP is the flower detection GATE (PCA(256)+SAM3→P(flower)), NOT W_SAM3.
+
+These are separate matrices for separate pipeline steps — W_SAM3 for FPN injection (detection),
+W_0 for species retrieval. Neither replaces the other.
+
+**W_SAM3 upgrade:** Current N=85 is underdetermined (1024 predictors, 85 samples). E78 tests
+W_SAM3_full on N=aligned from E71 (1681 species, same SAM3 FPN 256-dim output space). Expected
+significant gain from N=85→1681, same analytical formula.
+
+### Architecture Decision: Polar is Production
+
+Going forward, the Polar decomposition is the architecture for both spaces:
+```
+f_hat[s] = cos(theta_hat[s]) * D_flower + sin(theta_hat[s]) * normalize(W_azim @ b_centered[s])
+```
+
+**Why Polar over W_0:**
+1. 4 independent improvable components vs W_0 black box
+2. Diagnostically decomposable: elevation error vs azimuth error separable
+3. Extensible to DNA bridge: text → elevation (Stage-1), DNA → azimuth (W_azim_DNA)
+4. W_0 is a special case of Polar (when Stage-1 prediction is perfect)
+
+**E78 will determine if Polar already beats W_0** by testing Stage-1 R² improvement.
+Breakeven condition: Stage-1 R² > 0.80 (currently 0.532).
+
+**E76 complete:** 25,217 individual CLS tokens extracted for 166 Israeli species from Citadel TP masks.
+Unit-normalized. Zero averaging. Enables E77 Bayesian retrieval.
+
+**E77 (job 12742116):** Bayesian retrieval. Prior = W_0 prediction, Likelihood = individual CLS.
+Will measure if 2-stage pipeline reaches species-level identification.
+
+**E78 (job 12742117):** Stage-1 R² (linear+norm+poly+MLP), Procrustes, iterated Tikhonov,
+W_SAM3 N=1681 upgrade. On both BioCLIP visual (1024-dim) and SAM3 FPN (256-dim) spaces.
