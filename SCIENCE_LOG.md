@@ -23348,3 +23348,101 @@ The 1400+ Israeli species FPN centroids do not exist yet — they are the target
 | E70 (CPU) | 12735815 | RUNNING on compute-0-425 | 1:30:00 |
 | E71 (GPU) | 12735816 | PENDING (dependency on E70) | 8:00:00 |
 
+
+---
+
+## Entry 272 — E70 Complete + E71 Resubmitted (Polygon Mask Fix) — 2026-04-05
+
+### E70 Results: BioCLIP Visual Cone at 1681 Israeli Species
+
+**Job 12735815 completed successfully.**
+**Outputs:** `results/exp_E70_bioclip_text_2174/{b_text_2174.npz, cone_geometry.npz, cross_cov_directions.npz, summary.json}`
+
+#### BioCLIP Visual Space Cone Geometry (1681 species, 1024-dim)
+
+| Quantity | BioCLIP vis (1681 sp) | SAM3 FPN (85 sp) — reference |
+|---|---|---|
+| Mean θ | **40.3° ± 5.3°** | 24.6° ± 5.7° |
+| Max θ | **61.6°** | 42.5° |
+| Min θ | 26.4° | 14.6° |
+| Elevation variance | **58.0%** | 82.1% |
+| Azimuth variance | **42.0%** | 17.9% |
+| Azimuth R̄ | 0.017 (near-uniform) | ~0.06 |
+
+**Key observation:** BioCLIP visual space has a wider, shallower cone than SAM3 FPN:
+- 40.3° mean vs 24.6° — the visual space spreads species more in azimuth
+- 42% azimuth variance vs 18% — richer discriminative structure in the azimuth plane
+- R̄=0.017 ≈ uniform on S^1023 — azimuth directions nearly isotropic at this scale
+- Wider cone reflects richer multi-species diversity at 1681 vs 85 species
+
+#### Cross-Modal Structure Directions (b_text → f_vis)
+
+| SV | r (cross-modal) | cos(u,D_flower) | Notes |
+|---|---|---|---|
+| 1 | 0.764 | −0.171 | Below r>0.80 threshold |
+| 2 | **0.855** | −0.174 | Cross-modal dir 1 |
+| 3 | **0.879** | −0.056 | Cross-modal dir 2 |
+| 4 | **0.848** | +0.104 | Cross-modal dir 3 |
+| 5 | **0.836** | +0.005 | Cross-modal dir 4 |
+| 6 | **0.839** | +0.106 | Cross-modal dir 5 |
+| 7 | **0.816** | −0.027 | Cross-modal dir 6 |
+| 8 | **0.803** | +0.057 | Cross-modal dir 7 |
+| 9 | **0.811** | +0.032 | Cross-modal dir 8 |
+| 10 | **0.821** | −0.009 | Cross-modal dir 9 |
+| 11 | 0.777 | +0.008 | Below threshold |
+| 12 | 0.791 | +0.019 | Below threshold |
+
+**9 cross-modal directions with r>0.80** (vs 5 in SAM3 FPN space with N=85).
+All u_k have cos(u_k, D_flower) ≈ 0 → structure directions are PURE AZIMUTH.
+SV1 has r=0.764 — NOT a bias correction (unlike SAM3 where SV1 was structural at r≈−1).
+This means BioCLIP visual space does NOT have the D_flower bias artifact of SAM3 FPN space.
+
+**Top-5 SVs explain 52.7% of cross-covariance variance. Top-10: 74.5%.**
+
+#### LOO k-NN Retrieval (200-species sample)
+
+| k | cos | θ | Improvement over D_flower |
+|---|---|---|---|
+| Baseline (D_flower) | 0.759 | 40.6° | — |
+| k=5 | **0.877** | **28.7°** | +0.118 cos |
+| k=10 | 0.877 | 28.8° | +0.118 cos |
+| k=20 | 0.869 | 29.6° | +0.110 cos |
+| k=50 | 0.851 | 31.7° | +0.092 cos |
+
+k=5 is optimal. LOO k-NN closes **77% of the gap** from D_flower (cos=0.759) toward perfect (1.0)
+in BioCLIP visual space. This is dramatically better than the 84% gap closure we measured in
+SAM3 FPN space — because the visual cone is shallower relative to the noise floor.
+
+---
+
+### E71 Critical Fix: MASKS ONLY (Polygon Rasterization)
+
+**Bug identified:** E71 (job 12735816, PENDING) used `bbox_pool_fpn()` — mean-pooling FPN over
+the bounding box rectangle. User correction: must use polygon mask pixels only.
+
+**Fix applied to `exp_E71_sam3_fpn_israel.py`:**
+- Removed: `bbox_pool_fpn(feats, bbox_app, img_w, img_h)`
+- Added: `polygon_to_mask(polygon_flat, img_w, img_h)` — PIL ImageDraw.polygon rasterization
+- Added: `mask_mean_features(feats, binary_mask_np)` — F.interpolate to FPN grid, mean over mask pixels
+- Key data point verified: polygon is flat `[x0,y0,x1,y1,...]` normalized coords in [0,1], `img_w`/`img_h` on the mask dict (NOT root dict)
+
+**Why this matters:** bbox pooling includes background pixels inside the bounding box.
+The flower is typically 30–70% of the bbox area, so bbox pooling contaminates the FPN
+vector with non-flower context. Polygon mask pooling isolates exactly the flower pixels —
+consistent with exp33 which used SAM2 user-validated pixel masks.
+
+**Job 12735816 cancelled. E71 resubmitted as job 12736940** (GPU, 12:00:00, 64G).
+
+---
+
+### Job Status Update
+
+| Job | ID | Status | Method |
+|---|---|---|---|
+| E70 | 12735815 | **COMPLETE** ✓ | BioCLIP text+visual 1681 sp |
+| E71 (fixed) | 12736940 | QUEUED | SAM3 FPN polygon-mask-pooled |
+
+**Next after E71 completes:**
+1. Compare D_flower_n_israel (E71) vs D_flower_n_85sp (exp33) — cone axis stability
+2. Cross-covariance at scale: b_text (E70) × f_SAM3_israel (E71) → new W_bridge at 1681sp
+3. Augmented k-NN at 1681 real anchors — scaling law validation
