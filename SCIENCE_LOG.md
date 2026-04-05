@@ -23048,3 +23048,211 @@ delta_recall = recall(variant) − recall(alpha=0) on the 183 hard/sensitive ima
 | Geodesic ≡ Euclidean | r=0.9999 | This entry |
 | Azimuth R̄ (uniformity) | 0.059 | This entry |
 
+
+---
+
+## Entry 270 — The Flower Cone: Complete Geometric Formalization + Augmented k-NN (2026-04-05)
+
+### Three Questions Answered
+
+**Q1: What is the "cone" and where are all flowers laid?**
+**Q2: Why does Augmented DB k-NN (cos=0.927) beat W_SAM3 LOO (cos=0.923)?**
+**Q3: What is W_SAM3 formally, and what can we achieve from it without retraining?**
+
+---
+
+### 1. The Flower Cone — Formal Definition
+
+The Flower Cone C ⊂ S^{255} is the region of unit-sphere space where ALL flower
+species cluster. Every measured species centroid f_SAM3[s] (85/85 TRAIN species) lies
+within it:
+
+```
+C = { x ∈ S^{255} : cos(x, D_flower_n) ≥ cos(42.5°) = 0.737 }
+```
+
+i.e., all unit vectors within 42.5° of the universal flower direction D_flower_n.
+
+**Numbers:**
+| Quantity | Value |
+|---|---|
+| Cone axis | D_flower_n (unit vector, 256-dim) |
+| Mean half-angle | 24.6° ± 5.7° |
+| Max half-angle | 42.5° (Eremurus spectabilis — tall spike) |
+| Min half-angle | 14.6° (most canonical flower shape) |
+| f_SAM3 variance: elevation | **82.1%** — shared flower structure |
+| f_SAM3 variance: azimuth | **17.9%** — species-specific |
+
+**The f_SAM3 decomposition on S^{255}:**
+```
+f_SAM3[s] / ||f_SAM3[s]|| = cos(θ_s) · D_flower_n  +  sin(θ_s) · ε̂_s
+                               elevation (82.1% var)     azimuth (17.9% var)
+```
+
+D_flower_n alone (zero training) achieves cos=0.905 — because 82.1% of the variance
+is captured by the shared elevation structure.
+
+**Cross-modal subspace V ⊂ C:**
+```
+V = span{ D_flower_n, u₁, u₂, ..., u₁₀ }    (11-dimensional effective subspace)
+```
+where u_k = top-10 right singular vectors of SVD(B^T F), the cross-covariance matrix
+between centered b_text (1024-dim) and centered f_SAM3 (256-dim).
+These 10 directions carry 89.6% of cross-modal covariance, all with r > 0.80.
+
+---
+
+### 2. Most Separated Species — The Cone Diameter
+
+The widest pair on S^{255} among all 85 TRAIN species:
+
+| Rank | Species A | Species B | Geodesic angle | Biological meaning |
+|---|---|---|---|---|
+| 1 | *Colutea cilicica* | *Eremurus spectabilis* | **65.3°** | Shrub pea-flower vs tall desert spike |
+| 2 | *Erodium acaule* | *Hypericum triquetrifolium* | 61.9° | Ground rosette vs upright perforated |
+| 3 | *Erodium acaule* | *Mercurialis annua* | 60.1° | Rosette vs wind-pollinated weed |
+| 4 | *Eremurus spectabilis* | *Trifolium campestre* | 60.0° | Spike vs clover |
+
+The cone diameter is **65.3°** — extremely wide given the 255-dim ambient space.
+These pairs have cos(f_i, f_j) = 0.42, meaning their FPN centroids are nearly independent
+vectors. SAM3 has learned fundamentally different FPN representations for these growth forms.
+
+W-predicted directions (from W @ b_text) span only **35.5°** max — W compresses the cone
+to 54% of its true diameter. The regression regularization shrinks predictions toward the mean.
+
+---
+
+### 3. What W_SAM3 Is — Formal Statement
+
+W_SAM3 ∈ R^{256×1024} is a **shared linear map** from BioCLIP text space to SAM3 FPN space.
+It is NOT one direction per species. It is a single matrix that maps ANY b_text[s] to a
+predicted f_SAM3[s] direction:
+
+```
+δ[s] = normalize(W_SAM3 @ b_text[s]) ∈ S^{255}
+```
+
+W_SAM3 was fit by ridge regression on 85 paired observations {(b_text[s], f_SAM3[s])}.
+
+**SVD decomposition W_SAM3 = U S V^T reveals its structure:**
+
+| SV | s_k | cos(u_k, D_flower_n) | r(b@v_k, f@u_k) | Role |
+|----|-----|----------------------|-----------------|------|
+| SV1 | 1.680 | **−0.999** | 0.07 | **Bias correction**: removes −D_flower_n offset from b_text |
+| SV2 | 0.748 | 0.002 | **0.947** | Cross-modal azimuth direction 1 |
+| SV3 | 0.706 | 0.032 | **0.933** | Cross-modal azimuth direction 2 |
+| SV4 | 0.625 | −0.016 | **0.930** | Cross-modal azimuth direction 3 |
+| SV5 | 0.510 | 0.020 | **0.931** | Cross-modal azimuth direction 4 |
+| SV6 | 0.487 | −0.005 | **0.891** | Cross-modal azimuth direction 5 |
+
+SV1 is structural: BioCLIP b_text has a near-constant component in direction v_1
+(mean projection = −0.514, std = 0.034). Without correction, every injection would
+push toward −D_flower_n (anti-flower). SV1 removes this.
+
+SV2–SV6 are the **five cross-modal structure directions**: paired directions (v_k, u_k)
+where variation in BioCLIP text space correlated with variation in SAM3 FPN azimuth space.
+These are the directions W_SAM3 discovered from 85 training pairs.
+
+**Biological content of cross-modal directions:**
+- SV2: Orchid/cyclamen (complex bilateral) vs Asteraceae/Hypericum (flat composite)  
+  → **floral symmetry and depth**
+- SV3: Small wind-pollinated (Achillea, Torilis) vs large showy monocots (Iris, Tulipa, Crocus)  
+  → **insect-pollinated showy tepals vs inconspicuous wind flowers**
+- SV4: Ground rosette plants (Erodium) vs tall spike plants (Eremurus, Notobasis)  
+  → **growth form / inflorescence architecture**
+
+---
+
+### 4. Augmented k-NN — Why It Beats W_SAM3 LOO
+
+**The key numbers:**
+
+| Method | cos | θ | Protocol |
+|---|---|---|---|
+| D_flower_n | 0.9047 | 25.2° | Zero training, zero data |
+| BioCLIP k-NN k=10 (85 real) | 0.9163 | 23.6° | Zero training, 85 measured f_SAM3 |
+| W_SAM3 LOO | 0.9227 | 22.7° | Ridge regression, retrain on 84/85 |
+| **Augmented k-NN k=10 (290)** | **0.9270** | **22.0°** | **Zero training, 85 real + 205 W-pred** |
+| W_SAM3 full fit | 0.9723 | 13.5° | Ridge regression on all 85 |
+
+**Augmented database construction:**
+```
+DB_real    = { f_SAM3[s]          : s in 85 TRAIN species }    (measured)
+DB_pred    = { normalize(W @ b[s]) : s in 205 other species }   (W-propagated)
+DB_aug     = DB_real ∪ DB_pred                                   (290 total)
+```
+
+**Retrieval at test time for new species s_test:**
+```
+1. Compute b_text[s_test] via BioCLIP text encoder (free, offline)
+2. Find k=10 nearest neighbors in DB_aug by BioCLIP geodesic distance
+3. δ[s_test] = Fréchet_mean(f_aug[NN₁..NN₁₀], weights = 1/d_bioclip)
+4. Inject δ[s_test] into SAM3 FPN
+```
+
+**Why augmentation beats W LOO:**
+- W LOO trains on 84 species, discards the held-out species' information
+- Augmented k-NN uses ALL 85 real f_SAM3 + 205 W-predicted densification
+- The 205 W-predicted anchors fill gaps in BioCLIP space — for any test species,
+  its k-NN pool includes species from a 290-species coverage instead of 85
+- Local Fréchet mean outperforms global ridge regression in the LOO regime
+  (85 training samples, 1024 predictors → regression overfits; k-NN doesn't)
+
+**Important limitation:** DB_pred uses W to generate anchors, so augmentation is NOT
+fully independent of W. It is W-seeded retrieval, not pure zero-training. The 85 real
+f_SAM3 are the irreplaceable ground truth; the 205 are W-regularized interpolation.
+
+---
+
+### 5. The Cross-Covariance Protocol — Generalizes to ITS2-BERT
+
+The fundamental operation that finds cross-modal structure directions:
+
+```
+Given N paired samples (source[s], target[s]):
+  B ∈ R^{N×d_src}    (centered source embeddings)
+  F ∈ R^{N×d_tgt}    (centered target embeddings)
+
+Sbt = B^T F           (cross-covariance matrix, d_src × d_tgt)
+U, S, V^T = SVD(Sbt)
+
+The k-th cross-modal structure direction:
+  v_k ∈ R^{d_src}   (direction in source space)
+  u_k ∈ R^{d_tgt}   (direction in target space)
+  r_k = corr(B·v_k, F·u_k)   (how strongly they co-vary)
+
+Accept direction k if r_k > 0.80 (genuine cross-modal structure).
+```
+
+For SAM3 geometry: d_src=1024, d_tgt=256, N=85, k*=10 directions with r>0.80.
+For ITS2-BERT bridge (E36): d_src=256, d_tgt=1024, N=1489, same protocol.
+The ITS2-BERT bridge has MORE training data (1489 vs 85) and SMALLER source dim (256)
+→ expect MORE reliable cross-modal directions, potentially higher k*.
+
+**Cone protocol for ITS2-BERT:**
+- Compute D_DNA_n = mean normalized ITS2-BERT centroid across all species
+- Measure θ_s = elevation from D_DNA_n for each species
+- Measure ε̂_s = azimuth unit vector in tangent plane
+- SVD(B_DNA^T F_vis) → cross-modal directions between DNA and visual space
+- These directions are the biological axes: phenology, morphology, phylogeny...
+
+---
+
+### Key Numbers — Sealed (Immutable Ground Truth)
+
+| Quantity | Value |
+|---|---|
+| Cone axis | D_flower_n, 256-dim unit vector |
+| Cone half-angle range | 14.6° – 42.5° |
+| Cone mean half-angle | 24.6° ± 5.7° |
+| f_SAM3 elevation variance | 82.1% |
+| f_SAM3 azimuth variance | 17.9% |
+| Max species separation | 65.3° (*Colutea cilicica* vs *Eremurus spectabilis*) |
+| Cross-modal directions | 10 (r>0.80), top 5 with r>0.89 |
+| W_SAM3 full fit cos | 0.9723 |
+| W_SAM3 LOO cos | 0.9227, θ=22.7° |
+| Augmented k-NN (290) cos | **0.9270**, θ=22.0° — beats W LOO, zero per-species training |
+| W predictions span | 35.5° (54% of true 65.3° cone diameter) |
+| SV1 role | Bias correction (u_1 ≈ −D_flower_n), structural not semantic |
+| SV2-6 r values | 0.89–0.95 — genuine cross-modal structure |
+
