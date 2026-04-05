@@ -24360,3 +24360,39 @@ The correlation ρ=-0.152 is significant but weak, suggesting that cone penetrat
 ### Summary
 
 Azimuth direction of divergence (not just magnitude) independently predicts fitness valley depth. The DNA bridge preserves geometric structure at 96%. Most interpolated morphologies are non-flower-like. Together, these results support a **polar geometry model of speciation**: species that diverge in different azimuthal directions from the cone axis develop deeper reproductive isolation than species that diverge along the same radial direction.
+
+---
+
+## Entry 286 — 2026-04-06
+
+### E63b: Effective Resistance k-sweep, saturation at k=25
+
+**Context.** E63 (k=5..20) established that effective resistance (R_eff) on the k-NN fitness graph beats minimax distance at k=20, with ρ(R_eff, valley_score) = -0.698. E63b extends the sweep to k=100 to locate the saturation point and characterize the degradation regime.
+
+### k-sweep Results
+
+| k | ρ(R_eff, valley_score) |
+|---|------------------------|
+| 20 | -0.699 (E63 result, confirmed) |
+| **25** | **-0.703 ← PEAK** |
+| 30 | -0.690 |
+| 40 | -0.665 |
+| 50 | -0.636 |
+| 60 | -0.598 |
+| 75 | -0.563 |
+| 100 | -0.534 |
+
+### Sealed Result
+
+**k=25 is optimal. ρ(R_eff, valley_score) = -0.703.** Beats minimax by 0.212 (43% improvement). Monotone degradation beyond k=25 — the graph becomes too dense, R_eff loses topological sensitivity and converges toward simple inverse-degree (which is not fitness-landscape specific).
+
+### Mechanistic Interpretation
+
+At k=25 the graph captures local neighborhood topology without connecting species that are biologically unrelated. At k>30, long-range edges connect species from different families, homogenizing R_eff across true topological bottlenecks. The optimal k corresponds to a graph where the effective resistance still encodes path structure through narrow fitness corridors rather than reflecting mere global connectivity.
+
+### Controls
+
+| Control | Result |
+|---------|--------|
+| Positive: R_eff beats minimax at k=25 (expected PASS) | **PASS** (ρ=-0.703 vs minimax ρ=-0.491) |
+| Negative: k=5 near-MST behavior ≈ minimax (expected near ρ=-0.491) | **PASS** (ρ=-0.465, near minimax -0.491) |
