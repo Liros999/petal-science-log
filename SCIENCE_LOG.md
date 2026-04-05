@@ -23256,3 +23256,95 @@ The ITS2-BERT bridge has MORE training data (1489 vs 85) and SMALLER source dim 
 | SV1 role | Bias correction (u_1 ≈ −D_flower_n), structural not semantic |
 | SV2-6 r values | 0.89–0.95 — genuine cross-modal structure |
 
+
+---
+
+## Entry 271 — E70 + E71: Full-Scale Flower Cone Geometry at 1400-2174 Species (2026-04-05)
+
+### Motivation
+
+Entries 269–270 characterized the Flower Cone in SAM3 FPN space using only 85 TRAIN species.
+The key result: augmented k-NN (290 species DB) beats W_SAM3 LOO. The next step: scale the
+cone geometry to the full Israeli flora dataset (~1400-2174 species) for both spaces.
+
+### What Exists
+
+| Space | Species | Source |
+|---|---|---|
+| BioCLIP visual f_vis (1024-dim) | 2174 (1681 with ≥5 masks) | exp_E09 f1024_israel.npz |
+| BioCLIP text b_text (1024-dim) | 290 | species_text_emb.npz |
+| SAM3 FPN f_SAM3 (256-dim) | **85 only** | exp33 f_SAM3.npz |
+| SAM3 NextGen JSONs (polygons + scores) | 73,578 images, ~1400 species | nextgen_israel_run/ |
+
+The nextgen_full_run and nextgen_israel_run both saved only scores + polygons — NOT raw FPN
+vectors. exp34a captured FPN features for 186K train/val masks (Citadel 109 species).
+The 1400+ Israeli species FPN centroids do not exist yet — they are the target of E71.
+
+### E70 — BioCLIP Text + Visual Cone at 2174 Species (CPU job 12735815)
+
+**Script:** `experiments/exp_E70_bioclip_text_2174.py`
+
+**What it does:**
+1. Loads E09 f_vis (2174 species, 1024-dim, L2-normalized)
+2. Filters to ≥5 masks per species → ~1681 species
+3. Computes b_text for all filtered species via BioCLIP text encoder (offline)
+4. Runs full cone geometry in BioCLIP visual space:
+   - D_flower_vis_n = mean of all normalized f_vis centroids
+   - θ_s = elevation angle per species
+   - ε̂_s = azimuth unit vector per species
+   - Variance decomposition: elevation% vs azimuth%
+5. SVD of cross-covariance B^T F (b_text @ f_vis^T) → cross-modal structure directions
+6. LOO k-NN Fréchet retrieval (k=5,10,20,50) — 200-species sample
+7. Saves: b_text_2174.npz, cone_geometry.npz, cross_cov_directions.npz, summary.json
+
+**Expected outputs:** `results/exp_E70_bioclip_text_2174/`
+
+### E71 — SAM3 FPN Centroids for Israeli Species (GPU job 12735816, after E70)
+
+**Script:** `experiments/exp_E71_sam3_fpn_israel.py`
+**Dependency:** runs after E70 (needs b_text_2174.npz for cross-cov analysis)
+
+**What it does:**
+1. Loads SAM3 (same model as exp33/NextGen production)
+2. Scans all 73,578 nextgen_israel_run JSONs → groups by species
+3. For each species: loads photos, runs SAM3 encoder, pools backbone_fpn[-1] over bbox
+   - Pooling method: bbox mean pool (matches FA-FPN AUC=0.9622 production method)
+   - NOT pixel-mask pooling (exp33 used SAM2 user-validated masks — not available for Israeli species)
+   - Cap: 30 masks per species for speed
+4. f_SAM3[s] = mean(flower_feats[s]) - global_bg_mean (global_bg_mean from exp33)
+5. Full cone geometry at M≥~1000 species:
+   - D_flower_n_israel: new universal flower direction at scale
+   - Compare to D_flower_n_85sp: how much does the cone axis shift?
+   - Cross-covariance SVD with b_text_2174 (from E70)
+6. Saves: f_SAM3_israel.npz, per_species.json, summary.json
+
+**Expected outputs:** `results/exp_E71_sam3_fpn_israel/`
+
+### Key Scientific Questions These Jobs Answer
+
+1. **Does the cone widen or narrow at 17× scale?** With 85 species the cone was 14.6°–42.5°.
+   At 2174 species we expect the range to widen as we encounter more extreme flower morphologies.
+
+2. **Does D_flower_vis_n (from 2174 visual centroids) align with D_flower_SAM3_n (85 FPN)?**
+   These are different spaces (1024-dim vs 256-dim). They shouldn't directly compare — but
+   the cross-modal structure directions (SVD of B^T F) should show the same biological axes.
+
+3. **Does the augmented k-NN improve further with 1681 real f_vis anchors?**
+   k=10 with 290 DB gave θ=22.0°. With 1681 real anchors the neighborhood coverage
+   densifies → LOO error should drop. This is the scaling law validation.
+
+4. **How many cross-modal structure directions exist at scale?**
+   85 species: 10 directions with r>0.80. At 1681 species: expect higher r values
+   (larger N → lower sampling noise) and potentially more distinguishable directions.
+
+5. **For E71: does D_flower_n_israel align with D_flower_n_85sp?**
+   If cos > 0.99 → the cone axis is stable, D_flower_n generalizes.
+   If cos < 0.95 → the 85-species estimate was biased by the Citadel selection.
+
+### Job Status
+
+| Job | ID | Status | Wall |
+|---|---|---|---|
+| E70 (CPU) | 12735815 | RUNNING on compute-0-425 | 1:30:00 |
+| E71 (GPU) | 12735816 | PENDING (dependency on E70) | 8:00:00 |
+
