@@ -23446,3 +23446,68 @@ consistent with exp33 which used SAM2 user-validated pixel masks.
 1. Compare D_flower_n_israel (E71) vs D_flower_n_85sp (exp33) — cone axis stability
 2. Cross-covariance at scale: b_text (E70) × f_SAM3_israel (E71) → new W_bridge at 1681sp
 3. Augmented k-NN at 1681 real anchors — scaling law validation
+
+---
+
+## Entry 273 — E72: SOTA Sphere Geometry Analysis (13 Methods) — 2026-04-05
+
+**Job 12740426** — CPU, power-general-public-pool, 2:00:00, 48G
+**Script:** `experiments/exp_E72_sphere_geometry.py`
+**Input:** E70 cone_geometry.npz (BioCLIP 2.5 ViT-H/14, 1681 species, 1024-dim)
+
+### Motivation
+
+E70 established the BioCLIP 2.5 visual cone: mean θ=40.3°, azimuth variance=42%, 9
+cross-modal directions with r>0.80. Now we need to understand the geometry of the
+1681-species point cloud ON that sphere — where are the "cities" (dense regions) and
+"voids" (empty regions), and what does this imply for species discrimination.
+
+### 13 Methods in E72
+
+| Method | Question |
+|---|---|
+| 1. vMF | κ concentration, noise floor for discrimination |
+| 2. Watson | Bipolar vs girdle symmetry in the azimuth cloud |
+| 3. Kent (FB5) | Elliptical cap? Which azimuth axis dominates? |
+| 4. Spherical harmonic power spectrum | Which angular scales carry information? |
+| 5. Tangent-space PCA | Principal geodesics, participation ratio |
+| 6. Geodesic k-means (k=5,10,20,40) | Map the "cities" — where do species cluster? |
+| 7. Intrinsic dim MLE (Levina-Bickel) | How many real dims? → optimal k for k-NN |
+| 8. Persistent homology (ripser) | Topological holes — forbidden zones |
+| 9. SNR-weighted k-NN | sin(θ)·√n weight vs uniform — better retrieval? |
+| 10. θ-band cross-modal | Does r_k increase with θ? (mixed model test) |
+| 11. Density map | Per-species density at 10° and 30° radius |
+| 12. Azimuth PCA participation ratio | Effective dimensionality of ε̂_s cloud |
+| 13. Family/genus structure | Cities ratio = inter-family / intra-family spread |
+
+### Key Conceptual Frameworks Driving E72
+
+**The mixed model:**
+```
+f̂[s] = cos(θ_s)·D_flower_n  +  sin(θ_s)·ε̂_s
+```
+- ε̂_s is the NORMALIZED RESIDUAL after projecting out D_flower_n
+- sin(θ_s) = azimuth amplitude = "signal strength" (discarded by normalization)
+- SNR_s = sin(θ_s) / σ_s where σ_s ∝ 1/√n_masks → reliability weight for k-NN
+
+**θ-band hypothesis:** Cross-modal correlation r_k should be HIGHER for high-θ species
+(large residual, clean signal) than low-θ species (small residual, noise-dominated).
+If confirmed → θ-modulated W_azim is the right architecture.
+
+**Cities hypothesis:** Intra-family spread << inter-family spread → family = city.
+If cities_ratio >> 2× → family label alone tells you which cap a species lives in.
+
+### Outputs Expected
+- `vMF.json`, `watson.json`, `kent.json`, `harmonic_spectrum.json`
+- `tangent_pca.json/npz`, `geodesic_kmeans.json`
+- `intrinsic_dim.json`, `persistent_homology.json`
+- `snr_knn.json`, `theta_band_crossmodal.json`
+- `density_map.json/npz`, `azimuth_pca.json/npz`
+- `family_structure.json`, `summary.json`
+
+### Running Jobs
+
+| Job | ID | Status |
+|---|---|---|
+| E71 (GPU) | 12736940 | RUNNING — SAM3 FPN polygon-mask-pooled |
+| E72 (CPU) | 12740426 | QUEUED — 13-method sphere geometry |
