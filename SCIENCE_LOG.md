@@ -25096,3 +25096,41 @@ This exceeds E42's visual ceiling of −0.773 by **0.063 units**.
 
 ### Next question
 The E91 k=40–50 curve hasn't saturated for self-tuning. Need to test k=75, 100 to find the plateau. Also: does the self-tuning + large k result hold on the 1143-species set (which has more species and thus more neighbors to add)? The combination of self-tuning + angular + high k appears to be discovering the true manifold structure of ITS2 sequence space.
+
+---
+
+## Entry 306 — 2026-04-06 — E94: k Saturation — Peak at k=50, Then Monotone Decline
+
+### k Saturation Curves (920 species, self-tuning RBF)
+
+| k | angular | cosine | std cosine |
+|---|---|---|---|
+| 25 | — | — | −0.761 (E85) |
+| 50 | **−0.836** | −0.835 | −0.785 |
+| 75 | −0.803 | −0.818 | −0.737 |
+| 100 | −0.769 | −0.779 | −0.708 |
+| 150 | −0.718 | −0.723 | −0.663 |
+| 200 | −0.685 | −0.684 | −0.632 |
+
+**k=50 is the peak.** Beyond k=50, ρ degrades monotonically. The Fiedler eigenvalue (λ_1) rises steadily: 0.172 (k=50) → 0.263 (k=100) → 0.403 (k=200). As the graph becomes denser, the spectrum compresses — λ_1 approaches the spectral gap of the full graph — and all eigenvectors blend into a diffuse representation. The self-tuning k=50 graph captures the natural neighborhood structure of ITS2 space without over-smoothing.
+
+### Combined: self-tuning k=50 + per-eigenvec oracle weighting
+
+On the E91 SOTA graph (self-tuning, angular, k=50):
+- Diffusion t=2.0: ρ=**−0.836**
+- Oracle in-sample: ρ=−0.790
+- 5-fold CV oracle: ρ=−0.789 ± 0.007
+
+**Oracle weighting HURTS on the self-tuning graph.** The oracle drops from −0.836 to −0.789 — a −0.047 regression. This is the opposite of the k=25 standard graph where oracle improved from −0.761 to −0.781.
+
+**Interpretation**: The self-tuning graph already encodes per-node local scale information into the graph weights. This reshapes the Laplacian spectrum so that diffusion (uniform exp(−λt) weighting) is already near-optimal. The per-eigenvec oracle tries to re-weight on top of an already-optimized spectrum, adding noise rather than signal. The two approaches are **not complementary** — self-tuning graph subsumes the spectral weighting benefit.
+
+### Structural Summary
+
+The k=50 self-tuning sweet spot reflects the data geometry: each Israeli plant species has ~50 ITS2-close neighbors across the 920-species graph. Below 50, the graph is under-connected (families fragment). Above 50, far neighbors dilute the local density signal and compress the spectrum.
+
+**Final DNA-graph SOTA: ρ=−0.836** (self-tuning RBF, angular distance, k=50, diffusion t=2.0)
+This is a hard wall — increasing k degrades it, oracle weighting degrades it, band combination degrades it. The optimum is a clean single configuration.
+
+### Next
+The gap between DNA-graph SOTA (−0.836) and the theoretical maximum (if DNA fully predicts visual phenotype) is unknown. E42 visual ceiling (−0.773) has been surpassed. The question shifts: what does ρ=−0.836 mean biologically? DNA graph distance predicts visual fitness valley better than visual angle alone — ITS2 phylogeny contains more fitness-landscape information than flower color/shape geometry.
