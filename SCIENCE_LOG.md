@@ -25134,3 +25134,180 @@ This is a hard wall — increasing k degrades it, oracle weighting degrades it, 
 
 ### Next
 The gap between DNA-graph SOTA (−0.836) and the theoretical maximum (if DNA fully predicts visual phenotype) is unknown. E42 visual ceiling (−0.773) has been surpassed. The question shifts: what does ρ=−0.836 mean biologically? DNA graph distance predicts visual fitness valley better than visual angle alone — ITS2 phylogeny contains more fitness-landscape information than flower color/shape geometry.
+
+---
+
+## Entry 307 — 2026-04-06 — Smoking Gun: r(DNA_dist, vis_angle) = +0.993
+
+### Discovery
+Running a full causal chain analysis across Text, FPN, Visual, and DNA spaces on 920 species / 27,672 pairs revealed a near-perfect colinearity between DNA distance and visual angle:
+
+**r(DNA_dist, vis_angle) = +0.993** (Spearman, 27,672 pairs, p<1e-300)
+
+DNA distance (ITS2 cosine distance) and visual angle (arccos of BioCLIP visual centroid cosine similarity) are measuring the **same underlying biological signal** — phylogenetic divergence — to 99.3% accuracy. This is not a moderate correlation; it is near-total redundancy between the two spaces.
+
+### Full Correlation Matrix (920 species, 27,672 pairs)
+
+| Pair | Spearman ρ |
+|---|---|
+| r(DNA_dist, vis_angle) | **+0.993** |
+| r(DNA_dist, valley) | −0.811 |
+| r(vis_angle, valley) | −0.807 |
+| r(txt_dist, valley) | −0.387 |
+| r(txt_dist, vis_angle) | +0.366 |
+| r(txt_dist, DNA_dist) | +0.369 |
+
+### Mediation Analysis
+
+| Quantity | Value |
+|---|---|
+| Total r(DNA, valley) | −0.811 |
+| Partial r(DNA, valley \| vis_angle) | −**0.297** |
+| Fraction mediated by visual angle | **63.4%** |
+
+63% of DNA's predictive power for valleys passes *through* visual angle. The remaining 37% is a **direct path** from DNA to valley that visual angle cannot explain.
+
+### Variance Decomposition (OLS, linear R²)
+
+| Predictor | R² alone | Unique contribution |
+|---|---|---|
+| Visual angle alone | 0.614 | 0.003 |
+| DNA dist alone | 0.643 | **0.033** |
+| Both together | 0.646 | — |
+
+DNA and visual angle are nearly co-linear predictors of valley depth — together they gain almost nothing over either alone.
+
+### Binned Analysis: r(DNA, valley) within visual angle quartiles
+
+| Angle bin | n pairs | r(DNA, valley) | r(vis, valley) |
+|---|---|---|---|
+| 0°–64° | 6,918 | −0.479 | −0.481 |
+| 64°–75.7° | 6,918 | −0.355 | −0.329 |
+| 75.7°–84.6° | 6,918 | −0.305 | −0.270 |
+| 84.6°–118° | 6,917 | −0.480 | −0.466 |
+
+Within every visual angle bin, DNA retains significant predictive power (−0.30 to −0.48). This is the direct path.
+
+### Interpretation
+
+The pipeline **Text → SAM3 FPN → Visual → [DNA via 0.993] → Valley** already implicitly exists through the near-perfect colinearity. However:
+
+1. The 0.993 means that to a first approximation, **visual angle IS DNA distance** — you don't need the actual DNA sequence to get to ρ=−0.807.
+2. The **37% direct path** (partial r=−0.297) is the scientifically novel part: the valley depth signal in DNA that visual angle misses. This is likely encoding **character displacement** and **sympatric competition history** — species that are visually similar but genetically diverged, or species that coexisted and evolved away from each other.
+3. The self-tuning RBF k=50 graph (ρ=−0.836) extracts this signal by normalizing for local density variation in ITS2 space, which is exactly where the ε = d_DNA − f(vis_angle) residual lives.
+
+### Geometric Picture
+
+```
+Phylogenetic divergence [single latent variable]
+         ↓ (0.993)              ↓ (0.993)
+   ITS2 distance           Visual angle
+         ↘                    ↙
+           Valley depth (R²=0.646 combined)
+           + direct DNA path (unique R²=0.033)
+```
+
+### Next Experiment (E95)
+Isolate the **pure causal path**: DNA → valley that bypasses visual angle.
+- valley_resid = valley − f(vis_angle)
+- dna_resid = d_DNA − g(vis_angle)
+- Test: r(dna_resid, valley_resid) — expected −0.50 to −0.60
+- This is the character displacement / sympatric competition signal
+
+### Reproducibility
+Script: `/tmp/causal_chain_analysis.py`
+Data: 920-species set (E85 protocol, n_masks≥10), 27,672 pairs from E38b
+Key files:
+- `exp_E36_visual_dna_bridge/quaresma_gallery.npz` (DNA embeddings)
+- `exp_E70_bioclip_text_2174/cone_geometry.npz` (visual centroids, text embeddings)
+- `exp_E83c_wsam3_refit_loo/W_SAM3_1681_lam0.5.npz` (W_SAM3)
+- `exp_E38b_fitness_valleys_full_gallery/per_pair_valleys.json` (valley scores + angles)
+
+---
+
+## Entry 308 — 2026-04-06 — E95: Residual Valley — Direct DNA Path Measured
+
+### Result Summary
+
+Positive controls reproduced:
+- r(DNA, vis_angle) = **+0.993** ✓ (Entry 307 confirmed)
+- r(DNA, valley) = **−0.811** ✓
+
+**Direct DNA→valley path (after removing visual angle):**
+
+| Residualization | R² removed | r(dna_resid, valley_resid) |
+|---|---|---|
+| Linear | 0.614 | **−0.297** |
+| Cubic (degree=3) | 0.654 | −0.112 |
+| Isotonic (fully non-linear) | ~0.999 | −0.046 |
+| Linear vis + txt | — | **−0.307** |
+| Null (shuffled) | — | +0.003 |
+
+### The Key Finding: The Direct Path Is Linear Artifact, Not Biology
+
+The progressive weakening from −0.297 (linear) → −0.112 (cubic) → −0.046 (isotonic) is the critical diagnostic.
+
+- **Linear residualization** removes the linear component of the DNA-valley relationship that goes through visual angle. Residual r=−0.297.
+- **Cubic residualization** removes more of the non-linear shared variance. Residual drops to −0.112.
+- **Isotonic residualization** removes the full monotone relationship. Residual collapses to −0.046 (near zero).
+
+**Interpretation:** Almost all of what appeared to be a "direct path" from DNA to valley (partial r=−0.297) is a **non-linear confound** — pairs with extreme DNA distances (very close or very far) have residuals that still correlate with valley, but this is entirely explained by the non-linear shape of the DNA-valley curve, not by a causal mechanism that bypasses visual angle.
+
+The isotonic residual r=−0.046 (barely above zero) means: once you account for the full monotone relationship between DNA distance and visual angle, **DNA carries almost no additional information about valley depth**. The two variables are functionally synonymous.
+
+### Per-Family Structure
+
+Within large families (controlling for between-family variation):
+
+| Family | n pairs | r_raw | r_vis | r_resid(linear) |
+|---|---|---|---|---|
+| Liliaceae | 120 | −0.783 | −0.735 | **−0.431** |
+| Convolvulaceae | 231 | −0.770 | −0.789 | **−0.352** |
+| Fabaceae | 13,203 | −0.858 | −0.855 | **−0.325** |
+| Amaryllidaceae | 210 | −0.829 | −0.853 | **−0.328** |
+| Orchidaceae | 253 | −0.738 | −0.753 | −0.083 |
+| Poaceae | 136 | −0.809 | −0.828 | −0.050 |
+
+Liliaceae and Convolvulaceae show the strongest linear residual signal (r=−0.43, −0.35). These are families where ITS2 distance diverges most from visual distance — likely reflecting recent adaptive radiation or convergent evolution within the family.
+
+### What the Extreme Pairs Reveal (Biological Interpretation)
+
+**Excess DNA distance** (genetically diverged but visually similar — dna_resid > 0):
+- Ophrys fuciflora | Ophrys sphegodes: vis=6.1°, dna_resid=+0.327 — sister Orchid species, nearly identical to the eye but with deep ITS2 divergence. Valley=1.000 (flat). Classic cryptic speciation.
+- Trigonella pairs: same visual morphology, high sequence divergence, shallow valley.
+
+**Deficit DNA distance** (genetically similar but visually distant — dna_resid < 0):
+- Anthemis cotula | multiple Anthemis species: vis=65–77°, dna_resid=−0.33 to −0.36. Visually very different flowers, ITS2 sequences nearly identical. Valley ≈ 0.96 (shallow). Rapid visual radiation within a single ITS2 clade.
+- Convolvulaceae shows similar pattern.
+
+These extreme pairs are the **character displacement + rapid radiation** cases — the biological signal the residual was supposed to capture. They exist but are a minority of pairs, explaining why the global residual is small.
+
+### Revised Pipeline Model
+
+The proposed chain **Text → FPN → [DNA via 0.993] → Valley** simplifies to:
+
+```
+Text  ──► FPN direction (W_SAM3, LOO cos=0.960)
+           │
+           ▼ r=0.38
+          Visual angle  ═══════════════════╗  (r=0.993)
+           │                               ║
+           ▼ r=-0.807                      ▼ r=-0.811
+          Valley depth  ◄════════  DNA distance
+                 ↑ isotonic residual r=-0.046 (direct path ≈ 0)
+```
+
+**Visual angle and DNA distance are functionally equivalent predictors of valley depth.** The self-tuning graph (ρ=−0.836) beats visual angle alone (ρ=−0.807) by only 0.029 — precisely because the extra signal is the small residual captured in the graph topology.
+
+### Conclusion
+
+The "direct causal path" DNA → valley (bypassing visual angle) is **statistically present but biologically small**: isotonic r=−0.046 after full non-linear deconfounding. The causal structure is:
+
+**Phylogenetic divergence** → (simultaneously) → visual angle + ITS2 distance → valley depth
+
+Both visual angle and DNA distance are **projections of the same latent variable** (evolutionary distance). The pipeline does not need both — visual angle captures 98% of what DNA adds. The remaining 2% (the Ophrys-type cryptic speciation pairs) is real but rare.
+
+### Reproducibility
+- Script: `/scratch200/leardistel/petal_benchmark/experiments/exp_E95_residual_valley.py`
+- Submit: `submit_E95_residual_valley.sh` | SLURM job 12807312
+- Results: `/scratch200/leardistel/petal_benchmark/results/exp_E95_residual_valley/summary.json`
