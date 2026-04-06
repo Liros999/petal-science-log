@@ -24894,3 +24894,66 @@ E87 v3 resubmitted as job 12789911. Expected runtime: ~1.5 hr (Dijkstra on 1143 
 
 The zero eigenvalue of the Laplacian (constant eigenvector) was causing 316× amplification of Z_dna (division by sqrt(1e-10)) when included. This dominated R_eff completely.
 
+---
+
+## Entry 302 — 2026-04-06 — Oracle Analysis: Eigenvector Reweighting Is Exhausted
+
+### Key Finding
+Per-eigenvector Spearman correlation analysis across all 100 Laplacian eigenvectors:
+- **Family/Order band (k=1–8)**: mean ρ_k = −0.41 → band diffusion alone: ρ=−0.645
+- **Genus band (k=9–30)**: mean ρ_k = −0.23 → band diffusion alone: ρ=−0.406
+- **Noise band (k=31–100)**: mean ρ_k = −0.07 → band diffusion alone: ρ=−0.212
+
+**Oracle weighting** (w_k = |ρ_k| for ρ_k < 0, else 0): ρ=**−0.759**
+**Current SOTA E85** (global diffusion t=2.0): ρ=**−0.761**
+**E42 visual ceiling**: ρ=**−0.773**
+
+### Critical Conclusion
+Oracle per-eigenvector weighting (−0.759) is BELOW current SOTA (−0.761). Three-band mixture (a=0.40, b=0.27, c=0.33) gives ρ=−0.751 — also below SOTA. Ridge CV estimate: ρ=−0.747.
+
+The remaining gap to E42 ceiling (0.012) CANNOT be closed by eigenvector reweighting on the same DNA graph. The approach is spectrally exhausted. Must target the DNA SIDE: better graph metric, better distance metric, or self-tuning graph topology.
+
+---
+
+## Entry 303 — 2026-04-06 — E91/E92/E93: Three DNA Geometry Experiments Submitted
+
+### Motivation
+Oracle analysis shows current diffusion is at spectral ceiling on the existing k-NN graph (ρ=−0.759 oracle vs −0.761 SOTA). To close the gap to E42 ceiling (−0.773), we need to improve the DNA SIDE — specifically the graph metric, not eigenvector weighting.
+
+### E91: Better DNA Distance Metric (job 12791880)
+**File**: `exp_E91_dna_metric.py` | **SLURM**: 4 CPUs, 32G, 2h
+
+Tests four axes:
+1. **Sigma sweep**: σ² ∈ {0.5×, 1.0×, 2.0×, 4.0×} median — is full-pairwise median optimal?
+2. **k sweep**: k ∈ {5, 10, 15, 20, 25, 30} — is k=15 the sweet spot?
+3. **Distance metric variants**: cosine (baseline), cosine_squared, angular (arccos/π), L2_normalized (√(2(1−cos)))
+4. **Self-tuning RBF** (Zelnik-Manor & Perona 2004): σ_i = kth NN distance of node i; w(i,j) = exp(−d²/(σ_i·σ_j)). Accounts for local density variation in ITS2 space — theoretically most motivated change.
+
+Total: ~120 eigsh calls. Positive control (cosine, k=15, σ=1.0×) must reproduce ρ≈−0.761.
+
+### E92: Per-Eigenvector Weighted Diffusion Honest CV (job 12791881)
+**File**: `exp_E92_weighted_diffusion.py` | **SLURM**: 4 CPUs, 16G, 30min
+
+1. Confirms oracle in-sample ρ=−0.759 (transparent replication of in-session calculation)
+2. Honest 5-fold CV over pairs: compute ρ_k on train folds, apply weights to test fold
+3. Ridge regression on per-eigenvector pair distances (40,593 × 100 feature matrix)
+4. Saves per-eigenvector ρ_k profile (JSON) for spectral visualization
+
+Expected: CV estimate < oracle (−0.747 per ridge estimate), confirming oracle is inflated.
+
+### E93: Multi-Scale Band Combination (job 12791882)
+**File**: `exp_E93_multiband.py` | **SLURM**: 4 CPUs, 16G, 1h
+
+Independent t per band: D_X(i,j)² = Σ_{k∈X} exp(−2·tX·λ_k)·(φ_k(i)−φ_k(j))²
+Combined: D_combined = a·D_A + b·D_B + c·D_C
+Grid search: tA,tB,tC ∈ {0.5, 1.0, 2.0, 4.0} × simplex (n_steps=6).
+
+Expected: Best ≈ −0.751 (below SOTA), confirming band combination does not improve over global diffusion. This is a FORMAL confirmation of the in-session oracle calculation.
+
+### Strategic Implication
+If all three fail to beat −0.761:
+- E91: self-tuning RBF is the last geometric degree of freedom on ITS2 embeddings
+- E92: confirms eigenvector weighting ceiling at −0.759
+- E93: confirms band combination ceiling at −0.751
+→ Must pivot to DNA biology: K2P with gamma correction, multi-locus fusion, or position-specific weights
+
