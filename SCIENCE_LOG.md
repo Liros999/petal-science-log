@@ -25421,3 +25421,64 @@ with confidence bounds derived from the ρ=−0.836 population correlation.
 - Best prediction: `exp_E91_dna_metric/summary.json` (ρ=−0.836 config)
 - Mediation analysis: `exp_E95_residual_valley/summary.json`
 - E2E validation: `exp_E96_e2e_validation/summary.json` (running)
+
+---
+
+## Entry 311 — 2026-04-06 — E96 Results: End-to-End Pipeline Validated
+
+### Results
+
+**Positive controls all reproduced:**
+- ρ(D_diff, valley) = **−0.836** ✓ (E91 sealed)
+- ρ(vis_angle, valley) = **−0.807** ✓
+- r(DNA_dist, vis_angle) = **+0.993** ✓ (Entry 307 confirmed again)
+- ρ(random, valley) = ~0 ✓
+
+**Benchmark accuracy (50 stratified test pairs):**
+
+| Metric | Value |
+|---|---|
+| ρ(predicted_rank, true_rank) | **0.792** (p=7.5e-12) |
+| MAE (0–1 rank scale) | **0.134** |
+| Within 20% of true rank | **76%** of pairs |
+
+**Per-bin accuracy:**
+
+| Bin | n | MAE | ρ |
+|---|---|---|---|
+| Very deep (Q1) | 10 | 0.130 | 0.491 |
+| Deep (Q2) | 10 | 0.117 | 0.588 |
+| Moderate (Q3) | 10 | 0.170 | 0.442 |
+| Shallow (Q4) | 10 | 0.112 | 0.430 |
+| Near-zero (Q5) | 10 | 0.141 | −0.103 |
+
+### Interpretation
+
+The pipeline works as a prediction system with well-defined confidence:
+- **Population level**: ρ=−0.836 is the reliability across all 27,672 Israeli species pairs
+- **Per-case level**: ρ=0.792 on 50 stratified test pairs; MAE=0.134 on rank scale
+- **Calibration**: Within 20% of the true valley depth rank for 76% of pairs
+
+Near-zero valley pairs (Q5) are poorly calibrated (ρ=−0.10) — this is expected because
+all near-zero valley pairs have similar (large) DNA distances and the ranking becomes
+arbitrary at saturation. The pipeline is most reliable for Q1–Q4 (pairs with meaningful
+valley structure).
+
+### Final Pipeline Statement (for abstract)
+
+> Given two Israeli flowering plant species names, this pipeline predicts the depth
+> of the fitness valley between them by:
+> 1. Loading ITS2 DNA embeddings from the Quaresma gallery
+> 2. Computing diffusion distance on a self-tuning k=50 k-NN graph
+> 3. Outputting a percentile rank of expected reproductive barrier depth
+>
+> **Population accuracy: Spearman ρ = −0.836** (27,672 species pairs)
+> **Per-case accuracy: ρ = 0.792** (50 stratified test pairs)
+> **r(visual angle, DNA distance) = +0.993** — the two modalities are equivalent
+
+### Reproducibility
+- Script: `/scratch200/leardistel/petal_benchmark/experiments/exp_E96_e2e_validation.py`
+- Submit: `submit_E96_e2e_validation.sh` | SLURM job 12808529
+- Results: `/scratch200/leardistel/petal_benchmark/results/exp_E96_e2e_validation/`
+  - `summary.json` — full metrics
+  - `benchmark_pairs.json` — all 50 test cases with predictions
