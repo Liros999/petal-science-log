@@ -25616,3 +25616,85 @@ The rule is NOT a dataset coincidence — it is a consequence of the embedding g
 - Script: `exp_E98_faiss_sparse_graph.py` | Submit: `submit_E98_faiss_sparse_graph.sh`
 - SLURM job 12812544
 - Results: `/scratch200/leardistel/petal_benchmark/results/exp_E98_faiss_sparse_graph/summary.json`
+
+---
+
+## Entry 314 — 2026-04-07 — E99 Running + Quaresma Diffusion DB Design
+
+### E99: Full Quaresma N=108,847 (running, SLURM 12812550)
+
+Status: adjacency build in progress (ETA ~30 min at time of writing).
+k=5,660 (k/N=0.052), rank_r=200, 128 GB node.
+FAISS IVF search: 16s for all 108,847 species. sigma: mean=1.407, min=1.273.
+
+### Quaresma Diffusion Database
+
+Design: persistent storage of the E99 diffusion embedding for reuse across experiments.
+
+**Schema:**
+```
+quaresma_diffusion.h5       (HDF5, ~87 MB compressed)
+  /Z          float32  (108847, 200)  diffusion embedding Z = U·exp(-λt)
+  /lam        float64  (200,)         eigenvalues
+  /species    bytes    (108847,)      species names
+  /attrs      dict     build params (N, k, t, ρ, date)
+
+quaresma_metadata.db        (SQLite)
+  species(id, name, genus, family)  — indexed on genus+family+name
+  pairs_cache(id_a, id_b, d_diff, valley)  — 64,871 Israeli pairs
+
+background_ddiff.npy        (64,871 float32 background D_diff values)
+  → used for converting raw D_diff → valley depth percentile
+```
+
+**Query interface (`DiffusionDB` class):**
+```python
+db = DiffusionDB("/scratch200/leardistel/petal_benchmark/diffusion_db")
+db.load()                               # 87 MB into memory
+
+db.valley_prediction("Rosa canina", "Rosa phoenicia")
+# -> d_diff=X, valley_percentile=Y, "FLAT (hybridization likely)"
+
+db.knn("Ophrys sphegodes", k=10)       # 10 nearest in diffusion space
+db.family("Fabaceae")                  # all 46 Trifolium + Astragalus etc.
+db.search_species("Ophrys")            # name search
+```
+
+**What gets persisted vs what gets recomputed:**
+- **Persist**: Z (diffusion embedding), species names, metadata, valley pair cache
+- **Recompute on-the-fly**: D_diff(A,B) = ||Z[A]-Z[B]||² (two vector lookups + dot product, O(200))
+- **Never stored**: the full N×N distance matrix (5.9B pairs = impossible)
+
+**Location:** `/scratch200/leardistel/petal_benchmark/diffusion_db/`
+
+### Why N=10,000 Beats N=920 (ρ=−0.857 vs −0.836)
+
+The mechanism is spectral, not statistical:
+
+At N=920, each species has 50 neighbors in DNA space. The eigenvectors φₖ are
+computed from this coarse 920-node graph — they are noisy discretizations of the
+true Laplace-Beltrami eigenfunctions on the ITS2 manifold.
+
+At N=10,000 (with k=520 to maintain k/N=0.052), each Israeli species now sits
+within a 10x denser evolutionary context. The eigenvectors are smoother estimates
+of the same underlying manifold structure.
+
+Critical: the Fiedler value DOUBLES from λ₁=0.172 (N=920) to λ₁=0.375 (N=10,000).
+This means at t=2.0:
+
+  exp(-2·0.172·2) = 0.503   → eigenvector 1 dominates
+  exp(-2·0.375·2) = 0.223   → 10x more eigenvectors contribute equally
+
+At N=10,000, diffusion distance is a richer weighted sum over more eigenvectors,
+each capturing a different scale of evolutionary divergence. This is why predictions
+improve: the signal is multi-scale rather than dominated by a single coarse
+phylogenetic split.
+
+**Analogy:** measuring road distance between cities. With 920 cities, you miss
+intermediate towns and paths appear longer than they are. With 10,000 cities,
+every shortcut exists and distances are accurate.
+
+### Reproducibility
+- E99 script: `exp_E99_quaresma_full.py` | SLURM 12812550 (running)
+- DB builder: `/scratch200/leardistel/petal_benchmark/diffusion_db/build_db.py`
+- DB output: `/scratch200/leardistel/petal_benchmark/diffusion_db/`
