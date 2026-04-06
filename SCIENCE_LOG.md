@@ -24957,3 +24957,54 @@ If all three fail to beat −0.761:
 - E93: confirms band combination ceiling at −0.751
 → Must pivot to DNA biology: K2P with gamma correction, multi-locus fusion, or position-specific weights
 
+---
+
+## Entry 304 — 2026-04-06 — E91/E92/E93 Results: Species Set Discrepancy + Key Findings
+
+### Critical Discovery: E85 Used 920 Species (k=25), Not 1143 (k=15)
+E85 diffusion SOTA (ρ=−0.761) used **920 species** (≥10 mask filter) and **k=25**. Our E91/E92/E93 used **1143 species** (no mask filter) and **k=15**. The reported ρ=−0.761 from E85 cannot be directly compared.
+
+On the 1143-species set:
+- k=15, cosine, σ=1.0× → ρ=**−0.581** (the positive control)
+- k=25, cosine, σ=1.0× → ρ=**−0.709**
+- k=30, cosine, σ=1.0× → ρ=**−0.758**
+- k=30, cosine_squared, σ=4.0× → ρ=**−0.764** ← best standard
+
+**Pattern**: ρ monotonically improves with k. The graph is still k-sparse; adding more neighbors improves spectral quality. k=30 is not yet saturated.
+
+### E91: DNA Metric Grid Results
+Best configuration: `cosine_squared, σ=4.0×, k=30` → ρ=**−0.764**
+Second best: `angular, σ=4.0×, k=30` → ρ=**−0.764**
+Third: `cosine, σ=4.0×, k=30` → ρ=**−0.763**
+
+**Self-tuning RBF FAILS**: Best self-tuning is `angular, k=30` → ρ=**−0.718** — significantly worse than standard RBF at same k. Self-tuning over-sharpens the local scale differences and fragments the graph.
+
+**Key finding**: The dominant hyperparameter is k (not sigma, not metric). σ has minimal impact (4.0× vs 1.0× gives only +0.007). All standard metrics give nearly identical ρ at fixed k.
+
+### E92: Per-Eigenvector Weighted Diffusion (Honest CV)
+On 1143-species graph (k=15 — WRONG baseline):
+- E85 baseline (k=15, t=2.0): ρ=−0.581 (baseline for this graph, not −0.761)
+- Oracle in-sample (|ρ_k| weights): ρ=**−0.691** (in-sample)
+- 5-fold CV oracle weights: ρ=**−0.691** ± 0.005 (weights generalize — low variance!)
+- Ridge CV: ρ=+0.787 (sign error in output — ridge fit inverted; subtract valley_score vs add)
+
+**Band analysis** (on 1143-species graph):
+- Family/Order (k=1–8, λ=0.079–0.161): mean ρ_k=−0.369, n_anticorrelated=8/8
+- Genus (k=9–30, λ=0.171–0.374): mean ρ_k=−0.232, n_anticorrelated=22/22
+- Noise (k=31–100, λ=0.378–0.674): mean ρ_k=−0.091, n_anticorrelated=66/70
+
+### E93: Multi-Scale Band Combination
+Best band combination: tA=4.0, tB=1.0, tC=1.0, a=0.67, b=0.17, c=0.17 → ρ=**−0.616**
+vs global diffusion (k=15): ρ=−0.581
+
+Band combination improves by +0.035 over naive k=15 diffusion, but still far below k=30 standard.
+**Conclusion confirmed**: Band combination does NOT recover the information lost by low k. Increasing k is the primary lever.
+
+### Synthesis and Next Step
+The dominant finding from E91 is that **k is the bottleneck**, not the distance metric or eigenvector weighting. The ρ vs k curve:
+- k=5: −0.43, k=10: −0.52, k=15: −0.58, k=20: −0.64, k=25: −0.71, k=30: −0.76
+
+This is still climbing at k=30. **Need to test k=50, 100 (dense graph) on 1143 species** to find the saturation point. At k→N, the graph becomes fully connected and ρ approaches the true distance-matrix correlation.
+
+Also needed: **re-run on 920-species set with k=25** to establish the proper apples-to-apples baseline before claiming improvement over E85.
+
