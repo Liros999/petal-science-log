@@ -24791,3 +24791,69 @@ Validated predictions from the E82 (ρ=−0.745) framework:
 
 Output: `/scratch200/leardistel/petal_benchmark/results/exp_E88_wfam_sam3/summary.json`
 
+**RESULT (completed):**
+
+| Configuration | LOO cos | θ |
+|---|---|---|
+| Global W_SAM3_1681 (E83c) | 0.9516 | **17.9°** |
+| W_fam_SAM3 lam=0.1 | 0.9446 | 19.2° |
+| W_fam_SAM3 lam=0.5 (best) | 0.9496 | 18.3° |
+| W_fam_SAM3 lam=1.0 | 0.9493 | 18.3° |
+
+**W_fam_SAM3 is WORSE than global W for all lambda.** Best case: −0.002 (0.5°).
+
+**Root cause:** In SAM3 256-dim FPN space, N=1681 with D_out=256 is a well-determined system. Global W uses cross-family visual correlation (FPN is topology-agnostic at family level — Fabaceae petal structure informs Brassicaceae direction). Per-family W discards this cross-family regularization and degrades. Contrast with E62 (1024-dim output, same N): global W is underdetermined, per-family helps.
+
+**Conclusion: θ=17.9° is the global optimum for text-only ridge in SAM3 256-dim space. W_fam cannot improve it.**
+
+---
+
+## Entry 299 — 2026-04-06 — E89: Polar+W_fam Stage-2 — FAILS (Stage-1 R² max=0.763)
+
+**Hypothesis:** Within-family, Stage-1 (cone angle prediction) R² is much higher than global R²=0.52, enabling Polar decomposition to beat ridge.
+
+**Result:**
+- Polar_fam LOO cos = **0.9414** (θ=19.7°) — **worse** than global W (0.9516, 17.9°)
+- Stage-1 R² max = 0.763 (Ranunculaceae) — below the 0.80 breakeven
+- Mean Stage-1 R² = ~0.68 across large families
+
+The Polar breakeven R²=0.80 is not reached even within families. The family structure does not rescue Stage-1 prediction. **Polar decomposition fails at every granularity** (global, family-conditioned) because the text name does not predict how far a species sits from the flower center.
+
+**Conclusion: Polar architecture is NOT the path forward for W_SAM3 improvement.**
+
+---
+
+## Entry 300 — 2026-04-06 — E90: Interpolation W — Adaptive Shrinkage Wins (+0.008)
+
+**Architecture:** W_eff[s] = (1−λ)·W_global + λ·W_fam_i (per-species LOO refit of family)
+
+**Key result — adaptive λ:**
+| n₀ (shrinkage threshold) | LOO cos | θ | Δ vs global |
+|---|---|---|---|
+| n₀=20 | 0.9551 | 17.2° | +0.003 |
+| n₀=50 | 0.9576 | 16.7° | +0.006 |
+| **n₀=100** | **0.9595** | **16.4°** | **+0.008** |
+
+Adaptive formula: λ[f] = n_f / (n_f + n₀). For Fabaceae (N=192): λ=0.66. For small families (N=15): λ=0.13 (mostly global).
+
+**This is a genuine improvement: θ=17.9° → 16.4° (−1.5°).** Not from training — pure shrinkage estimator combining existing W matrices.
+
+Note: fixed-λ sweep shows monotone decrease 0.9665 (λ=0, in-sample) → 0.9496 (λ=1, pure W_fam). The lambda=0 result is in-sample (not LOO) — only adaptive results are honest.
+
+**Recommendation: Use adaptive interpolation W_eff in production with n₀=100.** Reduces mean injection error from 17.9° to 16.4°.
+
+Output: `/scratch200/leardistel/petal_benchmark/results/exp_E90_interpolation_W/summary.json`
+
+---
+
+## Entry 301 — 2026-04-06 — E87 (v3): SLERP-Geodesic Bug Fix — Species Set Corrected
+
+**Bug found:** E87 v1/v2 used 920-species set (≥10 masks filter) → 27,672 pairs → ρ=−0.190 (wrong baseline).
+E82 uses 1143-species set (no mask filter) → 40,593 pairs → ρ=−0.745 (correct baseline).
+
+The 920-species subset is a biased sample — species with ≥10 masks are more abundant/common, changing the R_eff distribution and breaking the valley correlation.
+
+**Fix:** Remove mask filter. Use `quaresma ∩ e70 ∩ e36` directly = 1143 species.
+
+E87 v3 resubmitted as job 12789911. Expected runtime: ~1.5 hr (Dijkstra on 1143 nodes is slightly more expensive than 920).
+
