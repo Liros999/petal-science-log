@@ -24493,3 +24493,66 @@ Additional finding: ρ(pair_angle, W_bridge_mid_end_ratio) = −0.309 — W_brid
 |---------|--------|
 | Positive: W_0 arbitrary cos > W_bridge arbitrary cos (expected PASS) | **PASS** (0.928 vs 0.080) |
 | Negative: both bridges show ratio ~1 (expected PASS) | **PASS** (0.960 and 1.032) |
+
+---
+
+## Entry 289 — 2026-04-06 — E78b: SAM3-FPN Space Bridge Methods
+
+**Question:** Do alternative bridge methods (Polar, Tikhonov, Procrustes, vMF) outperform W_0 ridge in SAM3-FPN 256-dim space?
+
+**Input:** E70 b_text (1681×1024 BioCLIP text), E71 f_SAM3_n (1681×256 SAM3-FPN centroids). N_aligned=1681.
+
+**Results — BioCLIP visual space (1024-dim):**
+
+| Method | LOO cos | θ (°) |
+|--------|---------|-------|
+| W_0 ridge | **0.8923** | 26.41 |
+| Polar + poly stage-1 | 0.8821 | 27.63 |
+| Iterated Tikhonov T=10 | 0.8790 | 28.06 |
+| Procrustes r=50 | 0.8234 | 34.37 |
+| D_flower only | 0.7594 | 40.31 |
+| vMF (in-sample, NOT LOO) | 0.9207 | 22.98 |
+
+Stage-1 R² = 0.5233 (+poly). Breakeven for Polar to win = 0.80. W_0 still wins.
+
+**Results — SAM3-FPN space (256-dim):**
+
+| Method | LOO cos | θ (°) |
+|--------|---------|-------|
+| W_0 ridge | **0.9517** | 17.12 |
+| Polar + poly stage-1 | 0.9424 | 18.72 |
+| (Procrustes) | crashed | — |
+
+Stage-1 R² = 0.5157 (+poly) in SAM3 space. Same pattern: W_0 wins, Polar loses.
+
+**Key insight:** The SAM3-FPN space result (0.9517 vs 0.8923) shows dramatically better bridge alignment in the production detection space. This makes sense: SAM3-FPN is a 256-dim compressed representation trained specifically on Israeli flora segmentation — much lower intrinsic dimensionality than raw BioCLIP 1024-dim.
+
+**Interpretation:** W_0 is the ceiling for zero-training linear bridge. Polar architecture cannot improve it until Stage-1 R² > 0.80 (current: 0.52). The Stage-1 bottleneck is a fundamental limit of predicting visual centroid distance from text embeddings alone.
+
+**Status:** Procrustes block crashed (dimension mismatch fixed in E83). W_SAM3 upgrade (N=85→1681) is E83.
+
+**Controls:**
+- Positive: W_0 LOO > D_flower-only (PASS: 0.9517 > 0.9173)
+- Negative: Polar worse than W_0 when Stage-1 R² < breakeven (PASS)
+
+---
+
+## Entry 290 — 2026-04-06 — E83: W_SAM3 Upgrade N=85→N=1681 (submitted)
+
+**Question:** Does fitting W_SAM3 on all 1681 Israeli species (vs current N=85 TRAIN-only) improve the production SAM3-FPN bridge?
+
+**Baselines:**
+- W_SAM3_85 LOO cos = 0.9230 (exp36, production)
+- W_0 SAM3 LOO cos = 0.9517 (E78b, ceiling for this architecture)
+
+**Design:**
+1. Cross-eval W_SAM3_85 on full 1681-species Israeli set (in-sample vs OOD breakdown)
+2. Fit W_SAM3_1681 with lambda sweep [0.1, 0.5, 1.0, 2.0, 5.0, 10.0]
+3. Scaling law: N = [50, 100, 200, 300, 500, 750, 1000, 1500, 1681]
+4. Compare: W_SAM3_85 (0.9230) vs W_SAM3_1681 vs W_0 ceiling (0.9517)
+
+**Prediction:** The exp36 scaling law saturated at N=85. With N=1681 (20× more data), we expect substantial improvement, potentially closing most of the 0.9230→0.9517 gap.
+
+**Job:** 12761086 (itaym-pool, 32G, 2h)
+
+**If W_SAM3_1681 approaches 0.9517:** W_0 and W_SAM3_1681 converge to the same solution (both are ridge regression on the same data, just different training sets). This would confirm that the production bridge just needed more data, not a new architecture.
