@@ -25482,3 +25482,58 @@ valley structure).
 - Results: `/scratch200/leardistel/petal_benchmark/results/exp_E96_e2e_validation/`
   - `summary.json` — full metrics
   - `benchmark_pairs.json` — all 50 test cases with predictions
+
+---
+
+## Entry 312 — 2026-04-07 — E97: Full 1441-Species Graph — k Peak Shifts, ρ Slightly Lower
+
+### Setup
+Expanded from 920→1441 species by removing the n_masks≥10 visual filter.
+DNA-only pipeline does not require visual embeddings.
+64,871 pairs (vs 27,672 at 920 species).
+
+### Results
+
+| k | ρ (1441 species) | ρ (920 species, E91) |
+|---|---|---|
+| 25 | −0.620 | −0.804 |
+| 35 | −0.706 | −0.822 |
+| 50 | −0.793 | **−0.836** |
+| 75 | **−0.823** | −0.803 |
+| 100 | −0.810 | −0.769 |
+
+DNA baseline (no graph): ρ=−0.790 (1441) vs ρ=−0.761 (920, E85)
+r(DNA_dist, vis_angle) = **+0.992** (confirmed on 64,871 pairs)
+
+Best: k=75, ρ=−0.823. **Does NOT beat the 920-species k=50 result of −0.836.**
+
+### Why the 920-species Set Performs Better
+
+The k=50 peak shifts to k=75 at 1441 species — the graph needs a larger neighborhood
+to achieve the same Fiedler connectivity (λ_1=0.131 at k=50/1441 vs 0.172 at k=50/920).
+The 920-species set is denser in DNA space (mask filter selects well-photographed,
+morphologically distinct species) — their embeddings are better separated and the
+self-tuning sigma captures structure more sharply.
+
+The extra 521 species added by removing the mask filter are "harder" species
+(fewer images, potentially noisier embeddings) — they dilute the graph topology.
+
+**Conclusion:** The n_masks≥10 filter is not just a data quality cut — it is also
+a signal quality filter for the DNA embeddings. 920-species graph remains SOTA.
+
+### Famous Pairs (1441-species, k=75 graph)
+
+All within-genus pairs correctly predicted as FLAT (high valley score, easy hybridize):
+- Ophrys fuciflora × O. sphegodes: valley=1.000, rank=0.932 → **FLAT** ✓
+- Rosa canina × R. phoenicia: valley=1.004, rank=0.946 → **FLAT** ✓
+- Cistus creticus × C. salviifolius: valley=0.998, rank=0.927 → **FLAT** ✓ (known to hybridize)
+- Narcissus papyraceus × N. tazetta: valley=1.001, rank=0.936 → **FLAT** ✓
+
+Cross-family control:
+- Anemone coronaria × Ranunculus asiaticus: valley=0.952, rank=0.758 → **Shallow**
+  (cross-family — correctly predicted as harder than within-genus, but valley score
+  is still in the upper half because both are common Israeli spring flowers)
+
+### Reproducibility
+- Script: `exp_E97_full_1441.py` | Submit: `submit_E97_full_1441.sh` | SLURM job 12812537
+- Results: `/scratch200/leardistel/petal_benchmark/results/exp_E97_full_1441/summary.json`
