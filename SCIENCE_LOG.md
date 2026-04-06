@@ -24857,3 +24857,40 @@ The 920-species subset is a biased sample — species with ≥10 masks are more 
 
 E87 v3 resubmitted as job 12789911. Expected runtime: ~1.5 hr (Dijkstra on 1143 nodes is slightly more expensive than 920).
 
+**FINAL E87 RESULT (v8, job 12791848):**
+
+| Metric | ρ | Interpretation |
+|---|---|---|
+| DNA R_eff vs SLERP-direct | **−0.745** | E82 baseline reproduced ✅ |
+| SLERP-geodesic vs DNA R_eff | **−0.045** | **FAIL — near zero** |
+| SLERP-geodesic vs SLERP-direct | +0.013 | Two valley definitions uncorrelated |
+
+**E87 FAILS.** The SLERP-sampled geodesic valley (M=10 interior SLERP points per k-NN graph edge) does not capture the fitness valley signal. ρ=−0.045 vs −0.745 for direct SLERP.
+
+**Root cause analysis:**
+1. Mean path length = 2.13 edges (most pairs separated by 2 edges in visual k-NN graph)
+2. With 2 edges, 10 SLERP points each → only 20 sphere samples per pair
+3. The visual k-NN graph is dense (k=25, 1143 nodes) → paths are very short
+4. Short paths through flower-like species nodes → SLERP between nearby flowers always stays inside the cone
+5. The valley (dip below cone boundary) requires passing through anti-flower zone — doesn't happen in 2-edge paths through species centroids
+
+**The direct SLERP works because it samples the straight-line arc between two potentially distant species,** often crossing the anti-flower zone. The k-NN geodesic stays local, never reaching the anti-flower region.
+
+**CONCLUSION: The visual manifold hypothesis is wrong for fitness valleys.** Fitness valleys are anti-flower zones in the FULL sphere, not anti-species zones in the species submanifold. The SLERP on the full sphere is already sampling the right space.
+
+**SOTA remains: E85 diffusion distance at t=2.0, ρ=−0.761 (gap to E42 ceiling: 0.012)**
+
+---
+
+**Debugging notes (E87 v1–v8 history):**
+- v1: Wrong field names (sp1/sp2 vs species_a/species_b) — KeyError
+- v2: Used 920-species (mask filter) instead of E82's 1143-species set → ρ=−0.190
+- v3: Fixed species set to 1143 but still linear weights → ρ=−0.219
+- v4: Added Gaussian RBF kernel but wrong sigma (k-NN median vs full pairwise) → ρ=−0.154
+- v5: Fixed sigma to full pairwise, but still k-NN neighbor lookup → ρ=−0.154
+- v6: Removed pair deduplication (use all 40593 as E82) → same −0.103
+- v7: Full E82 graph (argpartition on full D_cos) → same −0.103
+- **v8: Filter zero eigenvalue** (val > 1e-10, E82 convention) → **ρ=−0.745 ✅**
+
+The zero eigenvalue of the Laplacian (constant eigenvector) was causing 316× amplification of Z_dna (division by sqrt(1e-10)) when included. This dominated R_eff completely.
+
