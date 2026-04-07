@@ -26638,3 +26638,39 @@ The bridge is at or near its fundamental limit with current features.
 The 15% outlier species (polyploids, rapid radiators) require chromosomal data.
 No further improvement possible without: per-mask CLS tokens OR chromosomal data.
 
+
+## Entry 336 — 2026-04-07 — E114: Local Diffusion Rescaling — Fundamental Limit Confirmed
+
+### Question
+Can local rescaling (within-genus amplification, differential eigenvalue weighting,
+residual diffusion) improve ρ=-0.839 for valley_score prediction?
+
+### Results
+| Method | ρ | Δ |
+|--------|---|---|
+| Baseline t=2 | -0.8390 | — |
+| A within-genus amplify (α=2-20) | -0.8390 | 0.000 |
+| B residual diffusion (subtract genus centroid) | **+0.054** | destroys signal |
+| C combined (D + β×D_resid) | -0.8390 | 0.000 |
+| D log-transformed | -0.8390 | 0.000 |
+| F differential t | -0.8397 | -0.0007 |
+| **E within-genus only** | **-0.4836** | |
+| E between-genus only | -0.8201 | |
+
+### Key Finding: Within-Genus Bottleneck Confirmed
+- Within-genus ρ = -0.483 vs between-genus ρ = -0.820
+- Gap = 0.337 — within-genus diffusion distances are much less predictive
+- **B destroys signal**: subtracting genus centroid = removing the phylogenetic signal
+  The genus-level signal IS the valley signal. Within-genus = noise w.r.t. valley_score
+- **A has zero effect**: within-genus pairs = 7.6% of total; amplifying them doesn't change
+  the global Spearman rho which is dominated by between-genus pairs (N=59,917)
+
+### Biological Conclusion
+ρ=-0.839 IS the fundamental ceiling for diffusion-based valley prediction.
+Within-genus reproductive barriers are driven by CHROMOSOMAL mechanisms (ploidy, inversions),
+NOT by phylogenetic distance. The diffusion manifold captures phylogeny perfectly
+but cannot capture chromosomal incompatibility.
+
+**Track 2 (Diffusion) is CLOSED.** The bottleneck is biological, not geometric.
+Improvement requires chromosomal data (ploidy ratios from CCDB) as a complementary feature.
+
