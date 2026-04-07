@@ -26356,3 +26356,132 @@ morphological consistency vs. evolutionary divergence.
 - If species with high κ (tight flower morphology cluster) have low DNA divergence from
   related species → morphological consistency predicts evolutionary stability
 - If κ adds signal beyond μ → per-mask variation is informative, not just the centroid
+
+---
+
+## Entry 327 — 2026-04-07 — E103: Poincaré/Commute-Time — Both Fail. Diffusion t=2 is Optimal
+
+### Experiments Run
+- **E103** (commute-time/resistance/polynomial weights): ρ=-0.839 (diffusion) is already optimal.
+  All alternative weightings are strictly worse: resistance ρ=-0.788, flat ρ=-0.750.
+  Hybrid blend monotonically improves back to diffusion as α→1.
+- **E107** (Poincaré ball + Lorentz hyperboloid): No improvement, ρ=-0.839 unchanged.
+  Lorentz high-dim gives NaN (numerical overflow from cosh on dense vectors).
+
+### Why Hyperbolic Failed
+The ITS2 graph has k=5660 neighbors per node (k/N=0.052). This is NOT tree-like.
+Hyperbolic embedding excels for sparse trees; our graph is a dense manifold.
+The Fiedler value λ₁=0.391 indicates strong algebraic connectivity with no hierarchical
+bottleneck topology to exploit.
+
+**Conclusion:** The diffusion manifold geometry is already optimal for this graph structure.
+The bottleneck is biological: within-genus species are genuinely close on the ITS2 manifold.
+No graph re-weighting or geometry change will resolve within-genus species ambiguity.
+
+---
+
+## Entry 328 — 2026-04-07 — E105: CCDB Ploidy Improves Sterile Prediction to 54.5%
+
+### Key Results
+
+| Method | Correct/Total | Accuracy | Fertile | Sterile |
+|---|---|---|---|---|
+| Random baseline | — | ~50% | — | — |
+| Within-genus diffusion (prev) | 18/41 | 43.9% | — | — |
+| Diffusion LOO (corrected) | 23/41 | **56.1%** | 70.4% | 28.6% |
+| **Ploidy ratio (CCDB)** | 24/37 | **64.9%** | 69.2% | **54.5%** |
+| Naive combined | 22/41 | 53.7% | — | — |
+
+**37/41 species found in CCDB** (hosted by Itay Mayrose's group, ccdb.tau.ac.il).
+
+### Key Insight
+**Ploidy is critical for sterile prediction** (54.5% vs diffusion 28.6%).
+Diffusion is better for fertile prediction (70.4% vs ploidy 69.2%).
+They are COMPLEMENTARY features:
+- Ploidy detects chromosomal mismatch (endosperm balance violations)
+- Diffusion detects phylogenetic distance (genetic background incompatibility)
+
+### Biological Finding
+- Fertile pairs mean ploidy ratio: 1.484
+- Sterile pairs mean ploidy ratio: 1.929
+- MWU test: p=0.11 (directional but underpowered at n=37)
+- Nicotiana repanda (2n=48) × N. sylvestris (2n=24) = ratio 2.0 → predicted sterile BUT actually fertile (they do hybridize) → known exception in tobacco genetics
+
+### Next Step
+Smart combination: if ploidy_ratio > 2.0 → predict sterile; else use diffusion.
+This would eliminate the cases where ploidy says incompatible but diffusion disagrees.
+
+---
+
+## Entry 329 — 2026-04-07 — E106: Local Metric / Hierarchical Bridge — Key Discovery
+
+### Discovery: Two-Stage Bridge Reaches 0.5653
+
+When predicting GENUS DNA CENTROID (instead of individual species DNA):
+- Stage 1 LOO cosine = **0.5653** — highest number yet
+- **This is inflated** (the target is easier — genus-averaged DNA, not species DNA)
+
+### True Species-Level Combined (E106b, pending):
+Hierarchical prediction:
+  b̂[s] = W_genus @ f_vis[s] + W_resid @ (f_vis[s] - vis_genus_centroid[s])
+
+Stage 1 reaches genus-level prediction well (0.5653).
+Stage 2 (within-genus residual) reaches only 0.1794 — the hard part.
+TRUE combined species-level LOO is being computed in E106b (SLURM 12814027, RUNNING).
+
+### Negative Finding
+- Mask-count weighted ridge: 0.4589 (WORSE than unweighted 0.4721)
+- Within-genus residual alone: 0.1794 (the within-genus bridge has almost no signal)
+- Per-genus bridge (n≥5): LOO ≈ 1.0 (severe overfitting, n too small)
+
+### Interpretation
+The bridge works well at the BETWEEN-genus level (0.5653 on genus centroids).
+At the WITHIN-genus level, visual morphology barely predicts DNA (0.1794).
+This is the fundamental limitation: within a genus, flowers look similar but ITS2 sequences diverge. The visual→DNA information loss is sharpest at within-genus scales.
+
+**This is the main bottleneck.** To reach species-level prediction, we need:
+1. More training data per species (the current n=23 masks/species is limiting)
+2. A within-genus discriminative feature (not the global visual centroid)
+3. OR accept that the bridge is a family/genus-level tool, not species-level
+
+### Reproducibility
+- E106: `exp_E106_local_metric_bridge.py` | SLURM 12814012 (COMPLETED)
+- E106b: `exp_E106b_hierarchical_bridge.py` | SLURM 12814031 (COMPLETED)
+
+## Entry 330 — 2026-04-07 — E106b RESULTS: Text Genus + Vis Residual = 0.5369 — NEW SOTA
+
+### Full Results Table
+
+| Method | LOO Cosine | Notes |
+|---|---|---|
+| E36 global visual bridge | 0.4668 | baseline |
+| E102b vis(70%)+text(30%) | 0.5198 | previous best |
+| E106b D: vis_genus + vis_resid | 0.5263 | +1.3% vs E102b |
+| **E106b F: text_genus + vis_resid** | **0.5369** | **+3.3% vs E102b, NEW SOTA** |
+| E106b E3: 3-stage fam+genus+sp | 0.5168 | 3-stage hurts |
+| E106b B: stage1 genus (inflated) | 0.5653 | easy target (genus mean) |
+| E106b A: global (repl) | 0.4721 | |
+| Null | 0.0835 | |
+
+### Key Findings
+
+**Text genus centroid is better than visual genus centroid for stage 1.**
+Why: Text embedding of "Trifolium" (genus) encodes the taxonomic identifier directly.
+Visual genus centroid is a noisy average of flower images with lighting/angle variation.
+
+**Architecture that works:**
+```
+b̂[s] = W_text_genus(stage1) @ f_text[s]      # text → genus DNA (0.57 LOO on genus target)
+      + W_vis_resid(stage2)  @ f_vis_resid[s]  # vis_resid → DNA_resid (0.18 LOO)
+Combined: 0.5369 species-level LOO cosine
+```
+
+**The hierarchy matters:** family centroid LOO = 0.7869 (very high because target is easy).
+The bridge is fundamentally better at between-family levels than within-genus.
+
+### E108 Running
+E108 tests whether TEXT residual (f_text[s] - text_genus_centroid[s]) is better
+than VISUAL residual for stage 2.
+- Reasoning: "Trifolium repens" - "Trifolium" = "repens" epithet, species-specific
+- Should outperform visual residual (camera noise) as within-genus discriminator
+- SLURM 12814036 (RUNNING)
