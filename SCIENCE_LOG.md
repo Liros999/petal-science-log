@@ -26158,6 +26158,80 @@ less isolated (more close neighbors in the manifold).
 
 ---
 
+## Entry 324 — 2026-04-07 — Deep Dive: Barrier Validation, Introgression, Extinction, Bridge Improvement Path
+
+### Chromosomal Barrier Validation (Literature)
+
+The 9 sterile/no_hybrid pairs decompose into 3 barrier types:
+
+| Barrier | N | Examples | Can ITS2 predict? |
+|---|---|---|---|
+| Ploidy mismatch | 3 | Primula 6x×2x, Iris 6x×4x, Arabidopsis 2n=10×16 | NO — single locus |
+| Genetic incompatibility | 3 | Capsella (endosperm failure), Silene (X-effect) | Partial — correlates with divergence |
+| Leaky/miscategorized | 3 | Quercus (DOES hybridize), Tragopogon (rescued by polyploidy) | N/A — wrong category |
+
+**Correction**: Quercus robur × petraea should NOT be in the sterile category. They hybridize
+freely (2-6% F1 rate) with fully fertile offspring. Our model was right to predict FLAT.
+
+### Within-Genus Percentile Calibration
+
+Within-genus calibration achieved 43.9% accuracy (18/41), ρ=0.171 (NS).
+The fertile/sterile distinction is ORTHOGONAL to phylogenetic proximity for within-genus pairs.
+Both fertile and sterile pairs are close congeners — the diffusion manifold correctly identifies
+this but CANNOT distinguish chromosome-level incompatibility from compatibility.
+
+### Introgression Deep Dive (E101C)
+
+Top genera in introgression candidates (500 of 7.45M pairs):
+- Aloe: 134 pairs (27%) — South African radiation, known hybridizers
+- Kunzea: 107 pairs — Australian reticulate evolution
+- Centaurea: 8 pairs but MOST EXTREME residuals (-3.75) — Turkish/Iberian taxa
+
+Populus alba × tremula confirmed at rank 0.18%, residual -1.153. This is P. × canescens,
+a well-documented natural hybrid zone species in Europe.
+
+Helianthus failure: ITS2 doesn't capture nuclear/chloroplast introgression (concerted evolution
+homogenizes rDNA copies within species).
+
+### Extinction Vulnerability Deep Dive (E101D)
+
+Top isolated species are overwhelmingly: (a) monotypic genera, (b) Gondwanan relicts,
+(c) island endemics, (d) mycoheterotrophs. Notable: Punica protopunica (#2, critically
+endangered Socotran pomegranate), Apostasia odorata (#17, basal orchid lineage).
+
+Wollemia nobilis (living fossil): only rank 44,119 — ITS2 is conserved within Araucariaceae,
+so it has nearby manifold neighbors despite being phylogenetically ancient.
+
+### Adaptive Radiation Refinement (n≥20)
+
+Top star-topology genera: Bauhinia (0.643), Vigna (0.640), Alternanthera (0.635).
+Chain-like speciation (high density, low star): Ophrys (0.084, cv=2.0) — sequential
+pollinator-switching creates chain topology, not burst radiation.
+
+### Bridge Improvement Path — No Mean Pooling
+
+Three closed-form approaches identified for using raw per-mask CLS tokens:
+1. Orthogonal Procrustes on all per-mask tokens (SVD, closed-form)
+2. vMF distribution fitting per species (μ, κ from MLE) — captures concentration
+3. Kernel mean embedding with geodesic Gaussian kernel on S^1023
+
+**PREREQUISITE**: Per-mask per-species CLS extraction from Citadel DB. NOT YET RUN.
+All three approaches require individual CLS tokens, not centroids.
+
+### Diffusion Graph Improvement Ideas
+
+1. Multi-scale: commute-time distance (1/λ weighting) instead of single t
+2. Coarse-graining: merge distant species to super-nodes, preserve Israeli detail
+3. Mahalanobis kernel: use DNA covariance structure in adjacency
+4. Persistent homology: H₁ cycles = hybridization loops
+
+### Reproducibility
+- Within-genus calibration: `validate_lit_within_genus.py` | SLURM 12813297 (COMPLETED)
+- Barrier data: literature review of chromosome numbers for all 9 sterile pairs
+- Deep dive data: `exp_E101_manifold_queries/*.json`
+
+---
+
 ## Entry 319 — 2026-04-07 — E102b: Bridge Geometry Decomposition — Visual BEATS Text
 
 ### Key Result
