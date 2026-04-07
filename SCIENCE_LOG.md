@@ -26856,3 +26856,38 @@ Complete roadmap from raw image to reproductive isolation prediction:
 **Limitation confirmed:** The logistic combinations (C/D/E) all collapse to threshold performance at N=41. Sample size is the binding constraint. Need ~200+ pairs for reliable multi-feature calibration.
 
 **Next critical step:** Full end-to-end pipeline requires extracting visual embeddings for the literature pair species (non-Israeli) from iNaturalist observations. Once f_vis is available for Helianthus, Iris, Rosa, etc., the complete chain visual→bridge→DNA→D_diff→fertility can be tested.
+
+---
+
+## Entry 342 — E121: Ploidy × Valley Score — Orthogonal Mechanisms
+
+**Date:** 2026-04-07
+
+**Setup:** 647 Israeli within-genus species pairs with: (1) CCDB ploidy data (local files, 47,795 species), (2) valley scores from E38b, (3) diffusion distances from E99 eigenvectors.
+
+**Results:**
+
+| Correlation | Value | p-value |
+|-------------|-------|---------|
+| rho(ploidy_ratio, valley_score) | **+0.0083** | **0.815 (NS)** |
+| rho(D_diff, valley_score) | -0.437 | <0.001 |
+| rho(ploidy_ratio, D_diff) | +0.154 | — |
+| r(ploidy, valley GIVEN D_diff) | +0.029 | 0.465 (NS) |
+
+**Interpretation: Ploidy and valley score are ORTHOGONAL.**
+
+Ploidy-based reproductive isolation (chromosomal incompatibility) does NOT require visual phenotypic difference. Two species can have identical-looking flowers but different ploidy levels — the meiotic barrier is chromosomal, not morphological. The valley score (visual pathway depth) does not detect this mechanism.
+
+**Resolution of apparent contradiction with E115 (72.97% ploidy accuracy):**
+- E115 uses FERTILITY ground truth from literature (cytogenetic cross experiments)
+- E121 uses VALLEY SCORE (visual pathway barrier depth)
+- These are different things. Ploidy → fertility works (meiotic block). Ploidy → valley does NOT (visually similar polyploids coexist).
+
+**The two mechanisms are mechanistically independent:**
+- Visual pathway barriers (valley score) ← controlled by D_diff (phylogenetic/ITS2 divergence)
+- Chromosomal barriers (ploidy) ← controlled by whole-genome duplication events, independent of ITS2
+- A species can have: high ploidy + shallow valley (visually identical but reproductively isolated) OR low ploidy + deep valley (visually different but chromosomally compatible)
+
+**Note on D_diff baseline:** rho=-0.437 within-genus only (vs global -0.839) because within-genus pairs have much smaller D_diff range — compressed range reduces correlation even when the relationship is monotone.
+
+**CCDB local data confirmed:** 47,795 species, 489 Israeli species, 647 within-genus Israeli pairs with valley data.
