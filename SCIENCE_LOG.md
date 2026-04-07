@@ -26828,3 +26828,31 @@ Complete roadmap from raw image to reproductive isolation prediction:
 - Fertile/sterile outcome for cross-species hybridization
 
 **Current open gap:** E118 tests whether the chain visual → bridge → DNA cosine → fertility is closed.
+
+---
+
+## Entry 341 — E118: End-to-End Isolation via DNA Cosine
+
+**Date:** 2026-04-07
+
+**Setup:** 41 literature pairs, all with Quaresma DNA embeddings. Only 1 pair has BOTH species in Israeli visual set — so direct vision→isolation is not yet testable. Instead: test cos(b_dna_A, b_dna_B) as a simpler DNA-space metric vs D_diff.
+
+**Results (N=41):**
+
+| Method | Accuracy |
+|--------|---------|
+| Random | 50.0% |
+| D_diff threshold (E115 sweep) | 63.4% |
+| **cos_dna threshold** | **70.73%** |
+| cos_dna + D_diff combined | 63.4% |
+| Ploidy threshold (E115 SOTA) | 72.97% |
+
+**Per-class breakdown:**
+- cos_dna: sterile=14.3%, fertile=96.3% — essentially "predict everything fertile"
+- D_diff: sterile=35.7%, fertile=77.8% — more balanced
+
+**Key insight:** cos_dna is a better fertile predictor (0.963 fertile precision) but a poor sterile predictor (0.143). D_diff is a better sterile predictor (0.357). These two metrics have complementary error patterns — logistic combination should help with more data.
+
+**Limitation confirmed:** The logistic combinations (C/D/E) all collapse to threshold performance at N=41. Sample size is the binding constraint. Need ~200+ pairs for reliable multi-feature calibration.
+
+**Next critical step:** Full end-to-end pipeline requires extracting visual embeddings for the literature pair species (non-Israeli) from iNaturalist observations. Once f_vis is available for Helianthus, Iris, Rosa, etc., the complete chain visual→bridge→DNA→D_diff→fertility can be tested.
