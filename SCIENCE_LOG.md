@@ -26485,3 +26485,89 @@ than VISUAL residual for stage 2.
 - Reasoning: "Trifolium repens" - "Trifolium" = "repens" epithet, species-specific
 - Should outperform visual residual (camera noise) as within-genus discriminator
 - SLURM 12814036 (RUNNING)
+
+## Entry 331 — 2026-04-07 — E107/E108: Hyperbolic + Text Residual — Both Ruled Out
+
+### E107: Poincaré Ball Embedding
+- Tested Poincaré (c=1) and Lorentz hyperboloid geometries on the ITS2 diffusion manifold
+- Result: No improvement over diffusion ρ=-0.839
+- Root cause: k=5660 neighbors per node → dense manifold, NOT tree-like structure
+- Hyperbolic geometry only helps for sparse trees. **ITS2 graph is not a tree.**
+- Lorentz high-dimensional: NaN from cosh overflow
+- **Conclusion: Hyperbolic geometry ruled out for ITS2 topology**
+
+### E108: Text Residual Bridge
+- Tests: text species residual (f_text[s] - text_genus_centroid) as within-genus feature
+- Results:
+  - B (vis): 0.4721 baseline
+  - C (text): 0.5170
+  - D (combined): 0.5063 ← WORSE than vis alone
+  - Best with text residual: 0.4947
+- **Conclusion: Text species epithet ("repens", "pratense") does NOT encode within-genus DNA variation**
+- The genus text centroid already captures most text information; the residual adds noise
+
+---
+
+## Entry 332 — 2026-04-07 — E109: 108K Genus Centroids — BREAKTHROUGH +39.2%
+
+### Hypothesis
+Using ALL 108,847 Quaresma species to compute genus centroids gives far more accurate anchors
+than using only the 1,489 Israeli species (~3-10 per genus).
+
+### Architecture (E109-F)
+```
+Stage 1: f_text_genus_108K[s] → B_dna_genus_Israeli[s]  (LOO ridge)
+Stage 2: f_vis_resid[s] → B_dna_resid[s]                (LOO ridge)
+Combined: b̂[s] = Ŷ_stage1[s] + Ŷ_stage2[s]
+```
+- f_text_genus_108K[s] = mean BioCLIP text embedding over all 108K species in the same genus
+- B_dna_genus_Israeli = DNA centroid from 1,489 Israeli species
+
+### Results
+| Method | LOO Cosine |
+|--------|-----------|
+| E36 baseline (global vis) | 0.4721 |
+| E102b (vis 70% + text 30%) | 0.5198 |
+| E106b-F (text_genus+vis_resid, 1,489 only) | 0.5369 |
+| **E109-F (108K text genus → DNS genus)** | **0.6571** ← NEW SOTA |
+| Null | 0.0835 |
+
+**+0.1202 over previous SOTA, +39.2% over E36 baseline**
+
+### Key Insights
+1. intra_cos scalar features: ρ(intra_cos, DNA_dist_from_genus) = -0.044 (p=0.087, NS)
+   → Visual concentration does NOT predict DNA proximity to genus centroid
+2. Adding scalars (B, D, E): no improvement over pure structural features
+3. The breakthrough is the 108K genus centroid quality — not the scalars
+
+---
+
+## Entry 333 — 2026-04-07 — E110: Large-N Both Spaces + Three-Stage
+
+### Architecture Variants
+- F+: Stage1 text genus (108K) → DNA genus (108K). Result: 0.6240 ← REGRESSES
+  - Using 108K DNA genus centroid as TARGET hurts PRESS LOO (target too precise → brittle LOO)
+- G: Three-stage:
+  - Stage 1: f_text_family → B_dna_family (Israeli, stable ≥50/family)
+  - Stage 2: f_text_genus_108K → B_dna_genus_from_family (residual)
+  - Stage 3: f_vis_resid → B_dna_species_resid
+  - Result: **0.6664** ← NEW SOTA (+0.0093 over E109-F)
+- H: Family-conditioned W_resid: 0.6345
+- I: vis_resid + text_species_resid: 0.6252
+
+### Critical Analysis
+- J upper bound (genus centroid, no learning): **0.8398**
+- Mean within-genus DNA residual norm: 0.5018 → species are 50% of radius away from genus center
+- Remaining gap to ceiling: 0.1734
+- Three-stage adds value because family anchor (stable) → genus anchor (108K) → species is better conditioned
+
+### Current Bridge Progression
+| Exp | LOO Cosine | Approach |
+|-----|-----------|---------|
+| E36 | 0.4721 | Global vis ridge |
+| E102b | 0.5198 | 70% vis + 30% text |
+| E106b | 0.5369 | text_genus stage1 + vis_resid stage2 |
+| E109-F | 0.6571 | 108K text genus centroids |
+| **E110-G** | **0.6664** | Three-stage (family→genus→species) |
+| J (ceiling) | 0.8398 | Perfect genus centroid lookup |
+
