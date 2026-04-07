@@ -26891,3 +26891,71 @@ Ploidy-based reproductive isolation (chromosomal incompatibility) does NOT requi
 **Note on D_diff baseline:** rho=-0.437 within-genus only (vs global -0.839) because within-genus pairs have much smaller D_diff range — compressed range reduces correlation even when the relationship is monotone.
 
 **CCDB local data confirmed:** 47,795 species, 489 Israeli species, 647 within-genus Israeli pairs with valley data.
+
+---
+
+## Entry 343 — E119: Geographic Features + Continuous Adaptive Lambda — New SOTA 0.7607
+
+**Date:** 2026-04-07
+
+**Motivation:** E116-E found per-genus discrete lambda_3 tuning gives 0.7226. User correctly identified that fixed lambda bins are wrong — should be continuous. Also: geographic features (lat/lon/spread) from israel_species.db should add signal orthogonal to visual appearance.
+
+**Key innovations:**
+1. **Continuous adaptive lambda**: lam_3(g) = base_lam × exp(-alpha × r_vis_dna_intra(g))
+   - At alpha=10, base=0.5: anti-correlated genera (r=-0.68) get lam≈462 (Stage 3 zeroed)
+   - High-correlated genera (r=+0.83) get lam≈0.0001 (Stage 3 maximally aggressive)
+2. **Geographic features appended to Stage 3**: [f_vis_resid (1024d); geo_resid (6d)] → DNA residual
+   - geo = (mean_lat, std_lat, lat_range, std_lon, geo_spread, log_rg_global)
+   - All residualized within genus (subtract genus mean)
+
+**Results (N=1,489):**
+
+| Method | LOO | Delta vs baseline |
+|--------|-----|-------------------|
+| Baseline (E116-E replicated) | 0.7245 | — |
+| A: Stage 1 108K fix | 0.7245 | 0 |
+| B: continuous lambda (base=0.5, alpha=10) | 0.7541 | +0.030 |
+| C: geo appended | 0.7341 | +0.010 |
+| **D: continuous lambda + geo combined** | **0.7607** | **+0.036** |
+| E: CLS consistency weighting | 0.7243 | -0.002 |
+
+**Null permutation:** mean=0.6924 ± 0.0026. Improvement = 26.3σ above null.
+
+**NEW SOTA: LOO cos = 0.7607**
+
+**Why Stage 1 fix = 0:** Family centroids from Israeli-only data (20-50 species per family) are already stable enough. Only genus centroids (3-10 species) benefit from 108K scale. ✓
+
+**Why CLS consistency weighting = -0.002:** The std_cls metric (per_species_stats.json) is a proxy for mask quality, not a reliable per-species quality signal. True weighted ridge requires per-mask raw CLS tokens (not yet available). This remains blocked on E76/GPU extraction.
+
+**Geographic signal interpretation:** A species' within-Israel geographic distribution (Mediterranean coast, northern mountains, Negev desert) captures ecological specialization that correlates with within-genus DNA variation. Species in the Negev (mean_lat~30.5) are genetically differentiated from their Mediterranean congeners, and this differentiation shows up BOTH in geographic distribution AND in the DNA residual from genus centroid.
+
+---
+
+## Entry 344 — E119-E121 Synthesis: Four-Track Architecture Status
+
+**Date:** 2026-04-07
+
+**Complete summary table (updated):**
+
+| Track | Method | SOTA | Notes |
+|-------|--------|------|-------|
+| Bridge (vis→DNA) | E119-D: continuous lambda + geo | **0.7607** | 90.6% of J=0.840 ceiling |
+| Bridge (DNA→vis) | E117-D: three-stage reverse | 0.8257 | DNA space more structured |
+| Diffusion (valley) | E99/E114: D_diff, t=2 | ρ=-0.839 | Global ceiling confirmed |
+| Ploidy (fertility) | E115-A: threshold tau=1.84 | 72.97% | N=37, ploidy INDEPENDENT of valley |
+
+**E121 orthogonality finding:** rho(ploidy, valley) = +0.008 (p=0.815, N=647)
+The ploidy mechanism and valley mechanism are statistically and mechanistically ORTHOGONAL.
+- Valley = visual-pathway morphological barrier (connected to ITS2 phylogeny)
+- Ploidy = chromosomal barrier (whole-genome duplication, independent of ITS2)
+
+**Remaining gap to ceiling (J=0.840):**
+- Current: 0.7607
+- Gap: 0.0793 (9.4%)
+- Of this gap: ~0.045 from outlier species (polyploids/rapid radiators with J<0.70)
+- ~0.035 from within-species variation requiring per-mask raw CLS (GPU extraction job E76)
+
+**Next experiments queued:**
+- E120 (GPU): Download 20 photos per literature pair species from iNat, extract SAM3+BioCLIP embeddings → enables end-to-end Track 4 visual→fertility pipeline
+- E122: Sub-genus section labels from Plants of the World Online → Stage 2.5 bridge
+- E123: Per-mask weighted CLS (requires completing E76 GPU extraction first)
