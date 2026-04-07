@@ -26287,3 +26287,72 @@ discrimination that text cannot provide.
 ### Reproducibility
 - Script: `exp_E102b_bridge_geometry.py` | SLURM 12812825 (COMPLETED)
 - Results: `exp_E102b_bridge_geometry/results.json`
+
+---
+
+## Entry 325 — 2026-04-07 — E103: Commute-Time Distance — Diffusion Already Optimal
+
+### Question
+Does commute-time distance (D_CT² = Σ_k (1/λ_k)(φ_k(A)-φ_k(B))²) outperform diffusion
+distance (exp(-2λ_k t) weighting) for predicting hybridization barriers?
+
+### Motivation
+Commute-time weights all eigenmodes equally (1/λ_k) vs diffusion which suppresses
+fine-scale modes. Hybridization might depend on ALL phylogenetic scales simultaneously.
+
+### Results
+
+| Weight Scheme | ρ(dist, valley) | Δ vs baseline |
+|---|---|---|
+| **Diffusion t=2 (E99 baseline)** | **−0.8390** | — |
+| Poly λ^{-2} | −0.8199 | +0.019 |
+| Poly λ^{-1.5} | −0.8050 | +0.034 |
+| Resistance (1/λ_k) | −0.7877 | +0.051 |
+| Commute-time (vol/λ_k) | −0.7877 | +0.051 |
+| Flat (all=1) | −0.7498 | +0.089 |
+| Null (shuffled) | +0.006 | — |
+
+Hybrid blend (α×diffusion + (1-α)×resistance): monotonically approaches diffusion as α→1.
+Best hybrid = diffusion itself (α=1.0).
+
+### Conclusion
+**Diffusion t=2 is already optimal.** Commute-time and resistance distances are both
+substantially worse. The exponential decay exp(-2λt) is the correct weighting:
+- Fine-scale eigenmodes (large λ) are noisy in the ITS2 graph — down-weighting them helps
+- Equal-weight (commute-time) mixes signal with noise from fine scales
+- The optimal t=2 confirmed: t=1 (−0.805), t=5 (−0.795) both worse
+
+**Implication:** No improvement from graph-theoretic weighting variants. The bottleneck
+is not weighting — it's the resolution of the manifold at within-genus scale.
+The Fiedler value λ₁=0.391 indicates a strongly connected graph with no obvious
+bottleneck topology to exploit.
+
+### Reproducibility
+- Script: `exp_E103_commute_time.py` | SLURM 12813975 (COMPLETED, 5s runtime)
+- Results: `exp_E103_commute_time/summary.json`
+
+---
+
+## Entry 326 — 2026-04-07 — E76b + E104: Per-Mask CLS Extraction + vMF Bridge
+
+### Status
+- **E76b** (SLURM 12813974, RUNNING): Extracting BioCLIP CLS tokens for all Citadel TP masks
+  filtered to E36 species list. DB query returned 20,708 masks from **141 species** (of 1,489).
+  The other 1,348 species have DNA (Quaresma) but no Citadel TP images.
+- **E104** (SLURM 12813980, PENDING, depends on E76b): Orthogonal Procrustes + vMF bridge
+  Will test: centroid vs vMF [μ,κ] → DNA, using 141 species.
+
+### Key Discovery
+Only 141/1,489 Israeli DNA species have validated TP images in Citadel.
+The other 1,348 are in Quaresma global ITS2 gallery but have no Israeli field photos.
+This fundamentally limits the per-mask CLS bridge to 141 species.
+
+**Implication:** The E36 centroid bridge (using pre-computed f1024_israel.npz centroids
+for 1,489 species) is already using all available data. The vMF experiment is exploratory —
+if κ (per-species concentration) predicts DNA distance, it's a novel finding about
+morphological consistency vs. evolutionary divergence.
+
+### Hypothesis for E104
+- If species with high κ (tight flower morphology cluster) have low DNA divergence from
+  related species → morphological consistency predicts evolutionary stability
+- If κ adds signal beyond μ → per-mask variation is informative, not just the centroid
