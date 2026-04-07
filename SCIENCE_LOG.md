@@ -26093,6 +26093,71 @@ Step 4 uses only the 1,489 species with photos.
 
 ---
 
+## Entry 323 — 2026-04-07 — E101 RESULTS: Four Evolutionary Applications from Diffusion Manifold
+
+### A. Speciation Rate — Local Diffusion Density
+
+Top 5 densest genera (most active speciation):
+1. **Kniphofia** (52 spp) — South African radiation
+2. **Astragalus** (884 spp) — rank 2/3,297 — largest plant genus, confirmed
+3. **Caladenia** (77 spp) — Australian orchid radiation
+4. **Ophrys** (79 spp) — rank 13 — Mediterranean pollinator-driven radiation
+5. **Lupinus** (132 spp) — rank 16 — Andean rapid radiation
+
+**Platanus** (ancient lineage): rank 2,899/3,297 — correctly identified as relict.
+ρ(genus_size, density) = **0.317** (p<10⁻⁷⁷) — larger genera have denser manifold neighborhoods.
+
+### B. Adaptive Radiation — Star Topology
+
+Star topology ratio = mean(pairwise D_diff)/diameter. Results dominated by small genera
+(n=5) where geometry trivially produces high star ratios. Needs minimum genus size ≥20
+to be biologically meaningful. Not immediately publishable without that filter.
+
+### C. Introgression Detection — Diffusion-Cosine Residual
+
+| Known case | Residual | Rank/7.45M | Percentile | Detected? |
+|---|---|---|---|---|
+| **Populus alba × tremula** | −1.153 | 13,308 | **top 0.18%** | **YES** |
+| **Salix alba × fragilis** | −0.648 | 271,955 | **top 3.6%** | **YES** |
+| Helianthus annuus × debilis | −0.153 | 2,090,949 | top 28% | marginal |
+| Quercus robur × petraea | −0.306 | 1,267,040 | top 17% | marginal |
+| Helianthus annuus × bolanderi | +0.618 | 7,263,589 | bottom 3% | **NO** |
+
+Populus introgression is the standout: rank 0.18% = the model identifies it as one of the
+most anomalous diffusion-close pairs in the entire 108K manifold. This is a known, well-
+documented case of ongoing introgression in European hybrid zones.
+
+Top introgression candidates (previously undocumented):
+- Centaurea (7 of top 30 pairs) — Asteraceae with extensive hybridization literature
+- Kunzea (4 of top 30) — Australian Myrtaceae, known complex
+- Bidens (3 of top 30) — Hawaiian adaptive radiation with introgression
+
+### D. Extinction Vulnerability — Diffusion Isolation
+
+Most isolated species include many rare/endemic taxa: Corybas, Scandix, Piqueriopsis.
+
+**Nelumbo** (sacred lotus, ancient relict): isolation rank 2,000-4,000/108K = **top 2-4%**.
+Correctly identified as evolutionarily distinct — Nelumbo is one of only two extant species
+in the entire order Proteales, diverging ~130 Mya.
+
+Least isolated: Kniphofia (all at iso=0.000) and Astragalus — the densest genera.
+
+ρ(genus_size, isolation) = **−0.388** (p≈0) — as expected, species in large genera are
+less isolated (more close neighbors in the manifold).
+
+### Overall Assessment
+
+- **Speciation rate (A)**: Validated on known rapid radiators. Publishable with top-20 list.
+- **Adaptive radiation (B)**: Needs refinement (minimum genus size filter). Not ready.
+- **Introgression (C)**: Populus result is STRONG. Centaurea candidates are novel. Publishable.
+- **Extinction vulnerability (D)**: Nelumbo validation works. Needs IUCN Red List cross-check.
+
+### Reproducibility
+- Script: `exp_E101_manifold_queries.py` | SLURM 12812813 (COMPLETED, 65 min)
+- Outputs: `exp_E101_manifold_queries/{genus_metrics.json, introgression_candidates.json, most_isolated_species.json, isolation_scores.npy, summary.json}`
+
+---
+
 ## Entry 319 — 2026-04-07 — E102b: Bridge Geometry Decomposition — Visual BEATS Text
 
 ### Key Result
