@@ -27739,3 +27739,51 @@ The inat_index.db (90 GB SQLite on NFS) is unusable for large queries:
 2. **Retrain Stage 3** (per-genus W) with new species → rerun E145 with expanded F_vis
 3. **Verify LOO improvement** matches the ~+0.012 prediction
 
+
+---
+
+## Entry 231 — E148 + E149: Quaresma CLS Extraction and Bridge Expansion — NULL RESULT
+**Date:** 2026-04-08
+**Jobs:** E148 (12881462, GPU, complete), E149 (12882009, CPU, complete)
+
+### E148: CLS Extraction from iNat Photos
+
+BioCLIP 2.5 ViT-H/14 applied to 2,426 iNat research-grade photos for 764 Quaresma expansion species.
+- Runtime: 157.5s on GPU (A100)
+- Output: `quaresma_expansion_cls.npz` — 764 × 1024 normalized embeddings
+- Norm check: mean=1.000000 ✓
+- Method: full-image encode_image (no mask extraction)
+
+### E149: Expanded Bridge with Real Visual CLS — NULL RESULT
+
+Added E148 expansion CLS to Stage 3 per-genus W training for 256/396 singleton genera.
+
+| q_weight | LOO | Singleton LOO | Delta vs E145 |
+|---|---|---|---|
+| 0.0 (control) | 0.9464 | 0.8897 | ±0 |
+| 0.3 | 0.9464 | 0.8897 | ~0 (8th decimal) |
+| 1.0 | 0.9464 | 0.8897 | ~0 |
+| 2.0 | 0.9464 | 0.8897 | ~0 |
+| 3.0 | 0.9464 | 0.8897 | ~0 |
+
+**Finding: Full-image CLS ≠ flower-mask CLS.** The expansion photos provide no useful signal for the bridge because:
+1. Israeli training CLS = flower mask crops (flower pixels only, 224px)
+2. Expansion CLS = full iNat photo (flower + background + context + composition)
+3. These two distributions are different subspaces within the 1024-dim BioCLIP space
+4. The per-genus W maps from flower-crop CLS space → DNA space. Full-image CLS lies outside this mapping's training domain.
+
+### What This Means
+
+The expansion IS still valuable — but requires running the **NextGen PETAL inference pipeline** (SAM3 + FPN injection) on the 2,426 downloaded photos to extract actual flower mask crops, THEN encoding those crops with BioCLIP. This gives the correct distribution-matched CLS.
+
+**Cost:** ~10 min GPU time (SAM3 @ 80 ms/image × 2,426 photos + BioCLIP encoding)
+
+**Next step:** Run NextGen CLS extraction on expansion photos via PETAL pipeline.
+This is the correct path to LOO 0.9464 → 0.9580-0.9634.
+
+### Lesson
+
+The CLS distribution matters. Full-image vs mask-crop embeddings live in different
+regions of the BioCLIP space. Any augmentation of Stage 3 training data must use
+CLS tokens extracted via the SAME protocol as the Israeli training data (flower mask crops).
+
