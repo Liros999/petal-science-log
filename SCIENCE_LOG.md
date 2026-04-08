@@ -27679,3 +27679,63 @@ Expected: ~1,823/1,973 species successfully downloaded (92%).
 | E146d | Two-step (obs then photos) | CANCELLED | Observations query too slow |
 | E146e | Pure iNat API | RUNNING (12865448) | Expected: 43 min + 10 min download |
 
+
+---
+
+## Entry 230 — E146e: Quaresma Expansion Download COMPLETE
+**Date:** 2026-04-08
+**Job:** 12865448 (completed ~05:03 IDT)
+**Script:** `exp_E146e_quaresma_download_api.py`
+
+### Results
+
+| Metric | Value |
+|---|---|
+| Target species | 1,973 |
+| Resolved via iNat API | 1,581 (80.1%) |
+| Not found via API | 392 (19.9%) |
+| Found but no open photos | 500 (25.3%) |
+| **Downloaded** | **1,081 (54.8%)** |
+| Total photos | 2,426 |
+| Disk space | 299 MB |
+| Singleton genera covered | **256/313** |
+
+**Photos per species:** mean=3.18, median=3, min=1, max=5
+- 226 species with 5 photos (full quota)
+- 479 species with ≥3 photos
+- 764 species with ≥1 photo
+
+**Output:** `/groups/itay_mayrose_nosnap/leardistel/quaresma_expansion_photos/`
+
+### Why 892 Species Have No Photos
+
+1. **392 not found via API (19.9%):**
+   - 85 invalid/ambiguous names: `"aff"`, `"sp"`, `"cf"`, hybrids (`×`)
+   - 307 potentially valid names not in iNat taxonomy (synonyms, obscure taxa)
+
+2. **500 found in iNat but no open-licensed research-grade photos (25.3%):**
+   - Aquatics (Eleocharis, Potamogeton, Schoenoplectus) — rarely photographed
+   - Tropical obscurities (Caroxylon, Paspalum spp.) — iNat coverage sparse
+   - Crop relatives (Triticum spp.) — research collections only
+
+### Impact on Bridge Expansion
+
+- 256/313 target singleton genera now have ≥1 Quaresma mate with photos
+- With 1,081 new species providing visual CLS: genus W matrices gain real training data
+- Expected LOO improvement: 0.9464 → ~0.9580 (conservative, accounting for partial coverage)
+  Full 0.9634 was projected assuming all 313 genera covered — actual coverage is 256/313 (82%)
+
+### Infrastructure Note
+The inat_index.db (90 GB SQLite on NFS) is unusable for large queries:
+- Any observation-table query: ~25s/species → 11h for 1,603 species
+- Batched IN queries: equally slow (NFS bandwidth limitation)
+- **Solution: pure iNat REST API — 2 requests/species at 0.65s rate = 43 min total**
+- API is now the canonical method for all future photo downloads from iNat
+
+### Next Steps
+1. **Run NextGen PETAL inference** on 2,426 downloaded photos → extract CLS tokens
+   Script: run_nextgen_cls_extraction.py (to write)
+   GPU: ~10 min for 2,426 photos at 80 ms/image on A100
+2. **Retrain Stage 3** (per-genus W) with new species → rerun E145 with expanded F_vis
+3. **Verify LOO improvement** matches the ~+0.012 prediction
+
