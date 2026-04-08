@@ -28089,3 +28089,208 @@ position q (p±60 to p±200) has correlated sensitivity — CBC signature (paire
 W_bridge^T @ Δf_vis ∈ ℝ^{1024} (visual→DNA direction), then find which ITS2 positions
 have J[p,n] aligned with this direction. These are the nucleotide positions that,
 when mutated, would move a species' DNA embedding toward better visual alignment.
+
+---
+
+## Entry 236 — E152: DNABERT-2 E10b Probing Re-run Results (2026-04-08)
+**Date:** 2026-04-08
+**Job:** 12915888 | **Status:** COMPLETE
+
+### Setup
+- 1,489 E36 bridge species, DNABERT-2 E10b (768-dim CLS), 1,143 with aligned visual θ
+- Per-helix GC% computed from raw ITS2 sequences (4 helix windows)
+- Probe A: CLS → GC% (reproduces E18); Probe B: per-helix GC% → sin(θ); Probe C: CLS/text → sin(θ); Probe D: DNA vs visual family centroid alignment; Probe E: Helix-III residual ~ visual residual
+
+### Results
+
+**Probe A — CLS encodes GC%:**
+```
+GC% R² (5-fold CV, StandardScaler): 0.890 ± 0.015   [E18: 0.919]
+GC% R² (in-sample, mean-center):    0.935
+```
+Confirmed: DNABERT-2 CLS ≈ 93% GC% composition.
+
+**Probe B — Per-helix GC% vs visual elevation θ:**
+```
+Total GC%    ~ sin(θ): r=0.067,  p=0.024
+Helix-I GC%  ~ sin(θ): r=0.011,  p=0.711  (≈ zero)
+Helix-II GC% ~ sin(θ): r=0.056,  p=0.061
+Helix-III GC%~ sin(θ): r=0.057,  p=0.055
+Helix-IV GC% ~ sin(θ): r=0.079,  p=0.007
+```
+**Finding:** GC% is essentially orthogonal to visual elevation θ. No helix predicts θ above r=0.079 (R²<0.006).
+
+**Probe C — CLS / text → sin(θ):**
+```
+Full CLS (768-dim, in-sample ridge): R² = 0.175
+Text alone (in-sample ridge):        R² = 0.560  [E78 sealed: 0.523 ✓]
+Text + GC%:                          R² = 0.560  Δ = +0.0002
+```
+Full DNA CLS upper-bounds Stage-1 augmentation at R²=0.175 — well below the text baseline.
+
+**Probe D — DNA vs visual family centroid alignment (40 families):**
+```
+Family centroid DNA → visual centroid R² (in-sample): 0.025
+```
+DNA family centroids and visual family centroids are nearly orthogonal in their respective spaces.
+
+**Probe E — Helix-III residual ~ visual within-genus residual:**
+```
+|Helix-III GC% residual| ~ |visual residual|: r=−0.065, p=0.094  (104 genera ≥ 3 sp)
+```
+No correlation. Helix-III GC% variation within genera does not predict visual variation within genera.
+
+### Interpretation
+
+**What a change in θ does to the ITS2 sequence: essentially nothing.**
+Visual elevation θ encodes "how far from the prototypical flower does this species look."
+This variance is driven by petal morphology, pigmentation, pollinator adaptation, and
+convergent evolution — all under selective regimes orthogonal to ribosomal function.
+ITS2 evolves under ribosomal constraint, not visual phenotype constraint. There is no
+ITS2 composition motif that causally produces high vs low θ.
+
+The one weak signal (Helix-IV, r=0.079) is a phylogenetic leak: families differ in mean θ,
+and Helix-IV carries family-level signal, so it weakly tracks family-level visual differences.
+This is not sequence → visual causation; it is both being driven by shared taxonomy.
+
+**Key equation:**
+```
+θ_visual = f(petal_pigmentation, petal_morphology, pollinators, convergent_evolution)
+θ_DNA ≠ θ_visual    [empirically: r < 0.08 at all helix levels]
+```
+
+---
+
+## Entry 237 — E153: Polar-DNA Stage-1 Augmentation — FAILED (2026-04-08)
+**Date:** 2026-04-08
+**Job:** 12915889 | **Status:** COMPLETE | **Result: Stage-1 route does NOT work**
+
+### Setup
+- 1,143 species with aligned visual θ and ITS2 sequences
+- Positive control: text alone must reproduce R²≈0.523 (E78 sealed)
+- Negative control: permuted GC% must NOT improve R²
+- Tests: GC% (species/family/per-helix) + full CLS augmentation of text Stage-1
+
+### Results
+```
+Positive control — text alone:             R² = 0.560  ✓ (E78 sealed: 0.523)
+Test 1 — GC% (species-level):             R² = 0.004
+Test 1 — GC% (family-level):              R² = 0.003
+Test 2 — text + GC% species:              R² = 0.560  Δ = +0.0002
+Test 2 — text + GC% family:               R² = 0.561  Δ = +0.001
+Test 3 — full CLS (768-dim) alone:        R² = 0.175
+Test 3 — text + full CLS:                 R² = 0.581  Δ = +0.021
+Negative control — permuted GC%:          R² = 0.560  (no change — confirms GC%=zero ✓)
+Test 4 — Polar-DNA reconstruction cos:    0.998  (given correct θ, azimuth is near-perfect)
+W_0 sealed LOO:                           0.919
+
+Polar breakeven requirement:              R² = 0.800
+Best achieved (text + CLS):               R² = 0.581
+Gap:                                            0.219
+```
+
+### Interpretation
+
+**The Polar-DNA Stage-1 route (GC% → elevation) does NOT work.**
+
+GC% adds Δ=+0.0002 above text alone — statistically indistinguishable from zero.
+Full DNABERT-2 CLS adds only Δ=+0.021. Best achievable R²=0.581 vs breakeven at 0.800.
+Gap to breakeven = 0.219.
+
+The 44% remaining elevation variance is not encoded in any DNA or text feature.
+It lives in per-mask visual features: petal pigmentation, shape, arrangement — variables
+that require actual flower photography.
+
+**The correct interpretation of Polar:**
+Polar is not a method for predicting θ from DNA. It is a decomposition:
+- Stage-2 (azimuthal direction via W_0): works, LOO=0.919
+- Stage-1 (elevation θ): NOT predictable from sequence; requires the actual image
+
+Given a photograph, θ is directly computable: `cos(θ) = CLS_image · D_flower / ||CLS_image||`.
+The Stage-1 "prediction problem" dissolves at inference time when images are available.
+The Polar framework is valid for retrieval (image query → DNA gallery) but not for
+the reverse direction (DNA query → visual space) unless θ can be estimated another way.
+
+**Scaling law (E83c):** f(N) = 0.1028 × N^0.054 + 0.800. N=1681→100,000 needed for
+Polar breakeven via data alone. Data scaling cannot close the 0.219 gap.
+
+---
+
+## Entry 238 — E154: Directed In-Silico Mutagenesis — Helix Uniformity Result (2026-04-08)
+**Date:** 2026-04-08
+**Job:** 12915916 | **Status:** COMPLETE
+
+### Setup
+- 10 families × 3 species = 30 species, max 300bp per sequence
+- Per-position Jacobian: mutate each position to {A,T,G,C}, compute ΔCLS (768-dim)
+- Project onto 4 directions: between-family, within-family, within-genus, species-barcode
+- Sensitivity[p] = max_{n} cos(J[s,p,n], direction)
+- Predicted: Helix-III enrichment ≥ 1.5× for within-genus and barcode directions
+- CBC detection: position pairs (gap 60–200 bp) with correlated high sensitivity
+
+### Results
+```
+Mean Helix-III enrichment: 0.946 ± 0.136
+Min: 0.728, Max: 1.262
+Prediction confirmed: FALSE  (predicted ≥1.5×, observed ≈1.0×)
+
+Per-helix mean sensitivity (averaged across 30 species):
+Direction        Helix-I  Helix-II  Helix-III  Helix-IV
+between_fam:     0.153    0.128     0.133      0.132
+within_fam:      0.183    0.108     0.152      0.128
+within_gen:      0.173    0.107     0.145      0.118
+barcode:         0.161    0.118     0.132      0.131
+
+Helix Range/mean across directions: 0.34–0.39  (near-uniform)
+CBC candidates detected: 145 pairs (mean gap = 120 bp)
+```
+
+**Key finding:** Helix-III is consistently LOWEST, not highest. Helix-I is highest across all four directions.
+
+### Interpretation
+
+**DNABERT-2 CLS sensitivity is position-independent — a direct consequence of GC% encoding.**
+
+Since CLS ≈ GC% (R²=0.935), the gradient ∂CLS/∂position_i is determined by how much
+position i contributes to global GC%. Every position contributes 1/(seq_length) to GC%.
+Therefore sensitivity is flat — exactly what we observe. Helix assignment is irrelevant
+to the model.
+
+**Why Helix-I scores highest (counterintuitive):**
+Helix-I is the most conserved region. DNABERT-2's k-mer prior is trained on a broad
+distribution that includes many sequences with Helix-I in its canonical form. A mutation
+to a constrained Helix-I position is maximally surprising to the model's k-mer statistics,
+producing a large CLS perturbation — in the between-family direction (Helix-I encodes
+kingdom-level signal), not the species-barcode direction.
+
+**What a model would need to show Helix-III dominance:**
+The GC% dominance suppresses all helix-specific structure. To recover Helix-III signal,
+a model must be trained with a contrast that forces use of per-position structural patterns:
+
+```
+Positive pairs: same-species ITS2 sequences (minor variation)
+Negative pairs: same-FAMILY, different-species ITS2 (hard negatives)
+```
+
+This forces the encoder to use Helix-III (the only variable region within a family) to
+solve the discrimination task. The CLS geometry would rotate so the Helix-III subspace
+aligns with the between-species axis, replacing the current GC% axis as the dominant direction.
+
+**For Bridge 3 (DNA→Visual, closed-form ridge):**
+The GC% dominance creates hubness: all species at similar GC% project to the same
+visual region. Fix: project out the GC% direction from CLS before fitting W_bridge_dna:
+
+```python
+# Regress CLS onto GC%, extract GC% axis in CLS space
+W_gc = np.linalg.lstsq(gc_z[:, None], CLS, rcond=None)[0]
+gc_dir = W_gc[0] / np.linalg.norm(W_gc[0])
+CLS_debiased = CLS - (CLS @ gc_dir[:, None]) * gc_dir[None, :]
+# Fit closed-form ridge W on CLS_debiased → visual space, LOO
+```
+
+Next experiment: **E155 — GC% Debiased Bridge** (CPU, 8G, 10 min).
+Prediction: species top-1 improves from 0.468% → 1.5–3%.
+
+**CBC candidates (145 pairs, mean gap 120 bp) are suspect** — likely detecting GC% runs
+rather than true compensatory base change pairs, since the model is insensitive to
+which helix a position belongs to. CBC detection requires a structure-aware encoder.
