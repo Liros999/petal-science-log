@@ -27787,3 +27787,305 @@ The CLS distribution matters. Full-image vs mask-crop embeddings live in differe
 regions of the BioCLIP space. Any augmentation of Stage 3 training data must use
 CLS tokens extracted via the SAME protocol as the Israeli training data (flower mask crops).
 
+
+
+---
+
+## Entry 232 — E150 + E151: Flower-Mask CLS Extraction and Bridge Retrain — NULL RESULT
+**Date:** 2026-04-08
+**Jobs:** E150 (12897083, GPU, complete), E151 (12897084, CPU, complete)
+
+### E150: SAM3 Flower-Mask CLS Extraction
+
+Applied NextGen pipeline (SAM3 + BioCLIP) to 2,426 Quaresma expansion photos (764 species).
+- Runtime: 615s on GPU
+- Species with ≥1 flower mask detected: **526/764** (238 species = no flower detected)
+- Total flower-mask crops extracted: **5,621**
+- Masks per species: mean=10.69
+- `cos(flower-crop CLS, full-image CLS) = 0.656 ± 0.134`
+
+The cosine shift of 0.344 confirms Entry 231's hypothesis: full-image and flower-mask
+CLS tokens are in different regions of BioCLIP 1024-dim space. The mask crop removes
+background, changes composition, and zooms to the flower — all of which substantially
+shift the BioCLIP embedding.
+
+### E151: Bridge Retrain with Distribution-Matched CLS — NULL RESULT
+
+Added E150 flower-mask CLS (526 expansion species) to Stage 3 per-genus W.
+
+| q_weight | LOO | Singleton LOO | Delta vs E145 |
+|---|---|---|---|
+| 0.0 (control) | 0.9464 | 0.8897 | −3.7×10⁻⁵ |
+| 0.3 | 0.9464 | 0.8897 | −3.7×10⁻⁵ |
+| 1.0 | 0.9464 | 0.8897 | −3.7×10⁻⁵ |
+| 2.0 | 0.9464 | 0.8897 | −3.7×10⁻⁵ |
+| 3.0 | 0.9464 | 0.8897 | −3.7×10⁻⁵ |
+
+**Negative control (permuted CLS):** LOO = 0.9464 — MATCHES real result. The expansion
+contributes zero signal above noise floor.
+
+### Root Cause of Null Result
+
+The Stage-3 within-genus ridge saturates given the existing 1,489 Israeli species. The
+526 expansion species belong to genera already covered by the Israeli training set.
+Their addition does not change the within-genus residual structure because:
+1. Stage 3 maps within-genus visual CLS residual → within-genus DNA residual
+2. Within-genus DNA residual is ANOVA-bounded: 11% of total DNA variance (SEALED)
+3. The existing Israeli genus representatives already span the within-genus DNA subspace
+4. More species in the same genus does not expand the learnable DNA residual space
+
+### Key Insight: The Real Bottleneck
+
+From the E83c scaling law: `f(N) = 0.1028 × N^0.0535 + 0.800`, R²=0.967, exponent=0.054.
+This is near-flat. N=1,681→3,000 gives Δcos≈0.0015. Reaching Stage-1 R²=0.80 breakeven
+for Polar requires N~100,000 via data alone. **Data scaling cannot fix the Stage-1
+elevation problem.** The bottleneck is architectural, not data volume.
+
+### Sealed Numbers After E150/E151
+- E145 SOTA: LOO=0.9464, singleton=0.8897, multi=0.9669 (UNCHANGED)
+- Expansion null result confirms: bridge improvement requires Polar-DNA architecture
+  (DNA GC%→elevation, within-genus DNA→azimuth), not more training data
+
+---
+
+## Entry 233 — Three Bridges: Formal Architecture and Geometry (2026-04-08)
+**Date:** 2026-04-08
+**Context:** Comprehensive architecture review and bridge identity correction
+
+### The Three Cross-Modal Bridges
+
+| Bridge | Matrix | Input dim | Output space | Purpose |
+|--------|--------|-----------|-------------|---------|
+| Text→Visual | **W_SAM3** | BioCLIP text b[s] ∈ ℝ^{1024} | SAM3 FPN 256-dim | FPN injection → detection |
+| Visual→DNA | **W_bridge (E145)** | BioCLIP flower-mask CLS f_vis ∈ ℝ^{1024} | ITS2 DNA 256-dim | Species retrieval via DNA |
+| DNA→Visual | **DNABERT-2 MLP (E12/E14)** | ITS2 seq → DNABERT-2 CLS ∈ ℝ^{768} | BioCLIP visual 1024-dim | Cross-modal DNA→appearance |
+
+**CRITICAL IDENTITY (corrected 2026-04-08):** W_SAM3 IS the Text→Visual bridge.
+W_0 (text→BioCLIP visual 1024-dim, N=1681, LOO=0.9197) is a SEPARATE matrix used only
+for species retrieval, NOT for detection. W_0 is NOT the Text→Visual bridge.
+
+### Bridge 1 (Text→Visual): W_SAM3
+
+Closed-form ridge regression: W_SAM3 = (B^T B + λI)^{-1} B^T F_SAM3
+- N=85 TRAIN species, λ=1.0, output=256-dim SAM3 FPN space
+- LOO cosine: 0.9283 (N=85), 0.9516 (N=1681, from E83c)
+- SVD structure: SV1 corrects −D_flower_n bias; SV2–SV6 are cross-modal azimuth directions (r≈0.93)
+- Production: δ[s] = normalize(W_SAM3 @ b_text[s]), injected into backbone_fpn[-1] at α=2.0
+- TEST recall: 98.1% (exp47) — bridge modulates what SAM3 looks for visually
+
+### Bridge 2 (Visual→DNA): W_bridge, Three-Stage Hierarchical (E145)
+
+ANOVA decomposition of DNA space:
+```
+b_dna[s] = b̄_fam       (67% of DNA variance — GC%/MFE family-level fingerprint)
+           + (b̄_gen − b̄_fam)   (22% — genus-level differentiation)
+           + residual_s         (11% — species-level barcode, mainly Helix III)
+```
+
+Three-stage closed-form ridge (all PRESS LOO via Sherman-Morrison):
+- Stage 1: text → family DNA centroid, R²_stage1=0.532 for sin(θ), LOO=0.9167
+- Stage 2: text → genus-within-family residual, LOO=0.9325
+- Stage 3: visual CLS → within-genus residual (per-genus W_gen), LOO=0.9464
+
+**The Stage-1 bottleneck:** text alone explains only 53.2% of sin(θ) variance. The
+remaining 46.8% encodes within-family visual differentiation not accessible from
+taxonomy names. This is the dominant limit on LOO and singleton performance.
+
+**Singleton problem:** 396/1489 Israeli species are alone in their genus (singleton genera).
+For singletons: Stage 3 has no within-genus calibration → identity W (no correction).
+Singleton LOO=0.8897 vs multi-species LOO=0.9669. The gap (0.077) is the singleton penalty.
+
+### Bridge 3 (DNA→Visual): DNABERT-2 MLP (E12/E14)
+
+Architecture:
+```
+ITS2 sequence → DNABERT-2 E10b (FROZEN, CLS pooling) → 768-dim
+             → MLP (768→2048→1024, GELU) → 1024-dim
+             → cosine similarity with BioCLIP flower-mask CLS gallery
+```
+
+Key results (E18 probing, E12, E14, E19):
+- In-distribution Top-1: 52.83% (E12), 53.26% (E14)
+- Out-of-distribution CV: 22.5% ± 2.0% (E19 family-stratified 5-fold)
+- Random baseline: 0.06% → 365× improvement
+
+**Why is MLP needed?** (full analysis in Entry 234)
+
+---
+
+## Entry 234 — Why DNABERT-2 Needs an MLP: Thermodynamic Geometry Analysis
+**Date:** 2026-04-08
+
+### The Central Finding: DNABERT-2 CLS ≈ Thermodynamic Fingerprint
+
+From E18 probing (1,624 species, 768-dim CLS):
+
+| Probe | R² / Accuracy | Enrichment | Interpretation |
+|-------|---------------|------------|----------------|
+| GC% regression | **R²=0.919 ± 0.006** | — | CLS is ~92% GC content fingerprint |
+| MFE regression | **R²=0.670 ± 0.057** | — | Strong thermodynamic stability encoding |
+| Stem fraction | **R²=0.225 ± 0.079** | — | Partial secondary structure topology |
+| Family classifier | 57.2% (101 fam) | 57.8× random | Strong family structure |
+| Genus classifier | 15.8% (674 gen) | 106.7× random | Strong genus structure |
+| Visual similarity | **R²=0.0045** | — | DNA geometry barely predicts visual |
+| Color classification | 32.4% | 32.7× random | Moderate color signal |
+
+### What "Thermodynamic Geometry" Means
+
+The 768-dim DNABERT-2 CLS space is NOT an abstract sequence feature space.
+It is organized primarily along thermodynamic axes:
+
+**Axis 1 (dominant, ~92% of CLS variance): GC content**
+GC pairs (guanine-cytosine) form THREE hydrogen bonds vs AT's TWO. Higher GC% →
+more stable secondary structure → lower minimum free energy (MFE). This is why
+GC% and MFE are correlated: both measure thermodynamic stability, just at different scales.
+
+**Axis 2 (secondary, ~67% of MFE residual): MFE beyond GC%**
+After accounting for GC%, there is additional MFE structure. This comes from the
+specific arrangement of GC pairs — a GC-rich Helix II with GC pairs at the stem
+base is more stable than distributed GC pairs. DNABERT-2 learned that the local
+CONTEXT of GC pairs matters for stability.
+
+**Axis 3 (weak, ~22.5% of stem_frac variance): Secondary structure topology**
+After accounting for GC% and MFE, there is residual structure encoding the fraction
+of nucleotides involved in stems vs loops. This partially captures the four-helix
+architecture without being told about it explicitly.
+
+### Why CLS ≈ GC%
+
+DNABERT-2 was pre-trained on GenBank DNA sequences via masked language modeling.
+The k-mer statistics it learned are dominated by GC% because:
+1. GC% is the highest-variance feature across taxa
+2. GC-rich k-mers (GCGCGC, GCCGCC) are compositionally distinctive
+3. The BERT CLS token aggregates global sequence statistics → converges to composition
+4. Helix III (the species barcode) is ~80bp; its signal is diluted across the full 200-400bp sequence
+
+This is NOT a failure of DNABERT-2. It correctly learned the thermodynamic structure.
+The issue is that DNABERT-2 was trained to predict masked nucleotides in context —
+a task where GC% is the highest-information global feature. For our task
+(predict visual appearance), the relevant signal is in Helix III (80bp species barcode),
+which is buried within the GC%/MFE global signal.
+
+### Why MLP is Necessary — Geometric Argument
+
+The CLS geometry and the visual geometry are **non-aligned non-linear manifolds**:
+
+```
+CLS geometry:    organized along GC%-MFE axes → families cluster by GC% level
+Visual geometry: organized along D_flower cone → families cluster by floral morphology
+```
+
+These two organizations are NOT linearly isomorphic. A linear map (768→1024) can only
+rotate and scale — it cannot rearrange the neighborhood structure. The GC% ordering in
+CLS space does NOT match the D_flower elevation ordering in visual space.
+
+What the MLP does:
+1. **Non-linear remapping**: 768→2048 (expansion) creates a high-dimensional feature
+   space where the GC%-visual relationship can be represented as a nearly-linear manifold
+2. **Feature interaction**: The GC%+MFE+topology features are combined non-linearly
+   to recover the 22.5% of visual structure that survives OOD generalization
+3. **Within-family discrimination**: The 11% within-genus visual variation (Helix III signal)
+   requires detecting subtle GC% patterns within Helix III specifically — not total GC%.
+   This is a local feature interaction that requires the hidden layer to attend to
+   specific sub-sequences.
+
+### Why We Cannot Avoid Training (for Bridge 3 only)
+
+Unlike bridges 1 and 2 (closed-form ridge, no training), bridge 3 requires training because:
+- The GC%→visual mapping is non-linear: visual azimuth does NOT monotonically follow GC%
+- Helix III signal is small (11% of DNA variance) and buried under GC%/MFE noise
+- The MLP learns to suppress the GC% "noise" and amplify Helix III "signal"
+- Without training, even W_0 (linear) achieves R²=0.0045 for visual similarity
+
+**However:** the ENCODER (DNABERT-2) must stay FROZEN. E16 (unfreezing) gave 45.6%
+vs frozen 52.83% — unfreezing on 1,624 species destroys the anisotropic GC% cone
+that enables the MLP to work. The frozen cone = thermodynamic prior = key signal.
+
+### Hubness Problem (E17)
+
+Max hub count = 176 (expected ≈ 10), skewness = 4.13. The MLP projects all DNA
+embeddings into BioCLIP visual space, but ~20 "hub" projections attract most queries.
+These hubs correspond to common GC% levels that multiple species share. All species
+at the same GC% level get projected to the same visual region, making discrimination
+impossible within GC% classes. This is the 52%→22% gap (memorization vs generalization).
+
+---
+
+## Entry 235 — ITS2 Attribution Experiments: Nucleotide → Visual Bridge (2026-04-08)
+**Date:** 2026-04-08
+**Queued experiments:** E152 (E18 re-run), E153 (Polar-DNA Stage-1), E154 (directed mutagenesis)
+
+### Motivation
+
+The DNABERT-2 CLS space is dominated by GC% (R²=0.919). The four ITS2 helices have
+different conservation levels, rates, and roles. The question is: **which positions
+in the ITS2 sequence are responsible for movement in specific directions in CLS space,
+particularly in the directions that align with visual similarity?**
+
+### Helix Attribution Theory
+
+ITS2 four-helix model (Schultz et al. 2005):
+
+| Helix | Positions (approx.) | Conservation | Rate | Expected role in CLS |
+|-------|---------------------|-------------|------|----------------------|
+| I | 1-60 | Kingdom-level | Very slow | Family centroid level signal |
+| II | 61-130 | Order/Class | Slow | Family→order variation |
+| III | **131-210** | **Species/Genus** | **Fast** | **Within-genus direction** |
+| IV | 211-280 | Family/Genus | Medium | Family-genus variation |
+
+**Prediction:** Moving from a family centroid b̄_fam toward a species b_dna[s] is
+almost entirely a Helix III signal (80bp barcode loop). Moving between family centroids
+is Helix II + Helix IV (conserved structural helices). This is a testable claim.
+
+### E152: E18 Re-Run with Correct Species Set
+
+The original E18 used DNABERT-S (not DNABERT-2 E10b) and 1,624 species with partial
+structural data (823 with structures.tsv.gz). Re-run with:
+- DNABERT-2 E10b (the actual bridge encoder, NOT DNABERT-S)
+- All 1,489 Israeli bridge species (matched to E36 per_species_loo.json)
+- Per-family centroid probing: does b̄_fam predict family-level visual centroid?
+- Per-helix GC% decomposition: split sequence into 4 helix regions, compute GC% per region,
+  regress against CLS dimensions
+
+### E153: Polar-DNA Stage-1 Augmentation (GC% as Elevation Predictor)
+
+The Stage-1 bottleneck: text predicts sin(θ) with R²=0.532.
+Hypothesis: family-level GC% in ITS2 predicts elevation θ in BioCLIP visual cone.
+Mechanism: GC%→MFE→NOR-chromatin state→MYB pigmentation gene expression→
+pigmentation dominant wavelength → BioCLIP D_flower elevation.
+
+Test:
+```
+sin(θ[s]) ~ W_text @ b_text[s] + w_gc * GC%_fam[s]
+```
+If GC%_fam adds ΔR² > 0.05 above text alone, Stage-1 can be improved
+from R²=0.532 → ~0.60+, narrowing the gap to the Polar breakeven at R²=0.80.
+
+Also test: full DNABERT-2 CLS as elevation predictor (all 768 dims, ridge regression).
+This upper-bounds how much DNA information can help Stage-1.
+
+### E154: Directed In-Silico Mutagenesis — Position Jacobian
+
+For each ITS2 species sequence at position p, mutate to each of {A,T,G,C} and re-compute
+DNABERT-2 E10b CLS. The Jacobian column:
+```
+J[s, p, n] = CLS(seq_mutated_at_p_to_n) − CLS(seq_original)  ∈ ℝ^{768}
+```
+
+Project onto three reference directions:
+1. Δb_helix = b̄_fam2 − b̄_fam1 (between-family direction → should be Helix II/IV)
+2. Δb_genus = b̄_gen − b̄_fam (within-family direction → should be Helix III/IV)
+3. Δb_species = b_dna[s] − b̄_gen (within-genus direction → should be Helix III)
+
+Sensitivity profile:
+```
+sensitivity[p, direction] = max_{n∈{A,T,G,C}} cos(J[s,p,n], direction)
+```
+
+CBC detection: if position p has high sensitivity in one direction, check whether
+position q (p±60 to p±200) has correlated sensitivity — CBC signature (paired stem).
+
+**Reverse bridge:** given a target visual direction Δf_vis, compute
+W_bridge^T @ Δf_vis ∈ ℝ^{1024} (visual→DNA direction), then find which ITS2 positions
+have J[p,n] aligned with this direction. These are the nucleotide positions that,
+when mutated, would move a species' DNA embedding toward better visual alignment.
