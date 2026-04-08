@@ -27626,3 +27626,56 @@ at all three scales, with the residual 0.054 being irreducible noise.
 - E147b (complete): NULL — Quaresma-wide text features, Israeli targets → LOO=0.9360 (≈ same)
 - Next after E146/E146b: NextGen inference on downloaded photos → extract CLS → retrain Stage 3
 
+
+---
+
+## Entry 229 — E146 Download Infrastructure: SQLite NFS Problem & API Solution
+**Date:** 2026-04-08
+**Status:** E146e running (job 12865448)
+
+### Problem: inat_index.db on NFS is Unusably Slow for Large Queries
+
+Empirical timings on compute node:
+- Single species JOIN query (photos JOIN observations WHERE taxon_id=?): **25s**
+- 1,603 species × 25s = **11 hours** (impossible in 2h job)
+- Batched IN query (500 taxon_ids): still slow — full table scan of photos+observations
+- Two-step (obs first, then photos): first chunk (200 taxa) did not return in 7 min
+
+Root cause: 90 GB SQLite on NFS filesystem. The `observations` table has ~70M+ rows.
+Even with `idx_obs_taxon`, reading random rows from a 90 GB NFS file is bandwidth-limited.
+SQLite's query planner joins in the wrong direction (scans photos→observations instead of obs→photos).
+
+### Solution: iNat API (E146e)
+
+Use iNaturalist REST API for ALL 1,973 species:
+- `/v1/taxa?q=Species+name&rank=species` → taxon_id
+- `/v1/observations?taxon_id=X&quality_grade=research&photos=true&per_page=20` → photo URLs
+- Rate limit: 100 req/min → 0.65s delay per request
+- 1,973 species × 2 requests = 3,946 requests × 0.65s = **43 min**
+- Checkpointed every 100 species (taxon_cache.json, url_cache.json)
+- Idempotent: skips already-downloaded species
+
+### The 370 Species Not in Local DB — Analysis
+
+Breakdown:
+- **85 taxonomically invalid names** (23%): "aff.", "sp.", hybrid designations (×)
+  → Cannot be resolved by iNat API either
+- **~150 recently synonymized taxa** (40%): Caroxylon (ex-Salsola), Cynanchum, Aethionema spp.
+  → iNat API may find them under current accepted name
+- **~135 data-poor species** (37%): aquatics (Eleocharis, Potamogeton), crop relatives (Triticum)
+  → May have observations but sparse
+
+Top families: Asteraceae (39), Poaceae (37), Brassicaceae (27), Apiaceae (25)
+Top genera: Eleocharis, Caroxylon, Cynanchum, Hesperis, Paspalum, Potamogeton, Ziziphus (5 each)
+
+Expected: ~1,823/1,973 species successfully downloaded (92%).
+
+### E146 Variant Summary
+
+| Script | Approach | Status | Issue |
+|---|---|---|---|
+| E146 | Sequential DB queries | TIMEOUT | 25s/query × 1603 = 11h |
+| E146c | Batched IN (photos JOIN obs) | CANCELLED | Still slow on NFS |
+| E146d | Two-step (obs then photos) | CANCELLED | Observations query too slow |
+| E146e | Pure iNat API | RUNNING (12865448) | Expected: 43 min + 10 min download |
+
