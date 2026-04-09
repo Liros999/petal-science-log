@@ -28388,3 +28388,86 @@ E99's ρ = −0.839 exactly.
 distance (0.839) with visual morphology as a small but independent second component (+0.003pp).
 Structural RNA information (GNN), ancient LM representations (Evo2 last-token), and
 compensatory base changes (CBC) do not add predictive power at this scale.
+
+---
+
+## Entry 240 — E177: Geographic/Ecological Features in Valley Pairs (2026-04-09)
+**Date:** 2026-04-09
+**Job:** 12942527 (CPU, inline) | **Status:** COMPLETE
+
+### Question
+The valley pair data already contains geographic, phenological, color, and morphological
+distance fields from an earlier extraction. Do these predict fitness valley depth
+independently of ITS2 diffusion?
+
+### Results
+
+| Feature | ρ(valley) | p | n pairs |
+|---|---|---|---|
+| geography_dist | −0.068 | 5.8×10⁻⁶³ | 60,673 |
+| color_dist | −0.025 | 9.9×10⁻¹⁰ | 60,673 |
+| phenology_dist | **−0.192** | 0 | 60,673 |
+| morph_dist | −0.073 | 5.2×10⁻⁷³ | 60,673 |
+| residual_dist | **−0.786** | 0 | 64,871 |
+| Combined (geo+color+phenol+morph) | **0.207** | — | 60,673 |
+
+### Key finding
+**phenology_dist is the strongest non-DNA predictor among the ecological features (ρ=−0.192).**
+This matches the E39 finding that phenology r=+0.205 > color r=+0.026 (with DNA residual).
+Species pairs that bloom at different times are more reproductively isolated — bloom timing
+divergence is a direct reproductive barrier.
+
+**residual_dist (ρ=−0.786)** is already the visual angle distance used in E38b/E99 —
+not a new predictor.
+
+The combined ecological predictor (geo+color+phenol+morph) gives |ρ|=0.207 — much weaker
+than ITS2 diffusion (0.839) or even vis_resid (0.554). These features are measured on a
+coarser scale and likely carry substantial measurement noise.
+
+### Implication for E178 / next experiments
+Adding phenology_dist to the combined model (diffusion + vis_resid + phenology) is worth
+testing: partial ρ(phenology | diffusion) may be comparable to vis_resid's −0.184.
+
+---
+
+## Entry 241 — E177b: Phenology as Third Predictor — New Combined Ceiling (2026-04-09)
+**Date:** 2026-04-09
+**Job:** 12942795 (CPU, inline) | **Status:** COMPLETE
+
+### Setup
+Tested whether phenology_dist (bloom timing divergence, from valley pair data) adds
+signal beyond diffusion + vis_resid. Used correct E99 kernel and E170 vis_resid.
+
+### Results
+
+| Metric | Value |
+|---|---|
+| ρ(phenology_dist, valley) | −0.192 |
+| n pairs with phenology | 60,673 / 64,871 |
+| Partial ρ(phenology \| diffusion) | **−0.046** (p=8.9×10⁻³⁰) |
+| |ρ_combined(diff + vis_resid + phenol)| | **0.8423** |
+| vs E174b (diff + vis_resid only) | **+0.0004 pp** |
+
+### Key finding
+Phenology adds a further +0.0004 pp beyond the E174b result of 0.8419.
+The new combined ceiling is **|ρ| = 0.8423** (3 predictors on 60,673 pairs).
+
+Partial ρ = −0.046 is real (p < 10⁻²⁸) but tiny — phenology carries independent
+bloom-timing signal not in ITS2, but the magnitude is comparable to the GNN (−0.049)
+and smaller than vis_resid (−0.184).
+
+### Mechanistic interpretation
+Bloom timing divergence (phenology_dist) reflects reproductive isolation through temporal
+barrier: species pairs that flower at different times cannot cross-pollinate regardless
+of geographic proximity or morphological similarity. This is causal reproductive isolation
+that neither ITS2 sequence nor visual phenotype captures directly.
+
+The small magnitude suggests phenology data in the valley pair file is coarse
+(likely based on flora.co.il categorical bloom months → Jaccard distance) and carries
+substantial measurement noise. Higher-resolution phenology from iNat observation dates
+would likely produce a larger partial ρ.
+
+### Note on E178 (Evo2 mean-pool)
+E178 GPU job submitted (job 12943000) on compute-0-376 (RTX 6000 Ada, cuDNN available).
+Previous attempt (E178 job 12942491) failed on L40S — cuDNN shared object missing.
+E178 expected runtime: ~5h (98,640 species × 3 layers × forward pass).
