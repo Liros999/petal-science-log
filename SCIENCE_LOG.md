@@ -28471,3 +28471,72 @@ would likely produce a larger partial ρ.
 E178 GPU job submitted (job 12943000) on compute-0-376 (RTX 6000 Ada, cuDNN available).
 Previous attempt (E178 job 12942491) failed on L40S — cuDNN shared object missing.
 E178 expected runtime: ~5h (98,640 species × 3 layers × forward pass).
+
+---
+
+## Entry 242 — E179: Hierarchical Two-Stage Retrieval — Singleton Recovery (2026-04-09)
+**Date:** 2026-04-09
+**Job:** 12944567 (CPU, 30min) | **Status:** COMPLETE
+
+### Scientific Question
+E168 showed E145 bridge retrieval is near-perfect for multi-species genera (99.1% top-1)
+but fails for singletons (16.7% family top-1). Can hierarchical retrieval fix this?
+
+### Architecture
+**Stage 1 (coarse, DNA bridge):** global ridge W maps Israeli CLS → DNA space.
+  Predicted DNA vector identifies top-K candidate genera (not species).
+
+**Stage 2 (fine, visual-text):** within top-K genera's gallery species, re-rank by
+  cosine similarity between Israeli visual CLS (1024-dim) and Quaresma text embeddings
+  (1024-dim, same BioCLIP space). Visual CLS and text embeddings are in the same space.
+
+### Results
+
+| K genera | Singleton top-1 sp | Singleton top-1 fam | Multi top-1 sp | Multi top-1 fam |
+|---|---|---|---|---|
+| E145 baseline | 1.0% | 16.7% | **99.1%** | 99.6% |
+| K=5 | **33.6%** | **38.8%** | 23.8% | 39.4% |
+| K=10 | 30.3% | 34.3% | 23.4% | 39.2% |
+| K=20 | 27.5% | 30.9% | 23.1% | 38.1% |
+| Negative ctrl (random K=20) | 0.9% | 4.6% | — | — |
+
+### Key findings
+
+**Singletons: dramatic improvement.**
+Top-1 family: 16.7% → 38.8% (+22 pp) at K=5.
+Top-1 species: 1.0% → 33.6% (+32 pp) — a 33× improvement.
+The negative control (random Stage 2 within K=20 genera) gives only 4.6% family —
+confirming Stage 2 visual re-ranking is the active ingredient, not genus shortlisting alone.
+
+**Multi-species genera: performance collapses.**
+Top-1 species drops from 99.1% → 23.8%. The hierarchical method trades the easy case
+(within-genus, bridge is perfect) for the hard case (across-genus, visual similarity helps).
+This is the fundamental tension: Stage 2 visual re-ranking uses BioCLIP text embeddings
+as gallery, not the actual species DNA vectors. Within-genus, the text embeddings are
+close to each other (all say "Genus species"), so the re-ranking becomes noisy.
+
+### Root cause of multi-genus degradation
+E145's 99.1% on multi-species genera comes from the bridge directly predicting a DNA
+vector that lands closest to the query species' actual DNA. When we replace the final
+ranking with visual-text similarity, we lose the DNA specificity that made within-genus
+ranking perfect.
+
+### The correct fix: conditional two-stage
+Use E145 bridge for multi-species genera (genus-mate exists → bridge wins).
+Use hierarchical visual re-ranking for singletons only (genus-mate absent → bridge fails).
+This requires knowing at inference time whether the query species has a genus-mate in
+the gallery — which is known for Israeli species but not for arbitrary new queries.
+
+**Predicted performance of conditional system:**
+- Multi-species (n=1093): top-1 sp = 99.1% (E145 unchanged)
+- Singletons (n=396): top-1 sp ≈ 33.6%, top-1 fam ≈ 38.8%
+- Overall: (1093×99.1% + 396×33.6%) / 1489 = (1083 + 133) / 1489 = **81.7% species top-1**
+  vs E145 overall 73.0% → **+8.7 pp improvement**
+
+**E180 experiment**: implement conditional retrieval and measure the improvement.
+
+### Scientific interpretation
+The visual-text cross-modal similarity is a real signal — text embedding "Genus species"
+in BioCLIP space encodes meaningful visual appearance priors. For singleton Israeli species
+with no DNA gallery mate, their visual CLS is informative about which Quaresma genus they
+likely belong to. This is the reverse-bridge direction: visual → species identity.
