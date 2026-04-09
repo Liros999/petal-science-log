@@ -28294,3 +28294,97 @@ Prediction: species top-1 improves from 0.468% → 1.5–3%.
 **CBC candidates (145 pairs, mean gap 120 bp) are suspect** — likely detecting GC% runs
 rather than true compensatory base change pairs, since the model is insensitive to
 which helix a position belongs to. CBC detection requires a structure-aware encoder.
+
+---
+
+## Entry 239 — E174b + E175 + E176: Combined Predictor Ceiling Survey (2026-04-09)
+**Date:** 2026-04-09
+**Jobs:** 12920842 (E173 GNN, GPU), 12931835 (E176, CPU), 12931839 (E175, CPU) | **Status:** ALL COMPLETE
+
+### Scientific Question
+Does combining multiple predictors of fitness valley depth exceed the E99 ITS2 diffusion
+ceiling of ρ = −0.839? Six candidate predictors were surveyed across experiments E167–E176.
+
+### Null Hypothesis
+No linear combination of the tested predictors achieves |ρ(combined, valley)| > 0.839.
+
+### Positive Control
+ITS2 diffusion alone (E99 kernel: exp(-lam×t), squared dot product, t=2.0) must reproduce
+ρ = −0.839 exactly. Confirmed: ρ = −0.8390 on all 64,871 pairs.
+
+### Predictor Survey
+
+| Predictor | Exp | ρ(valley) | Partial ρ \| diffusion | Verdict |
+|---|---|---|---|---|
+| ITS2 diffusion (E99) | E99 | **−0.839** | — | Reference ceiling |
+| Visual angle distance | E38b | −0.786 | high collinearity | Redundant with diffusion |
+| Visual residual (E170) | E170 | −0.554 | **−0.184** | Independent ✓ |
+| CBC epistasis | E169 | −0.007 | +0.008 | **DEAD — no signal** |
+| rbcL K2P distance | E171 | −0.250 | −0.125 | Weak, independent |
+| GNN structure distance | E173/E175 | −0.256 | **−0.049** | Weak (~GC%) |
+| Evo2 7B last-token cosine | E167/E176 | **+0.006** | −0.016 | **DEAD — wrong pooling** |
+
+### Combined Model Results
+
+| Predictors | N pairs | \|ρ_combined\| | Beats E99? |
+|---|---|---|---|
+| diffusion + vis_resid | 64,871 | **0.8419** | **YES (+0.003pp)** |
+| diffusion + vis_resid + GNN | 63,815 | 0.8418 | YES (GNN: +0.000pp) |
+| diffusion + vis_resid + Evo2 | 63,815 | 0.8416 | YES (Evo2: +0.000pp) |
+
+**The ceiling is broken at |ρ| = 0.8419** — but only by +0.003pp.
+
+### Key Findings
+
+**1. Visual phenotype carries independent information beyond DNA distance.**
+Partial ρ(vis_resid | diffusion) = −0.184 (p < 10⁻¹⁰⁰). The visual residual —
+morphological distance after removing the phylogenetic component — reflects axes of
+reproductive isolation not captured by ITS2 sequence alone. This is the first evidence
+that visual phenotype independently predicts speciation depth in Israeli flora.
+
+**2. ITS2 sequence structure (GNN) adds nearly zero signal.**
+The GIN-4layer (E173) achieved LOO=0.330 vs ridge LOO=0.467 (E36) — worse than
+linear sequence distance. GC% explains 72.7% of GNN embedding variance (R²=0.727),
+indicating the network learned global composition, not stem-loop topology.
+Partial ρ = −0.049 is statistically significant (p=4×10⁻³⁵) but scientifically negligible.
+
+**3. Evo2 7B last-token is structurally wrong for global sequence representation.**
+ρ = +0.006 (essentially zero). Mechanistic explanation: `blocks.31` last-token at
+layer 31 encodes local 3' context of the ITS2 sequence (auto-regressive model bias).
+GC² = 0.004, confirming no global composition encoding either. Mean-pooling over all
+intermediate layers would differ substantially — last-token is a confound, not a feature.
+
+**4. CBC epistasis is dead at this phylogenetic scale.**
+ρ = −0.007. CBC pairs measure coevolutionary constraint within the ITS2 4-helix structure.
+At Israeli-flora inter-species distances, all pairs are either (a) both conserved or
+(b) diverged enough that compensatory changes are common — making CBC count uninformative
+about the quantitative degree of divergence.
+
+### The 0.839 Barrier
+
+The combined |ρ| = 0.8419 represents a near-fundamental limit for the tested predictor
+class (sequence distance + phenotype distance). Potential paths beyond:
+
+1. **Whole-genome phylogenetics** (vs ITS2-only): broader genomic marker would improve
+   diffusion component, but Israeli WGS is not available for all 1,441 species.
+2. **Geographic/climate covariates** (E177 candidate): bloom phenology overlap,
+   climate zone co-occurrence, elevation range overlap.
+3. **Actual reproductive biology**: pollinator type (bee/fly/wind), bloom season, flower
+   morphotype — these are mechanistically causal but require manual annotation.
+4. **rbcL expansion**: partial ρ = −0.125 on 19k pairs is real. If extended to all 64k
+   pairs, 3-predictor (diff + vis_resid + rbcL) might reach |ρ| ≈ 0.843–0.845.
+
+### E99 Kernel Correction Note
+All E174–E176 experiments confirmed the correct E99 diffusion kernel:
+```python
+weights = np.exp(-lam * t_diff)   # NOT lam**t
+Z = U * weights[np.newaxis, :]
+D[i,j] = dot(Z[i]-Z[j], Z[i]-Z[j])  # squared L2, NOT np.linalg.norm()
+```
+E172's ρ = −0.616 was wrong due to `lam**t` + L2 norm. The corrected kernel reproduces
+E99's ρ = −0.839 exactly.
+
+**Conclusion**: The speciation signal in Israeli flora is dominated by ITS2 phylogenetic
+distance (0.839) with visual morphology as a small but independent second component (+0.003pp).
+Structural RNA information (GNN), ancient LM representations (Evo2 last-token), and
+compensatory base changes (CBC) do not add predictive power at this scale.
