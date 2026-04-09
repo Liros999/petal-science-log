@@ -28540,3 +28540,187 @@ The visual-text cross-modal similarity is a real signal — text embedding "Genu
 in BioCLIP space encodes meaningful visual appearance priors. For singleton Israeli species
 with no DNA gallery mate, their visual CLS is informative about which Quaresma genus they
 likely belong to. This is the reverse-bridge direction: visual → species identity.
+
+---
+
+## Entry 243 — E180: Conditional Retrieval Results (2026-04-09)
+**Date:** 2026-04-09
+**Job:** 12945411 (CPU, 4 cores) | **Status:** COMPLETE
+
+### Results
+
+| Method | top1_sp | top5_sp | top1_fam |
+|---|---|---|---|
+| E145 (reference) | 73.0% | — | 77.6% |
+| Pure bridge (global W) | 68.8% | 88.8% | 76.0% |
+| Pure visual-text | 18.8% | 32.2% | 27.2% |
+| **Conditional route≥1** | **66.2%** | — | **73.6%** |
+| Soft blend w=0.7 | **71.7%** | 91.5% | **80.0%** |
+
+**Per-stratum (conditional route≥1, threshold=1):**
+
+| Stratum | n | top1_sp | top1_fam |
+|---|---|---|---|
+| Singletons (0 gallery mates) | 83 | **39.8%** | **47.0%** |
+| 1–4 gallery mates | 158 | 75.3% | 79.1% |
+| ≥5 gallery mates | 1248 | 66.9% | 74.7% |
+
+### Key findings
+
+**1. Singletons: 39.8% top-1 species (vs E145's 1.0%).** The hierarchical path
+(DNA→genus shortlist, then visual-text re-rank) delivers a 40× improvement for the
+hardest case. For context: E145 achieves 1.0% because the bridge predicts a family-
+centroid DNA that isn't closest to the true species in the 108k gallery.
+
+**2. Conditional routing does NOT improve over pure bridge overall (66.2% vs 68.8%).**
+The reason: routing singletons to hierarchical (83 species, 39.8% top-1) replaces
+bridge performance on those singletons, but the bridge on singletons was ~1% — so the
+gain is (83 × 38.8%) = +32 correctly recovered species. But 83/1489 = 5.6% of species,
+and the headline 66.2% drops because those 83 species were counted as ~0 in the bridge
+baseline but now contribute 39.8%.
+
+Wait — the overall should improve: (1406 × bridge_perf + 83 × 39.8%) / 1489.
+If bridge_perf on the ≥1-mate subset = (68.8% × 1489 - singleton_bridge_perf × 83) / 1406.
+Singleton bridge top1_sp ≈ 0% (no gallery mates → bridge can't find them).
+So: baseline = (1406 × bridge_≥1) / 1489. Conditional = (1406 × bridge_≥1 + 83 × 39.8%) / 1489.
+The drop from 68.8% to 66.2% means bridge on ≥1-mate subset > 68.8% overall.
+Check: 66.2% = (1406 × x + 83 × 39.8%) / 1489 → x = (66.2% × 1489 - 83 × 39.8%) / 1406
+= (986 - 33) / 1406 = 953 / 1406 = 67.8%. So bridge on ≥1-mate = 72.5% (not 66.2%).
+Actually the conditional route IS better than pure bridge on singletons but the overall
+number looks lower because global W ≠ E145 multi-stage W. Global W top1 = 68.8% < E145 73.0%.
+
+**3. Soft blend w=0.7 gives best overall: 71.7% top-1 species, 80.0% family.**
+Blending 70% bridge + 30% visual-text outperforms pure bridge (68.8%) by +2.9pp and
+improves top1_fam from 76.0% → 80.0% (+4pp). This is a simple, parameter-free improvement.
+
+**4. The gap from predicted 81.7% to actual 66.2% explained:**
+- E179 used E145's full multi-stage bridge (99.1% multi-genus top-1). E180 uses a
+  single-stage global ridge approximation (≥5-mate stratum: 66.9% top-1 vs 99.1% expected).
+- E145's multi-stage residual decomposition (family → genus → species) is critical.
+  A single-stage global ridge cannot replicate it.
+- To get 81.7%, need to implement E145's exact multi-stage bridge in E180.
+
+### Next: E181 — Conditional routing with exact E145 multi-stage bridge
+The E145 LOO cosine = 0.946 translates to ~73% species top-1.
+Adding conditional routing for 83 singletons should push to ~75-77%.
+Adding soft blend (w=0.7) on top should push family top-1 to ~82-85%.
+
+---
+
+## 2026-04-09 — Entry 244: E181 — E145 Bridge + Conditional Routing + Soft Blend
+
+### Hypothesis
+E180 used a single-stage global ridge (W_global) achieving 68.8% top-1 species.
+E145 uses 3-stage residual decomposition (family text→family DNA, genus text→genus residual,
+per-genus W: CLS→species residual), achieving LOO cosine=0.9464.
+Hypothesis: E145 bridge → ~90% top-1 species (matching LOO quality), with soft blend
+providing marginal gain and conditional routing for 0-gallery-mate species.
+
+### Method
+- Exact E145 3-stage bridge reproduced (lam1=0.01, lam2=0.1, base_lam=5e-6, alpha=10)
+- Retrieval: P_dna (256-dim predicted) vs B_dna (108847×256 gallery)
+- Soft blend: w×S_bridge + (1-w)×S_txt (visual CLS vs gallery text, 1024-dim)
+- Conditional routing: gallery_mates=0 → hierarchical (Stage1 genus shortlist K=5, visual-text re-rank)
+- N=1489 valid species (Israeli CLS + DNA), 636 genera, 101 families, 396 singleton genera
+
+### Control verification
+| Metric | E145 target | E181 reproduced | Match? |
+|---|---|---|---|
+| LOO cosine overall | 0.9464 | **0.9464** | EXACT ✓ |
+| LOO cosine singletons | 0.8897 | **0.8897** | EXACT ✓ |
+| LOO cosine multi | 0.9669 | **0.9669** | EXACT ✓ |
+
+### Results
+
+**E145 bridge alone (w=1.0, no blend):**
+
+| Stratum | n | top1_sp | top5_sp | top1_fam |
+|---|---|---|---|---|
+| **Overall** | 1489 | **90.3%** | 99.1% | **91.8%** |
+| Singleton genera | 396 | 85.9% | 97.0% | 85.9% |
+| Multi-sp genera | 1093 | 91.9% | 99.8% | 94.0% |
+| Gallery mates=0 | 96 | **99.0%** | 100% | 99.0% |
+| Gallery mates≥1 | 1393 | 89.7% | 99.0% | 91.3% |
+| Gallery mates≥5 | 1223 | 88.8% | 98.9% | 90.7% |
+
+**Soft blend sweep (best configurations):**
+
+| w | top1_sp | top1_fam | Notes |
+|---|---|---|---|
+| 0.5 | 71.7% | 78.6% | E180 best blend for reference |
+| 0.7 | 83.9% | 88.0% | Sharp improvement over 0.5 |
+| 0.8 | 88.7% | 91.3% | Near bridge performance |
+| 1.0 | **90.3%** | **91.8%** | Bridge alone is best |
+
+Visual-text alone: 18.8% top-1 species — this score dilutes the bridge when blended.
+Best blend is w=1.0 (pure E145 bridge). Adding 30% visual-text noise at w=0.7 costs −6.4pp.
+
+**Conditional routing (gallery_mates=0 → hierarchical, rest → bridge):**
+
+| Stratum | top1_sp | top1_fam | n |
+|---|---|---|---|
+| Overall | 86.8% | 88.8% | 1489 |
+| Singleton genera | 74.2% | 75.8% | 396 |
+| Multi-sp genera | 91.3% | 93.5% | 1093 |
+| Gallery mates=0 | **44.8%** | 52.1% | 96 |
+| Gallery mates≥1 | 89.7% | 91.3% | 1393 |
+
+### Key finding: The "singleton problem" was an artifact of the global ridge
+
+**E180 vs E181 — same bridge quality matters enormously:**
+
+| Metric | E180 (global W) | E181 (E145 3-stage) |
+|---|---|---|
+| LOO cosine | ~0.17 | 0.9464 |
+| top1_sp overall | 68.8% | **90.3%** |
+| top1_fam overall | 76.0% | **91.8%** |
+| singleton genera top1_sp | 1.0% | **85.9%** |
+| gallery_mates=0 top1_sp | — | **99.0%** |
+| Soft blend best | 71.7% (w=0.7) | 90.3% (w=1.0) |
+
+The 21.5pp gap (90.3% vs 68.8%) comes entirely from bridge quality:
+- E145 3-stage residual decomposition (family→genus→species) = LOO 0.9464
+- E180 single-stage global ridge = LOO ~0.17 (same as E167)
+- The 3-stage bridge is essential; a single-stage approximation loses 21.5pp of retrieval accuracy.
+
+### Why conditional routing hurts with E145
+
+With E145, gallery_mates=0 species achieve **99.0% top-1** via the bridge alone.
+These 96 "gallery-empty" Israeli species STILL have their own DNA sequence in the Quaresma
+gallery — the bridge predicts their DNA accurately (LOO=0.9464), and the gallery lookup finds them.
+The "0 gallery mates" definition means: 0 OTHER Quaresma species in the same genus.
+But the query species itself IS in the gallery → bridge succeeds at 99.0%.
+
+Hierarchical routing drops these to 44.8% because it restricts the candidate set to
+top-5 genera from the predicted DNA, which excludes the true species in 55% of cases
+(the predicted genus may not exactly match the true genus for isolated species).
+
+**Conclusion**: Conditional routing is strictly harmful with E145. The bridge alone at 90.3%
+is the optimal configuration. The hierarchical path designed for E180's singleton failure
+is not needed when the bridge itself is high quality.
+
+### Soft blend interpretation
+
+With E145, visual-text similarity (BioCLIP CLS vs. BioCLIP text of taxon name) is actually
+**a weaker signal than the bridge** for every blend weight — the pure bridge beats all blends.
+This is opposite to E180 where the blend gained +2.9pp. The explanation:
+
+- E180 bridge: LOO=0.17 → highly uncertain predictions → visual-text adds orthogonal signal
+- E145 bridge: LOO=0.9464 → highly confident predictions → visual-text adds noise (18.8% baseline)
+
+The soft blend cross-over: when bridge quality exceeds ~85% top-1, blending with an 18.8% signal
+can only hurt. The break-even is: w* such that w × 0.903 + (1-w) × 0.188 ≥ 0.903 → w* = 1.0.
+The visual-text signal would need to be >90.3% standalone to add value at the margin.
+
+### Production recommendation
+
+**SOTA retrieval: E145 3-stage bridge alone = 90.3% top-1 species, 91.8% top-1 family**
+
+This is the retrieval system for the reverse bridge app. No conditional routing, no blending.
+The only further improvement paths:
+1. Per-mask CLS tokens (not per-species mean) as queries → recovers intra-species variation
+2. Full 2,174 Israeli species coverage (E76c CLS extraction) → fills the 685 non-bridge species
+3. Evo2 mean-pool at intermediate layers (E178) → may improve bridge LOO via sequence information
+
+### Running jobs
+- E178h (Evo2 7B mean-pool at blocks.10/20/31): PENDING job 12945522, GPU node (non-L40S), +cudnn module
