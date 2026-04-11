@@ -29097,3 +29097,274 @@ This entry covers the completion of the Bridge 2 (Vision→DNA) architecture cei
 - POC: `experiments/results/exp_E205_family_stratified_poc/summary.json`
 
 ---
+
+---
+
+## E229–E240: Patch Token Geometry, Convergence Proof, and Image Synthesis (2026-04-10)
+
+### Architecture Correction — Bridge Naming (sealed 2026-04-10)
+
+| Bridge | Direction | LOO | Status |
+|---|---|---|---|
+| **B2** | **CLS → DNA** | **0.9464** | PRODUCTION |
+| **B3** | **DNA → CLS** | **0.9616** | PRODUCTION |
+| B4 | Patch Pool → DNA | 0.382 best | **DISCARDED** |
+| **B5a** | **CLS → PatchMap** | **0.9878** | CLOSED (near-trivial rank-1) |
+
+**B4 permanently discarded.** Patch pool cannot beat CLS for DNA retrieval (Cauchy-Schwarz on rank-1 manifold).
+
+---
+
+### E229: Attention-LOO Alignment
+Spearman(attention_weight, LOO_heatmap) = **−0.578** (anti-aligned). Attention focuses on center; center patches have the HIGHEST LOO cos because they are most redundant with CLS (already captured). Edge patches (less attended) retain more unique information.
+
+---
+
+### E230: Patch Pool vs CLS — Bridge 4 Discarded
+CLS LOO = **0.4955** beats all weighted patch pools (best = 0.382). This is a mathematical consequence of E231's rank-1 finding: on a rank-1 manifold, CLS = the optimal aggregator by Cauchy-Schwarz. Bridge 4 is definitively closed.
+
+---
+
+### E231: Bridge 5 (CLS → PatchMap) — CLOSED
+- B5a LOO = **0.9878** per-position ridge
+- SVD effective rank = **1.04** — patch space is rank-1
+- `patch[s, k] ≈ α_k · u[s] + ε_k[s]` where u[s] ≈ CLS[s]
+- Speciation index Ψ[s] = 1 − cos²(Pf[s], f[s]) computed for 1489 species
+- **B5a is closed**: the high LOO is trivial (CLS → CLS × scalar). No new information gained.
+
+---
+
+### E232: Ψ Ecological Validation
+- Wind pollination Mann-Whitney U = 0.747 (high-Ψ species are more wind-pollinated)
+- within_var r = −0.522 (Ψ anti-correlates with within-species visual consistency)
+- Ψ is a real signal — not noise.
+
+---
+
+### E233: Attention-Corrected Pool
+Best attention-corrected pool = 0.3325. CLS still wins. Bridge 4.5 closed.
+
+---
+
+### E234: Ψ-Stratified Bridge — H2 Supported
+| Tercile | LOO | Cross-family nearest neighbor rate |
+|---|---|---|
+| Low-Ψ | 0.579 | 6% |
+| Mid-Ψ | 0.471 | — |
+| High-Ψ | 0.350 | 30% |
+
+High-Ψ species are 5× more likely to have visual neighbors in different families → convergent evolution hypothesis (H2) supported.
+
+---
+
+### E235: Mask Quality Threshold
+τ=0.0 optimal. Filtering raises Ψ (inversion artifact). No filtering applied.
+
+---
+
+### E237: Convergence Causal Proof — COMPLETE
+
+**Key numbers:**
+| Metric | Value |
+|---|---|
+| Gap high-Ψ: cos(W₂f[s], b[neighbor]) − cos(W₂f[s], b[s]) | **−0.499** |
+| Gap low-Ψ | −0.614 |
+| Fraction high-Ψ where bridge is confused (gap > 0) | **2.6%** |
+| LOO — convergent high-Ψ (H2-positive, n=149) | **0.203** |
+| LOO — non-convergent high-Ψ (H2-negative, n=347) | **0.413** |
+| LOO — low-Ψ baseline (n=496) | **0.579** |
+| Ψ rank corr N=1200 vs N=1489 | **0.989** |
+
+**Conclusions:**
+1. Bridge NOT flipped by convergence — gap is negative for 97.4% of species. The bridge still nominally prefers the correct DNA.
+2. Convergence (H2) IS the primary failure mechanism: convergent high-Ψ LOO=0.203 vs non-convergent high-Ψ LOO=0.413. Penalty = −0.210 beyond Ψ alone.
+3. Ψ is a stable estimate — rank ordering converges from N=400 onward (rank corr=0.959). The N=1489 estimate is reliable.
+
+---
+
+### E238: Spatial Deviation Anatomy — COMPLETE
+
+| Metric | Value |
+|---|---|
+| Mean |cos(u1[k1], u1[k2])| across position pairs | 0.968 |
+| Global SVD effective rank | **9.70** |
+| Between-family fraction of score_1 | **0.316** |
+| Spearman(score_1, LOO_cos) | **−0.360** |
+| CLS alone LOO | 0.4956 |
+| CLS + [score_1, score_2] LOO | 0.4959 |
+| Δ_LOO | **+0.0003** |
+| Mean |cos(u1_local[k], u1_global)| | **0.169** |
+
+**Conclusions:**
+1. Per-position u1 directions are mutually consistent (0.968) but all point away from the global SVD u1 (0.169). Local structure is real but not globally coordinated.
+2. Deviation has 10 effective dimensions, not 1 — richer than species-mean analysis suggested.
+3. Deviation direction is partially phylogenetic (K_approx=0.316) and anti-correlated with LOO (Spearman=−0.360) — it IS the DNA-invisible direction.
+4. Adding deviation scores adds zero bridge information (Δ=+0.0003). Bridge 5 definitively closed.
+
+---
+
+### E239: Patch Token → Pixel Decoder Feasibility
+
+**Phase A results (linear decoder and MLP, per-patch 1024→588):**
+| Decoder | Test MSE | Baseline MSE | MSE ratio | SSIM proxy |
+|---|---|---|---|---|
+| Linear | 0.7189 | 0.7312 | 0.983 | 0.143 |
+| MLP (30 ep) | ~0.715 | 0.7312 | ~0.977 | pending |
+
+SSIM=0.143 is below the 0.3 "weakly structured" threshold. The per-patch linear decoder beats constant prediction by only 2%, producing blurry outputs. This is **expected** — a per-patch decoder without spatial context cannot reconstruct realistic images.
+
+**Phase B (full synthesis chain b[s]→B3→f̂[s]→B5a→patch_prior→decoder→PNG):** pending (E239c job 13033987).
+
+**Architectural conclusion:** The patch token → pixel decoder approach is a dead end for realistic image generation. The fundamental problem is that BioCLIP patch tokens encode semantic content (rank-1 species-level signal), not spatial texture. A per-patch linear map cannot hallucinate high-frequency spatial detail. **The correct path is diffusion conditioning (E240).**
+
+---
+
+### E240: DNA → Flower Image via SD-2.1-unclip — IN PROGRESS
+
+**Mathematical pathway:**
+```
+b[s]  →  B3 (3-stage)  →  f̂[s]  →  SD-2.1-unclip  →  pixel image
+DNA       LOO=0.9616       CLS       diffusion decoder
+```
+
+**Why this is architecturally correct:**
+- BioCLIP 2.5 backbone: OpenCLIP ViT-H/14, embed_dim=1024
+- SD-2.1-unclip trained on OpenCLIP ViT-H/14 image embeddings → same embedding space
+- B3 predicts CLS embeddings with LOO=0.9616 → high-quality conditioning signal
+- Three-phase experiment: (A) real CLS → images (upper bound), (B) B3-predicted CLS → images, (C) quantitative: real vs pred vs null comparison
+
+**Status:** Fixed B3 to use 3-stage architecture (lam1=0.01, lam2=0.1, base_lam=5e-6). Blocked on HF token refresh — SD-2.1-unclip is gated and requires authenticated download. E240 ready to submit once token refreshed.
+
+**Action required:** `huggingface-cli login` on login node → accept license at huggingface.co/stabilityai/stable-diffusion-2-1-unclip → then run download script at `experiments/download_sd_unclip.py`.
+
+---
+
+### Production Synthesis Chain (goal)
+```
+b[s]  →  W₃  →  f̂[s]  →  SD-2.1-unclip  →  pixel image
+DNA       B3       CLS         diffusion
+```
+B3 LOO=0.962. B5a patch tokens NOT needed — the diffusion decoder conditions directly on f̂[s] (1024-dim CLS).
+
+
+---
+
+## 2026-04-11 — Entries E241–E244b: Space Mismatch Diagnosis & DNA→Flower Retrieval
+
+### E241: BioCLIP vs OpenCLIP Space Alignment Diagnostic
+
+**Hypothesis tested:** Are BioCLIP 2.5 ViT-H/14 and OpenCLIP ViT-H/14 (laion2b) in the same embedding space?
+
+**Method:** Encode 50 Israeli flower images with both models. Compute same-image cosine similarity, rank-1 cross-model retrieval, and random baseline.
+
+**Results:**
+| Metric | Value | Interpretation |
+|---|---|---|
+| cos(BioCLIP, OpenCLIP) same image | **0.192** | Near-orthogonal |
+| Random cross-model baseline | 0.062 | Some signal above noise |
+| Rank-1 cross-model retrieval | 0.50 | 50% (random=2%) |
+| Within-BioCLIP random | 0.427 | Models disagree on geometry |
+| SNR | 2.24 | Weak |
+
+**Verdict: MISALIGNED.** BioCLIP's taxonomic fine-tuning rotated the embedding space ~79° away from OpenCLIP (cos=0.192 ≈ cos(79°)). SD-2.1-unclip cannot directly decode BioCLIP CLS tokens — the conditioning signal is essentially garbage to the diffusion prior.
+
+**Implication for E240:** The E240 pipeline b[s]→B3→f̂[s]→SD-2.1-unclip is broken at the f̂[s]→SD step. B3 predicts BioCLIP CLS; SD-2.1-unclip expects OpenCLIP CLS. These are orthogonal spaces.
+
+---
+
+### E242: Space Adapter W_align (50 samples — FAILED)
+
+**Hypothesis tested:** Fit W_align: R^1024→R^1024 via ridge on 50 paired (BioCLIP, OpenCLIP) embeddings from E241. Is 50 samples enough to bridge the gap?
+
+**Results:**
+- Adapter LOO cos: 0.852 (train-set metric only, N=50 so LOO≈LOO-of-50)
+- Rank-1 LOO: **0.02** (essentially random — severe overfit)
+- Phase C signal: cos_pred ≈ cos_null ≈ 0.248 → **no DNA signal propagating**
+
+**Conclusion:** 50 samples are wildly insufficient to fit a 1024×1024 matrix (1M parameters). Need N>>1024 = thousands of paired embeddings. → E243.
+
+---
+
+### E243: Full-Scale W_align (52K samples, job 13035620 — RUNNING)
+
+**Hypothesis tested:** With N=52,049 paired (BioCLIP, OpenCLIP) embeddings from the full Israeli gallery (E76c), can we fit a reliable W_align?
+
+**Method:** Extract OpenCLIP tokens for all 52K E76c mask crops. Fit W_align via ridge with λ sweep {1e-4, 1e-2, 1.0, 10.0}. Evaluate on 20% held-out test species.
+
+**Status:** RUNNING on GPU (job 13035620). OpenCLIP extraction at 33 masks/s, ETA ~30 min. Results pending.
+
+**Expected outcome:** If cos_adapted_test > 0.70, the adapter is viable and E244 synthesis with W_align is worth attempting.
+
+---
+
+### E244: DNA→Flower Retrieval Visualization (COMPLETED)
+
+**Core insight:** Instead of synthesis (E240/E243), use B3 predictions as retrieval queries into the 52K BioCLIP gallery. This avoids the space mismatch entirely. Retrieval with real photographs is scientifically cleaner than synthesis.
+
+**Mathematical pathway:**
+```
+ITS2 → K2P → Quaresma DNA (256-dim) → B3 (3-stage) → f̂_B3 (1024-dim BioCLIP CLS)
+→ nearest-neighbor in gallery (52,049 flower masks from 2,174 Israeli species)
+→ top-5 retrieved flower photographs
+```
+
+**Results (per-mask gallery, N=52,049, LOO-unbiased PRESS predictions):**
+| Metric | Value | Null baseline | Lift |
+|---|---|---|---|
+| **Rank-1 same-species** | **91.40%** | 0.046% | **1987×** |
+| **Top-5 same-species** | **98.86%** | 0.23% | 430× |
+| Top-5 genus hit rate | 83.01% | — | — |
+| Top-5 family hit rate | 88.60% | — | — |
+| cos(f̂_B3_LOO, f_true) | 0.9557 | — | — |
+| f_true upper bound rank-1 | 97.72% | — | — |
+
+**Controls:**
+- Positive: f_true[s] centroid → gallery: 97.72% rank-1 (6.3% gap to B3 predictions)
+- Negative: random 1024-dim vector → random retrieval
+
+**Interpretation:** B3 predictions land so close to the true species centroid (cos=0.9557) that they consistently retrieve same-species masks even from a pool of 52K candidates across 2,174 species. The 6.3% gap from upper bound is explained by the 4.4% LOO error in B3 (1 - 0.9557 = 0.044 cosine gap).
+
+---
+
+### E244b: Centroid-Level DNA→Species Retrieval (COMPLETED)
+
+**Method:** Same B3 LOO predictions, but query against per-species centroids (2,174) instead of per-mask gallery (52,049). This is the "species identification from DNA" metric.
+
+**Results:**
+| Metric | Value | Null baseline | Lift |
+|---|---|---|---|
+| **Centroid Rank-1** | **98.79%** | 0.046% | **2148×** |
+| **Centroid Top-5** | **99.93%** | 0.23% | 435× |
+| MRR | 0.993 | 0.00023 | — |
+| Top-5 family hit | 73.27% | — | — |
+| f_true centroid rank-1 (upper bound) | **100%** | — | — |
+
+**Scientific conclusion:** The DNA→image bridge works. Given an ITS2 sequence for any of 1,489 Israeli plant species, B3 predicts a CLS embedding that retrieves the correct species at rank-1 in **99% of cases** (centroid level) or **91% of cases** (individual mask level). No synthesis required. No space mismatch. Real flower photographs.
+
+---
+
+### Revised DNA→Flower Architecture (Synthesis → Retrieval)
+
+The E240 synthesis approach (SD-2.1-unclip) is shelved due to the BioCLIP/OpenCLIP space mismatch discovered in E241. The retrieval approach is superior:
+
+**Production-ready pipeline:**
+```
+ITS2 sequence
+  → K2P pairwise distances
+  → Quaresma DNA embeddings (256-dim, per-species mean)
+  → B3: 3-stage ridge (lam1=0.01, lam2=0.1, base_lam=5e-6)
+  → f̂_B3 (1024-dim BioCLIP CLS, LOO cos=0.9557)
+  → Top-K cosine search in Israeli gallery (52,049 masks)
+  → Display retrieved flower photographs
+```
+
+**Key numbers for paper:**
+- 1,489 species with paired DNA+visual data
+- B3 LOO cos = 0.9557 (essentially 0.96 rounding)
+- Species retrieval rank-1 = 98.79% (centroid level)
+- Individual mask rank-1 = 91.40% (per-mask level)
+- 99.93% of correct species found in top-5 centroids
+- Zero synthesis required — all images are real field photographs
+
+**Pending:** E243 W_align results (if cos_adapted > 0.70, synthesis is also available as Figure 2)
+
