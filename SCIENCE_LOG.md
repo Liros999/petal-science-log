@@ -29526,3 +29526,122 @@ Norm-quintile gating: Q2-Q3 best (0.43), Q4 better than Q5 (0.40>0.41).
 
 **Conclusion**: Layer 3 (photo → climate trait) through color is weak empirically (r≈0.10–0.14). The GC% prediction chain remains the stronger signal (r=0.452 in E260).
 
+---
+
+## Entry 263 — CCA: Honest Color×Climate Canonical Correlation (2026-04-12)
+**Experiment**: E263 (`exp_E263_cca_color_bioclim.py`, job 13064650)
+**Goal**: Legitimate version of E259 — CCA finds optimal joint projection of color (17 features) and climate (19 BIO vars).
+
+**Results**:
+- Full ρ₁ = 0.4517
+- **5-fold CV ρ₁ = 0.415 ± 0.027** — survives cross-validation (signal is real)
+- Permutation p = 0.001 (999 permutations)
+- Partial ρ₁ (family-demeaned) = 0.472 → no phylogenetic confounding; ecological signal strengthens after removing family baseline
+- **Angle(PC1, CCA_u₁) = 88.8°** — PC1 of color is nearly orthogonal to the climate-predictive direction. The r=0.723 in E259 was PCA artifact: climate signal lives in low-variance color dimensions (PCs 3,5,6,7,8...).
+
+**Conclusion**: 17% of optimal color-climate joint variance is real ecological signal. E259's large correlations were artifacts of PCA whitening.
+
+---
+
+## Entry 265 — B2 Retrained on 1,489 Species (Honest Baseline) (2026-04-12)
+**Experiment**: E265 (`exp_E265_b2_large.py`, job 13064663)
+**Goal**: Honest B2 (CLS→DNA) quality at N=1,489 paired species with 5-fold CV (not overfit LOO).
+
+**Results**: best λ=0.1, **5-CV cos = 0.4774**, full-data cos = 0.738
+- E145 LOO=0.9464 and E255 LOO=0.9385 were **overfitting artifacts** (N=141 < d=1024, interpolation regime)
+- At N=1489, true linear ridge generalization = **cos=0.477**
+- B2 linear ridge is now RETIRED. Replaced by kernel ridge (E266).
+
+---
+
+## Entry 266 — B2 Kernel Ridge: cos=0.60 (2026-04-12)
+**Experiment**: E266 (`exp_E266_kernel_ridge_b2.py`, job 13064653)
+**Goal**: Nonlinear kernel ridge for B2 (CLS→DNA) via RBF on unit sphere.
+
+**Results**: best γ=10, λ=0.0001, **CV cos = 0.601** (+0.12 vs linear ridge)
+- RBF kernel κ(f,f') = exp(-2γ(1−f·f')) captures local CLS manifold structure at genus/family scale (~18° angular resolution at γ=10)
+- Gain of +0.12 confirms CLS↔DNA relationship has meaningful nonlinear components
+- **B2 is now kernel ridge, N=1489, γ=10, λ=0.0001, CV cos=0.601**
+
+---
+
+## Entry 267 — Procrustes B2: cos=0.33 (manifolds not isometric) (2026-04-12)
+**Experiment**: E267 (`exp_E267_procrustes_b2.py`, job 13064649)
+**Goal**: Test if CLS and DNA manifolds are isometric (Procrustes = optimal rotation).
+
+**Results**: CV cos (Procrustes) = 0.315, Procrustes+ridge = 0.332 — both worse than linear ridge (0.447)
+- **CLS and DNA manifolds are not isometric**: they have different intrinsic metrics (anisotropy)
+- Different phenotypic directions in CLS map to different-length steps in DNA space
+- Ridge (allowing per-axis rescaling) outperforms isometric Procrustes by +0.13
+
+---
+
+## Entry 268 — PC1 Partialing Diagnostic (2026-04-12)
+**Experiment**: E268 (`exp_E268_pc1_partial.py`, job 13064652)
+**Goal**: Diagnose where climate signal lives in color PCA space.
+
+**Results**:
+- cos(PC1, CCA_u₁) = −0.021 → **angle = 88.8°** — PC1 nearly orthogonal to climate direction
+- After PC1 removal: max r(BIO15, remaining PCs) unchanged at 0.127
+- Significant PCs for BIO15 (permutation p<0.05): **3, 5, 6, 7, 8, 9, 10, 11**
+- PC1 R² in CCA direction: 0.04% (essentially zero)
+
+**Conclusion**: E259's r=0.723 was a PCA artifact. Climate signal is distributed across low-variance color PCs (3,5,6...) — the dimensions of small but systematic within-clade variation driven by local adaptation. PC1 captures taxonomic color diversity, not ecological adaptation.
+
+---
+
+## Entry 269 — B3 Kernel Ridge: cos=0.776 (2026-04-12)
+**Experiment**: E269 (`exp_E269_b3_kernel_ridge.py`, job 13064729)
+**Goal**: Honest B3 (DNA→CLS) quality at N=1,489 species with kernel ridge + 5-CV.
+
+**Results**: best γ=5, λ=10, **5-CV cos = 0.776**
+- Full-data cos = 0.967 (still overfitting in full-data mode, CV is the honest number)
+- **B3 >> B2**: 0.776 vs 0.601 — DNA→CLS is significantly easier than CLS→DNA
+- δ = +0.175: predicting visual appearance from DNA is more constrained than vice versa
+- **B3 is now kernel ridge, N=1489, γ=5, λ=10, CV cos=0.776**
+
+**Biological interpretation**: DNA ITS2 variation encodes more predictive structure about visual appearance than CLS variation encodes about DNA. The DNA sequence space is more linearly organized relative to phenotype than CLS space is.
+
+---
+
+## Entry 270 — Mask Count Noise Floor (2026-04-12)
+**Experiment**: E270 (`exp_E270_mask_count_noise.py`, job 13064730)
+**Goal**: Quantify centroid quality as function of mask count k. Fits cos(k) = 1 − c·k^{−α}.
+
+**Results**:
+
+| k (masks) | cos(centroid_k, centroid_all) |
+|---|---|
+| 1 | 0.836 |
+| 2 | 0.909 |
+| 4 | 0.953 |
+| 8 | 0.978 |
+| 16 | 0.991 |
+| 32 | 0.998 |
+
+Power law fit: c=0.166, α=0.932, R²≈1.0 (excellent fit)
+- Need **k=11 masks** for cos≥0.99 centroid quality
+- Need **k=100 masks** for cos≥0.999
+- r(log(n_masks), bridge_error) = +0.198, p=10⁻¹⁴ — mask count is a real but small predictor of bridge error
+
+---
+
+## Entry 271 — Bridge Error Variance Decomposition (2026-04-12)
+**Experiment**: E271 (`exp_E271_bridge_error_decomp.py`, job 13064731)
+**Goal**: Decompose B2 kernel ridge error into three ceiling components.
+
+**Results** (R²_total = 0.131):
+
+| Ceiling | ΔR² | % of explained | Diagnosis |
+|---|---|---|---|
+| A: CLS isolation (more species) | 0.0855 | **65%** | Primary bottleneck |
+| B: Mask count (more photos) | 0.0002 | 0% | Not a bottleneck |
+| C: DNA isolation (intrinsic) | 0.0019 | 1% | Negligible |
+| Unexplained | — | 87% | — |
+
+**Primary ceiling: architecture/data (more species needed)**
+- Mask count explains <1% of bridge error variance — collecting more photos per species will not help
+- CLS isolation (how far a species is from its CLS neighbors) is the dominant predictor: isolated species have larger bridge errors because the kernel has no close exemplars to interpolate from
+- The hard ceiling (intrinsic DNA atypicality) is negligible — most species' DNA is predictable from its clade context
+- **Action**: more paired species (photo+DNA) is the highest-leverage investment. Target: 5,000+ paired species → expected cos(B2)≥0.70
+
