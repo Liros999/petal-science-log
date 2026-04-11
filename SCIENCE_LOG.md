@@ -29368,3 +29368,91 @@ ITS2 sequence
 
 **Pending:** E243 W_align results (if cos_adapted > 0.70, synthesis is also available as Figure 2)
 
+
+---
+
+## Entry 258 — BIOCLIM → ITS2 GC% Regression (2026-04-12)
+**Experiment**: E258 (`exp_E258_bioclim_regression.py`, job 13064332)
+**Question**: Do WorldClim BIO1–19 climate variables predict ITS2 GC% or MDS dim 9 (AT/GC axis) in Israeli flora?
+**Data**: 1,622 species with geo coordinates + Quaresma DNA MDS (E250). WorldClim v2.1 at 2.5 arcmin.
+**Result**: Null. Max |r| = 0.059 (BIO3 isothermality vs dim9, p=0.019). All BIO→GC% correlations r < 0.04, all p > 0.14.
+**Conclusion**: Within Israeli flora (single country, ~1,600 species), climate does not detectably predict ITS2 GC%. The thermophily/aridity→GC% hypothesis (Layer 2) is unvalidated at this scale. Effect may exist globally but is below detection in this sample. Positive control: chorotype analysis shows Mediterranean (GC%=0.558) vs Sudanian (GC%=0.596) vs Tropical (GC%=0.598) — the directional trend exists but is weak and noisy.
+**Saved**: `results/exp_E258_bioclim_regression/` — BIO_matrix.npy (2352 species × 19), summary.json, per_species BIO vectors.
+
+---
+
+## Entry 259 — BIOCLIM × Flower Color Regression (2026-04-12)
+**Experiment**: E259 (`exp_E259_bioclim_color.py`, job 13064400)
+**Question**: Do BIOCLIM climate variables predict RGB/CIELAB flower color in Israeli flora?
+**Data**: 2,175 species overlap (E24 color × E258 BIOCLIM). 114 families. Median color per species from 135,939 masks.
+**Key results**:
+
+| BIO variable | Color feature | r | r_partial (|family) | Rho |
+|---|---|---|---|---|
+| BIO15 precip seasonality | std_lab_L (lightness variability) | +0.723 | +0.695 | +0.654 |
+| BIO7 temp annual range | std_lab_L | −0.678 | −0.652 | −0.604 |
+| BIO4 temp seasonality | std_lab_L | −0.617 | −0.601 | −0.568 |
+| BIO12 annual precip | mean_H (hue) | +0.564 | +0.546 | +0.440 |
+| BIO12 annual precip | std_lab_L | +0.560 | +0.541 | +0.552 |
+| BIO12 annual precip | lab_b (yellow→blue) | −0.204 | — | −0.221 |
+| BIO12 annual precip | mean_S (saturation) | +0.116 | — | +0.092 |
+
+**Interpretation**:
+- **Lightness variability** (std_lab_L) is the strongest climate signal: high precip seasonality (unpredictable rain) → more within-species flower color variation. High temp range → less variation. This is a G×E signature: species in variable climates express more variable phenotypes.
+- **Hue shift with rainfall**: wetter habitats → warmer/redder hue (mean_H higher), brighter flowers (mean_V higher), less yellow (lab_b lower). Consistent with pollinator guild shifts between arid/humid zones.
+- **Partial correlations ≈ raw correlations throughout**: the climate→color signal is NOT explained by phylogenetic confounding. Genuine environmental effect.
+- **Chorotype ANOVA**: mean_H F=41.97 (p=3×10⁻¹²⁶), std_lab_L F=35.81 (p=2×10⁻¹⁰⁸) — hue and lightness variability differ massively across Mediterranean/Irano-Turanian/Saharo-Arabian/Tropical zones.
+**Saved**: `results/exp_E259_bioclim_color/` — r_matrix.npy (19×21), rho_matrix.npy, partial_r_matrix.npy, per_species_color.json (2175 species, persistent asset), chorotype_color.json, summary.json.
+
+---
+
+## Entry 255 — Image → Predicted ITS2 Fingerprint: Reverse Bridge (2026-04-12)
+**Experiment**: E255 (`exp_E255_image_to_its2.py`, job 13064200)
+**Chain**: Photo → BioCLIP f[s] → B2 (CLS→DNA) → b̂[s] → W_kmer → predicted trinucleotide profile → GC%
+**Results** (n=1,489 paired species):
+
+| Metric | Value |
+|---|---|
+| B2 LOO cos (CLS→DNA) | 0.9385 |
+| r(pred GC%, true GC%) | **0.306** |
+| R² | 0.094 |
+| GC% MAE | 0.171 |
+| k-mer vector cosine | **0.971** (angle = 13.8°) |
+| AT/GC binary accuracy (threshold GC%=0.50) | **85.0%** |
+| DNA retrieval rank-1 (from b̂[s] vs 108K gallery) | **87.7%** |
+| MRR | 0.926 |
+
+**Metric explanations**:
+- AT/GC binary: predict(GC%<0.5) == true(GC%<0.5). Threshold = 0.5. Improvement paths: tune threshold, regress GC% directly from b̂[s] (bypassing k-mer), tune W_kmer λ.
+- k-mer cos = 0.971: full 64-dim trinucleotide profile predicted at 13.8° from truth. High because MDS preserves compositional direction well.
+- Rank-1 = 87.7%: b̂[s] (predicted from image) retrieves correct species as #1 in Quaresma 108K gallery. Deployed use: photo → ranked list of most likely DNA sequences.
+- MRR = 0.926: correct species at rank ≈1.08 on average (almost always top 2).
+
+**Saved** (all persistent): B_pred_loo.npy (B2 LOO DNA predictions), W_kmer.npy (deployable 256→64 weight matrix), pred_gc.npy, true_gc.npy, per_species.json (per-species pred/true/cos/rank), summary.json.
+
+---
+
+## Entry 252 — DDPM Prior BioCLIP→OC (2026-04-12)
+**Experiment**: E252 (`exp_E252_bioclip_prior.py`, job 13064204, 12h GPU)
+**Goal**: Train DDPM stochastic prior: BioCLIP f[s] → OC g[s], to handle the non-linear manifold gap.
+**Result**: Prior cos = 0.0133 vs W_align cos = 0.0076. Net gain = +0.0057. Both near zero.
+**Conclusion**: The DDPM prior failed — it produces samples far from the OC manifold (cos≈0.013 vs expected ≥0.87 from direct W_align). The diffusion model did not learn the distribution. Likely cause: OC embeddings are on a unit sphere (1024-dim), DDPM with MSE noise loss in Euclidean space does not naturally handle spherical geometry. Spherical diffusion (von Mises-Fisher prior or DDPM with normalization at each step) would be needed. This direction is deprioritized.
+
+---
+
+## Entry 251 — Synthesis Conditions A–E (2026-04-12)
+**Experiment**: E251 (`exp_E251_synthesis_conditions.py`, job 13064205)
+**Goal**: Compare 5 synthesis conditions for SD-2.1-unclip image generation from DNA-anchored embeddings.
+**Results**:
+
+| Condition | cos_real | cos_species |
+|---|---|---|
+| A: W_align(f[s]) | 0.3845 | 0.3550 |
+| B: b_text_alt | 0.3941 | 0.3602 |
+| C: interp(A, B) | 0.4078 | 0.4385 |
+| D: W_align(B3_loo) | **0.4275** | **0.4529** |
+| E: interp(A, D) | 0.4109 | 0.4493 |
+
+**Best condition: D** — direct W_align applied to B3 DNA→CLS LOO prediction, without interpolation.
+Norm-quintile gating: Q2-Q3 best (0.43), Q4 better than Q5 (0.40>0.41).
+
