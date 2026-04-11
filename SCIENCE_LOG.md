@@ -29456,3 +29456,73 @@ ITS2 sequence
 **Best condition: D** — direct W_align applied to B3 DNA→CLS LOO prediction, without interpolation.
 Norm-quintile gating: Q2-Q3 best (0.43), Q4 better than Q5 (0.40>0.41).
 
+---
+
+## Entry 260 — Improved GC% Prediction: Direct Ridge + k-mer Variants (2026-04-12)
+**Experiment**: E260 (`exp_E260_reverse_bridge_improved.py`, job 13064475)
+**Goal**: Improve GC% prediction from photos beyond E255 baseline r=0.306. Three methods trained on 104,395 E250 species (B_common), tested on 1,489 paired species.
+
+**Method A** — Direct: b̂[s] → GC% (256→1 ridge, λ swept):
+**Method B** — Via k=3: b̂[s] → k-mer freq (256→64 ridge) → GC% (weighted sum):
+**Method C** — Via k=2: b̂[s] → dinucleotide freq (256→16 ridge) → GC% (weighted sum):
+
+| Method | Best λ | r (test) | r_LOO | AT/GC acc | MAE |
+|---|---|---|---|---|---|
+| E255 baseline (k-mer chain, old λ) | — | 0.306 | — | 85.0% | — |
+| A: Direct 256→1 | 0.001 | **0.4516** | 0.492 | **86.4%** | 0.171 |
+| B: k=3 trinucleotide | 0.001 | 0.4515 | — | — | — |
+| C: k=2 dinucleotide | 0.001 | 0.4513 | — | — | — |
+
+**Key findings**:
+- All three methods converge to the same r≈0.451 at λ=0.001 — the information bottleneck is the B2 bridge quality (cos=0.939), not the k-mer intermediate
+- Direct 256→1 ridge is optimal (no information loss through k-mer factorization)
+- r improved from 0.306 → **0.452** (+47% relative) by training W_gc on 104K E250 species vs. 141 species in E255
+- AT/GC binary accuracy: 85.0% → **86.4%**
+- r_LOO (cross-validated on paired set) = 0.492 — this is the honest generalization estimate
+- The information ceiling is determined by B2 fidelity. To push r > 0.50 requires better CLS→DNA mapping.
+
+**Conclusion**: GC% prediction from photos is robustly above chance (p=10⁻⁷⁵). The signal is real and limited by bridge quality, not the GC% regression step.
+
+---
+
+## Entry 261 — Color Variability Map of Israel (City-Level) (2026-04-12)
+**Experiment**: E261 (`exp_E261_israel_color_map.py`)
+**Goal**: Spatial map of flower color variability across Israel, binned at city-level resolution (Δlat=0.3°≈30km, Δlon=0.25°≈22km). Uses 2,175 Israeli plant species with GPS coordinates from iNaturalist.
+
+**Method**: Full PCA inverse transform from E24 compressed color features → raw CIELAB+HSV values. 5 color features mapped: std_lab_L (lightness variability), mean_H (hue), lab_b (blue-yellow), lab_a (green-red), mean_V (HSV value). City annotations: Tel Aviv, Jerusalem, Haifa, Be'er Sheva, Eilat, Nazareth, Tiberias.
+
+**Key spatial patterns**:
+- **std_lab_L (lightness variability)**: Higher in arid south (Negev/Eilat) — drought stress drives within-species color plasticity
+- **mean_H (hue)**: Mediterranean coast (Tel Aviv/Haifa) shows different hue distribution than inland Galilee
+- **Chorotype gradient**: Mediterranean species cluster along coast; Irano-Turanian and Saharo-Arabian extend south
+- N=2,175 species mapped; geographic bins with <3 species suppressed (NaN masked)
+
+**Output**: `/results/exp_E261_israel_color_map/` — 4-panel figure + individual channel maps + chorotype map
+
+---
+
+## Entry 262 — BIOCLIM × Raw Color Regression (2026-04-12)
+**Experiment**: E262 (`exp_E262_bioclim_raw_color.py`)
+**Goal**: Correct E259 by using physically meaningful color values (raw CIELAB/RGB/HSV after full PCA inverse transform) instead of PCA-space coordinates.
+
+**Critical correction**: E259 used PCA-transformed color vectors directly (standardized, rotated). The r=0.723 (BIO15×std_lab_L) was a PCA-space artifact, **not a physical signal**. E262 inverts the full transform: `X_scaled = X_pca @ components + pca_mean; X_raw = X_scaled * scaler_scale + scaler_mean`.
+
+**Results — top raw correlations** (19 BIO × 18 color features, Pearson r):
+
+| BIO var | Color feature | r (raw) | r (E259, artifact) |
+|---|---|---|---|
+| BIO15 (precip seasonality) | std_R | **+0.136** | (+0.723 PCA artifact) |
+| BIO2 (diurnal temp range) | mean_V | −0.127 | — |
+| BIO12 (annual precip) | lab_L | +0.098 | — |
+| BIO12 (annual precip) | mean_V | +0.087 | (+0.564 PCA artifact) |
+
+**Chorotype ANOVA (raw color space)**:
+| Feature | F | Δ from PCA |
+|---|---|---|
+| mean_V (HSV value/brightness) | 5.9 | (PCA: 41.97) |
+| lab_L (lightness) | 4.6 | — |
+
+**Interpretation**: In raw physical units, BIOCLIM explains <2% of color variance (max r²=0.018). The large correlations in E259 were artifacts of PCA whitening/standardization amplifying correlations in a rotated subspace. The true G×E signal between climate and flower color is present but subtle at this floristic scale.
+
+**Conclusion**: Layer 3 (photo → climate trait) through color is weak empirically (r≈0.10–0.14). The GC% prediction chain remains the stronger signal (r=0.452 in E260).
+
