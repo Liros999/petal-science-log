@@ -29836,9 +29836,33 @@ Weight (0.5/1.0/2.0) had no effect — the kernel weighting collapsed, likely be
 
 ---
 
-## Entry 280 — E277: Canonical B2_macro (2026-04-12)
+## Entry 280 — E277: Canonical B2_macro — New B2 SOTA (2026-04-12)
 **Experiment**: E277 (`exp_E277_b2_macro_canonical.py`, job 13064886)
-**Goal**: Finalize B2_macro as production-grade B2 with best hyperparameters + pseudolabel augmentation.
-**Status**: RUNNING
-**Expected**: cos ≈ 0.70–0.73 (B2_macro alone + pseudo augmentation)
+
+### Results
+
+| Method | CV cos | Δ vs E266 |
+|---|---|---|
+| E266 baseline (γ=10, λ=1e-4) | 0.581 | — |
+| B2_macro alone (γ=20, λ=1e-5) | 0.703 | +0.122 |
+| **B2_macro + 494 pseudolabels** | **0.741** | **+0.160** |
+| Genus oracle LOO upper bound | 0.841 | +0.260 |
+
+**λ is insensitive**: λ=1e-5 through λ=1e-2 all give cos=0.703 — the solution is stable and well-conditioned.
+
+**Genus discrimination** (from predicted DNA vectors in test folds):
+- Intra-genus cos: **0.848** (predicted DNA of same-genus species is very similar)
+- Inter-genus cos: **0.101**
+- Ratio: **8.41×** — B2_macro strongly separates genera in prediction space
+
+### B2 is now canonically: B2_macro
+- γ=20 (genus scale, matching Moran's I peak at θ≈13°)
+- Trained on 1,489 real + 494 genus-pseudolabeled species = 1,983 total
+- Full-data weights saved: `exp_E277_b2_macro_canonical/alpha_b2_macro.npy`, `F_train_b2_macro.npy`
+- **CV cos=0.741** — new B2 SOTA (was 0.601 with E266)
+
+### Remaining gap to oracle (0.841 − 0.741 = 0.100)
+The 10pp gap is CLS's failure to perfectly discriminate genera. Some genera are visually similar (convergent evolution). To close it: (1) more paired species for rare genera, (2) species-level CLS disambiguation via within-genus features (petal texture, aspect ratio) not yet exploited.
+
+**Status**: COMPLETED (2026-04-12)
 
