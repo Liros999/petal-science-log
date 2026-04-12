@@ -29729,5 +29729,45 @@ Power law fit: c=0.166, α=0.932, R²≈1.0 (excellent fit)
 **(D) Mutual information (Kraskov k-NN estimator)**:
 - Nonlinear color–climate dependence: MI(color, BIO) vs shuffled null
 - Key question: are there nonlinear associations missed by Pearson r?
-**Status**: RUNNING (submitted 2026-04-12)
+**Status**: RUNNING (submitted 2026-04-12, resubmitted 13064828 after float-symmetry fix)
+
+---
+
+## Entry 276 — KEY FINDING: GC% is a Genus-Level Signal on the CLS Sphere (2026-04-12)
+**Source**: E274 Moran's I analysis + theoretical interpretation
+**Type**: Interpretive finding + leverage roadmap
+
+### The finding
+GC% autocorrelation on the CLS sphere peaks at θ≈13° (γ=20, I=0.832). This means:
+
+> **Within a genus, flowers look alike AND have similar GC%. Between genera of the same family, GC% varies but appearance also varies — they diverge together.**
+
+At order scale (θ=57°): I≈0.009 — random. Orders don't separate GC%.
+At family scale (θ=18°): I=0.32 — weak but real.
+At **genus scale (θ=13°): I=0.83** — strong clustering. This is where GC% lives on the visual sphere.
+
+The CLS sphere is effectively a **phylogenetic map at genus resolution**. GC% variation is encoded at that resolution and not above it.
+
+### Why this matters for the bridge
+- **B2 hardness explained**: the CLS→DNA map needs fine angular resolution (high-ℓ spherical harmonics, θ≈13°) because GC% varies at genus scale. This requires many kernel modes (E273: d_eff=1489). You cannot compress B2 by using a coarser kernel.
+- **B3 smoothness explained**: DNA→CLS is smooth because the reverse — "what does this GC% tell you about appearance?" — is answered at genus level, which is a coarse enough scale that few modes suffice (E273: 247 modes for 90% energy).
+- **B2 ceiling is not a model problem — it is a resolution problem**: to predict DNA from vision, you need genus-level discrimination from CLS. BioCLIP achieves genus separation well. The ceiling is in how much GC% variance is inter-genus (predictable from appearance) vs intra-genus (noise for B2).
+
+### How to leverage it
+
+**1. Genus-stratified kernel (E276a):**
+Replace the global RBF kernel with a two-level kernel:
+  κ(f,f') = κ_between(f,f') + w_within · κ_within(f,f')
+where κ_within is active only for same-genus pairs (higher γ). This explicitly models the genus-level GC% structure. Expected: B2 CV improves ~0.03–0.05.
+
+**2. Genus-mean residual bridge (E276b):**
+Decompose DNA into genus mean + within-genus residual:
+  b[s] = b̄[genus(s)] + δ[s]
+Train two bridges: B2_macro predicts b̄ (easy, smooth, family-level), B2_micro predicts δ (hard, genus-level). Separates the easy and hard parts of the map.
+
+**3. Genus pseudolabels (E276c):**
+For unpaired species with only CLS (no DNA), assign DNA pseudolabels = mean DNA of known congeneric species. Justified because I=0.83 at θ=13° — intra-genus GC% variance is low. Better than E272 B3-predicted pseudolabels (wrong noise structure).
+
+**4. Scientific claim (publishable):**
+*"Flower visual embeddings from a foundation model (BioCLIP) implicitly encode DNA barcode GC% at genus scale (Moran's I=0.83 at θ=13°), despite being trained without any sequence data."* Direct empirical demonstration that visual phenotype and genotype co-diverge at genus level in flowering plants.
 
