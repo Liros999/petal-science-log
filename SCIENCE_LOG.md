@@ -29866,3 +29866,43 @@ The 10pp gap is CLS's failure to perfectly discriminate genera. Some genera are 
 
 **Status**: COMPLETED (2026-04-12)
 
+---
+
+## Entry 281 — E278: B2_macro on 2068 Real Species — DILUTION EFFECT (2026-04-12)
+**Experiment**: E278 (`exp_E278_b2_macro_global.py`, job 13069971)
+
+| Method | N | CV cos |
+|---|---|---|
+| E277 B2_macro Israeli only | 1,489 | **0.703** |
+| E278 B2_macro Israeli + Quaresma + Lit | 2,068 | 0.681 |
+| E278 genus oracle LOO | 2,068 | 0.809 |
+
+**Adding non-Israeli species hurts by 2pp.** Root cause: kernel dilution. Quaresma species (South American / global flora) look different from Israeli flora in CLS space. Adding them dilutes the neighborhood of any Israeli test species — the k nearest kernel exemplars are now a mix of close Israeli congeners and distant foreign species. The genus oracle also dropped (0.841→0.809), confirming that foreign species have lower within-genus CLS consistency, possibly due to different photo conditions or ecological adaptation.
+
+**Lesson**: Adding data helps only when it is from the same visual distribution. For B2 on Israeli flora, the right additional data is more Israeli species, or at minimum Mediterranean/Middle-Eastern flora with similar CLS coverage. Bulk global datasets dilute the kernel.
+
+---
+
+## Entry 282 — B2/B3 Kernel Ridge: SERIES CONCLUSION (2026-04-12)
+**Series**: E265–E278 (14 experiments over 2 sessions)
+
+### What we built
+- **B2_macro** (CLS→genus-mean DNA): CV cos=0.703 on N=1489 Israeli species (E277). New canonical B2.
+- **B3** (DNA→CLS): kernel ridge CV cos=0.776 (E269). Unchanged.
+
+### What we learned
+1. **The LOO result (cos=0.94) was overfitting** — N=141 < d=1024, interpolation artifact. Real generalization is 0.60–0.70.
+2. **B2 is a genus retrieval problem.** DNA variance is 100% inter-genus. Within-genus DNA variation is invisible to CLS (B2_micro≈0). The ceiling is CLS genus discrimination, not barcode complexity.
+3. **γ=20 is the right kernel bandwidth** — confirmed by Moran's I showing GC% autocorrelation peaks at θ≈13° (genus scale). The kernel must match the signal scale.
+4. **The correct target is genus-mean DNA**, not noisy per-species DNA. Predicting the smooth target gave +12pp over predicting the raw target (0.703 vs 0.581).
+5. **Adding global (non-Israeli) paired data hurts** due to kernel dilution. Same-distribution data is needed.
+6. **Genus oracle LOO = 0.841** — this is the hard ceiling on B2 from CLS genus discrimination alone. The 0.138 gap (0.841−0.703) is CLS confusion between visually similar genera.
+
+### Why discarding B2/B3 is the right call
+The bridges work — cos=0.70/0.78 is real signal. But the architecture reveals a ceiling problem: we are trying to predict species-level DNA from genus-level visual signal. The kernel is doing genus lookup, not molecular prediction. This is not wrong, but it means:
+- B2 is essentially: *find the genus from the photo, return that genus's average barcode*
+- That's useful for identification but not for discovering new molecular biology
+- To go deeper (predict within-genus barcode variation), we need a fundamentally different modality or embedding
+
+**New direction**: Rather than pushing B2/B3 further, focus on what the data actually tells us: the CLS sphere organizes species by visual phenotype at genus resolution, and GC% co-varies at that same resolution. The signal is there — it just lives at genus scale, not species scale. The question becomes: what biological question does genus-level visual→DNA prediction answer?
+
