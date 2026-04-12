@@ -29645,3 +29645,89 @@ Power law fit: c=0.166, α=0.932, R²≈1.0 (excellent fit)
 - The hard ceiling (intrinsic DNA atypicality) is negligible — most species' DNA is predictable from its clade context
 - **Action**: more paired species (photo+DNA) is the highest-leverage investment. Target: 5,000+ paired species → expected cos(B2)≥0.70
 
+---
+
+## Entry 272 — Nystrom Kernel Ridge + Bootstrap Augmentation (2026-04-12)
+**Experiment**: E272 (`exp_E272_nystrom_b2.py`, job 13064756)
+**Goal**: (A) Test Nystrom approximation as scalable path to larger N; (B) Test if pseudo-labeling 102K unpaired DNA species via B3 improves B2.
+
+**Results**:
+
+| Method | CV cos | Gap vs exact |
+|---|---|---|
+| Nystrom M=100 | 0.338 | −0.263 |
+| Nystrom M=200 | 0.418 | −0.183 |
+| Nystrom M=300 | 0.456 | −0.145 |
+| Nystrom M=500 | 0.507 | −0.094 |
+| **Exact kernel (E266)** | **0.601** | — |
+| Augmented B2 (104K pseudo-labels) | 0.567 | −0.034 |
+
+**Conclusions**:
+- Nystrom requires M≫500 to approach exact (gap still 0.094 at M=500). Not yet viable — need ~2000 landmarks to close to <0.02.
+- Bootstrap augmentation (predict pseudo-CLS for 102K unpaired species via B3, then train B2 on 104K) actually hurts: 0.567 < 0.601. Pseudo-labels from B3 add noise faster than signal. The 1489-species exact kernel remains the best B2.
+- The Nystrom framework is the right path to scale B2 to N=10K+; it just needs more landmarks and more real paired data.
+
+---
+
+## Entry 273 — Kernel Spectral Analysis: B2 vs B3 Complexity (2026-04-12)
+**Experiment**: E273 (`exp_E273_kernel_spectrum.py`, job 13064764)
+**Goal**: Characterize the frequency structure of B2 (CLS→DNA) and B3 (DNA→CLS) via eigendecomposition of their kernel matrices.
+
+**Theory**: The kernel matrix K = VΛVᵀ. The learned solution projects targets onto eigenmodes with shrinkage factor λᵢ/(λᵢ+λ_ridge). Modes with large eigenvalues survive; small eigenvalues are regularized away. The number of modes carrying 90% of the learned energy = effective complexity of the map.
+
+**Results**:
+
+| Property | B2 (CLS→DNA) | B3 (DNA→CLS) |
+|---|---|---|
+| Effective dimension d_eff | **1489** (fully diffuse) | 1218 |
+| Modes for 90% kernel energy | 1285 | 1149 |
+| **Modes for 50% learned energy** | — | **20** |
+| **Modes for 90% learned energy** | **1068** | **247** |
+| Power-law fit r(log_rank, log_energy) | — | −0.856 |
+| Top mode angular scale | — | θ≈18° (family/genus) |
+
+**Biological interpretation**:
+- **B3 is concentrated**: 50% of its learned weight sits in just 20 modes. Clean power-law decay (r=−0.856). The DNA→CLS map operates primarily at family/genus scale (θ≈18°–8°). This confirms that visual CLS embeddings organize species phylogenetically — DNA is a smooth function on the CLS sphere.
+- **B2 is diffuse**: d_eff=1489 (equal to N) — every training mode is active. The CLS→DNA map needs fine-grained, high-frequency components because DNA encodes distinctions finer than visual phenotype captures. This explains why B2 is harder and why more species (not just better regularization) is needed.
+- **Key asymmetry**: B2 needs 4.3× more modes than B3 for equivalent coverage. The CLS sphere is organized by phylogeny, making DNA→CLS smooth (B3 easy), but the reverse map requires resolving fine-grained DNA from coarse visual signal (B2 hard).
+
+---
+
+## Entry 274 — Extended B2/B3: 2,068 Species + GC% Sphere Painting (2026-04-12)
+**Experiment**: E274 (`exp_E274_b2b3_extended.py`, job 13064810)
+**Goal**: Merge all paired species (Israeli E76c + Quaresma E150 + literature E120 = 2,068 unique) to extend B2/B3 kernel ridge. Add Moran's I spatial autocorrelation of GC% on the CLS sphere.
+**Status**: RUNNING (submitted 2026-04-12)
+
+**Design**:
+- N=2,068 unique species (1,489 Israeli + 524 new Quaresma + 55 new literature)
+- B2 (CLS→DNA): γ=10, λ=0.0001; B3 (DNA→CLS): γ=5, λ=10 — same hyperparameters as E266/E269
+- Moran's I at γ∈[0.1,0.5,1,2,5,10,20,50] to find the angular scale of GC% autocorrelation on CLS sphere
+- GC% sphere painting: train B2 on all 2,068 → predict GC% for all species, compare to true GC%
+
+---
+
+## Entry 275 — Color Causal Decomposition: Mantel, Variance Partitioning, Circular ANOVA, MI (2026-04-12)
+**Experiment**: E275 (`exp_E275_color_mantel_varpart.py`, job 13064819)
+**Goal**: Go beyond Pearson r to address causality in color–climate associations. Four analyses:
+
+**(A) Mantel tests on distance matrices**:
+- D_color (Euclidean in z-scored lab_L/a/b/V/S), D_climate (19 BIO, z-scored), D_geo (haversine km), D_family (0/1 same family)
+- Raw Mantel r(D_color, D_climate)
+- Partial Mantel controlling for geography — removes spatial autocorrelation confound
+- Partial Mantel controlling for family — removes phylogenetic non-independence
+- Partial Mantel controlling for both — the cleanest isolation of climate signal
+
+**(B) Variance partitioning (RDA-style)**:
+- Decompose color PC1-3 variance into: unique climate, unique geography, unique family, shared, residual
+- Method: R²(all) − R²(without X) for each predictor block
+
+**(C) Watson-Williams circular ANOVA on hue**:
+- Correct treatment of mean_H (0–360°) using circular statistics
+- E264 used cos(hue) which breaks at 0°/360° boundary
+- Rayleigh test per chorotype + Kruskal-Wallis on cos/sin components
+
+**(D) Mutual information (Kraskov k-NN estimator)**:
+- Nonlinear color–climate dependence: MI(color, BIO) vs shuffled null
+- Key question: are there nonlinear associations missed by Pearson r?
+**Status**: RUNNING (submitted 2026-04-12)
+
