@@ -30120,3 +30120,55 @@ The azimuth sphere encodes flower identity in layers:
 
 4. **The circle geometry is load-bearing**: If the ring were an ellipse (λ₁/λ₂ > 1.5), there would be a preferred azimuth direction confounded with detection (elevation). The circle means elevation and azimuth are provably uncoupled — a hard prerequisite for using FA-FPN as detection score without discriminability bias.
 
+
+---
+
+## Entry 289 — E291: SAM3 FPN Sphere Painting + Keystone Species (2026-04-14)
+**Experiment**: E291 (`exp_E291_sam3_sphere_painting.py`, job 13144851, COMPLETED)
+**Motivation**: E290 ran on BioCLIP visual space. This repeats the identical analyses on SAM3 FPN space (256-dim, 1912 Israeli species, `exp_E71_sam3_fpn_israel/f_SAM3_israel.npz`) to enable direct comparison between the detection backbone and the species-identity backbone.
+
+**Null hypotheses**:
+- A: SAM3 azimuth distances are independent of flower color (r=0)
+- B: No SAM3 species is an articulation point in the azimuth graph
+
+### A. PCA 3D — Azimuth Dimensionality
+| Space | Top 3 PCs | Interpretation |
+|---|---|---|
+| **SAM3 FPN 256-dim** | **41.1%** | More structured — lower-dimensional azimuth space |
+| BioCLIP 1024-dim | 17.9% | More isotropic — genuinely high-dimensional |
+
+SAM3's 256-dim space is geometrically more concentrated: 3 axes explain twice as much variance as in BioCLIP. This reflects that SAM3 was trained on a single detection task (flower vs background) with a much lower-dimensional output space — species identity lives in fewer azimuth dimensions.
+
+### A. Color-Azimuth Mantel (SAM3 vs BioCLIP)
+| Space | N species | r_Mantel | p-value |
+|---|---|---|---|
+| **SAM3 FPN 256-dim** | 1912 | **0.3432** | 0.001 |
+| BioCLIP 1024-dim (E290) | 1681 | 0.3742 | 0.001 |
+
+**Both spaces significantly organize species by color** (both p=0.001). SAM3 is weaker by Δr=0.031. This 8% gap quantifies how much extra color-discriminative structure BioCLIP's species-level pretraining adds beyond what detection training alone produces.
+
+**Key interpretation**: SAM3 acquires substantial color organization (r=0.343) purely as a byproduct of being trained to separate flower pixels from background. BioCLIP's additional r=0.031 comes from its training on species labels across millions of flower images. The dominant signal (r≈0.34) is geometric/visual — it exists in both spaces because color IS the primary thing that separates flowers from backgrounds.
+
+### B. Keystone Species (Articulation Points)
+| Space | N species | N keystone | Fraction | Top keystone |
+|---|---|---|---|---|
+| **SAM3 FPN** | 1912 | **84** | 4.4% | *Allium pseudostamineum* |
+| BioCLIP (E290) | 1681 | 134 | 8.0% | *Asperula arvensis* |
+
+SAM3 has fewer keystone species (4.4% vs 8.0%). The SAM3 azimuth graph has denser local connectivity (threshold_high=51.47° vs BioCLIP 58.47°) — species are more evenly distributed in 256-dim space relative to their NN distances, leaving fewer single-species bridges. BioCLIP has more isolated sub-clusters (visual niches without structural analogs in SAM3).
+
+**Most isolated SAM3 species**: *Haloxylon persicum* (NN dist=59.62°) — a desert tree with inconspicuous flowers, far from any other flower in SAM3 detection space.
+
+**Top 5 SAM3 keystone species**: *Allium pseudostamineum*, *Cistanche laxiflora*, *Acacia salicina*, *Acanthus syriacus*, *Acer obtusifolium*
+
+### Cross-space comparison: What detection training captures vs species training
+
+| Property | SAM3 FPN | BioCLIP | Gap | Driver |
+|---|---|---|---|---|
+| Color Mantel r | 0.343 | 0.374 | 0.031 | BioCLIP species pretraining |
+| PCA top-3 variance | 41.1% | 17.9% | −23pp | BioCLIP's higher dimensionality |
+| Keystone fraction | 4.4% | 8.0% | 3.6pp | BioCLIP has more visual niches |
+| N species | 1912 | 1681 | +231 | Different extraction pipelines |
+
+**Status**: COMPLETED (2026-04-14)
+**Output**: `/scratch200/leardistel/petal_benchmark/results/exp_E291_sam3_sphere_painting/`
