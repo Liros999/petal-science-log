@@ -30369,3 +30369,124 @@ The chain of failure for hard species:
 
 ---
 
+
+## Entry 295 — E93: Azimuth Gap Analysis — FPN Activation Profile + Injection Modes (2026-04-16)
+
+**Question**: Does replacing D_flower injection with eps_hat[s] or delta_W1681[s] improve candidate generation for hard species? Is the FPN cold for hard species?
+
+**Method**: Three injection modes tested on Arisarum, Arum, Ferula, Ricinus + normal controls (Calendula, Ranunculus). conf=0.0 (all candidates visible). FPN spatial profile captured per-species.
+
+### Key Result: FPN is NOT cold for hard species
+
+| Species | frac_above_fa | fa_map_mean | fa_map_p99 | Recall |
+|---|---|---|---|---|
+| Arisarum vulgare | 0.748 | 0.223 | 0.615 | 0.000 |
+| Arum palaestinum | 0.703 | 0.204 | 0.596 | 0.256 |
+| Ferula communis | 0.750 | 0.218 | 0.594 | 0.446 |
+| Ricinus communis | 0.771 | 0.232 | 0.593 | 0.107 |
+| Anemone coronaria (normal) | 0.635 | 0.160 | 0.618 | 1.000 |
+| Calendula arvensis (normal) | 0.712 | 0.211 | 0.622 | 0.940 |
+
+**Hard species have HIGHER frac_above_fa than the normal Anemone control.** 75% of spatial locations score ≥ 0.1. The FPN is fully activated — this is not a cold-FPN problem.
+
+### Injection mode comparison (n_candidates, recall)
+
+| Injection | Arisarum n_cand | Arisarum recall | Calendula n_cand | Calendula recall |
+|---|---|---|---|---|
+| D_flower (prod) | ~200 | 0.000 | ~200 | 1.000 |
+| eps_hat[s] | ~200 | 0.000 | ~200 | 1.000 |
+| delta_W1681[s] | ~200 | 0.000 | ~200 | 1.000 |
+
+SAM3 always generates 200 candidates — candidate count is not the bottleneck. The failure is that **none of the 200 proposals survive FA-FPN scoring** for hard species images. The issue is mask quality (spatial coverage), not candidate quantity.
+
+**Critical geometry**: eps_hat[s] ⊥ D_flower (cos = 0.000000 exactly — orthogonal by construction). delta_W1681 for Arisarum = 97.4° from D_flower (cos = −0.13) — nearly pure azimuth. Normal species: ~87° (cos = +0.04, slightly toward D_flower). Replacing D_flower injection with eps_hat/delta_W1681 erases the flower-detection signal entirely.
+
+**Mechanistic interpretation**: SAM3's segmentation head generates 200 mask proposals via dot-product between 200 learned query vectors q_k ∈ S^255 and pixel features. The 200 queries were trained on radial-petal morphologies. For spathes/umbels/catkins, proposals are generated but the per-mask bounding-box region scores below FA-FPN threshold — the proposals do not overlap the flower structure.
+
+**Output**: `/scratch200/leardistel/petal_benchmark/results/exp_E93_azimuth_gaps/`
+
+---
+
+## Entry 296 — E93b: Combined D_flower + alpha_az × eps_hat Injection Sweep (2026-04-16)
+
+**Question**: What if we maintain the D_flower signal AND add an azimuth tip via eps_hat[s]? Does the combined injection improve FA-FPN pass rate for hard species?
+
+**Design**: `backbone_fpn[-1] += 2.0 × D_flower + alpha_az × eps_hat[s]`; sweep alpha_az = [0, 0.5, 1.0, 2.0, 4.0]. alpha_az=0.0 = production baseline.
+
+**Geometric note**: The injection vector angle from D_flower = arctan(alpha_az / 2.0). At alpha_az=4.0: angle = 63.4° — beyond most species' θ, risking cone corruption. The FA-FPN gate reads pixel features — large alpha_az degrades gate scores even if mask proposals improve.
+
+**Status**: Job 13248143 queued (exclusive GPU, resubmitted after OOM on shared node).
+
+**Output**: `/scratch200/leardistel/petal_benchmark/results/exp_E93b_combined_injection/`
+
+---
+
+## Entry 297 — E94: Query-Side Injection — Dual of FPN Injection (2026-04-16)
+
+**Question**: Can we shift SAM3's learned query library toward eps_hat[s] — the species-specific morphological direction — without touching pixel features (zero cone corruption)?
+
+**Architecture**: `MaskPredictor.mask_embed` MLP output is (batch, 200, 256) — the 200 query embeddings after MLP projection. Hooking this tensor and adding beta × eps_hat[s] shifts all 200 queries toward the species' azimuth direction.
+
+**Formula**: `q_eff[k,s] = q_learned[k] + beta × eps_hat[s]`  for all k=0..199
+
+**Geometric advantage**: FA-FPN gate reads pixel features only — completely unaffected by query injection. The cone cannot be corrupted. This is the dual of FPN injection: instead of pushing what SAM3 sees toward the flower direction, push what SAM3 looks for toward the species' shape signature.
+
+**Design**: beta = [0.0, 0.5, 1.0, 2.0, 4.0]; D_flower FPN injection always active (alpha_elev=2.0). Diagnostic: records cos(q_k, eps_hat[s]) for all 200 queries before/after injection.
+
+**Status**: Job 13248485 queued (exclusive GPU).
+
+**Output**: `/scratch200/leardistel/petal_benchmark/results/exp_E94_query_side_injection/`
+
+---
+
+## Entry 298 — E95a: Multi-Cone Geometry — Spherical K-Means Sweep (2026-04-16)
+
+**Question**: Does the 1,912-species flower cloud on S^255 have natural cluster structure? Can cluster centroids D_morph[c] serve as additional gate/injection directions for atypical morphologies?
+
+**Idea (user-initiated)**: D_flower is the mean over ALL species — a compromise that serves the majority well. The azimuth ring S^255 ∩ {D_flower}^⊥ contains species-specific morphological fingerprints. Partitioning the cloud into K natural neighborhoods via spherical k-means yields K centroids D_morph[c] that are sharper, morphology-specific prototypes. No PCA. No dimension reduction. Centroids live at full 256-dim resolution.
+
+**Method**: Spherical k-means (assignment by max cosine sim, centroids re-normalized to sphere, k-means++ initialization, 3 restarts). K sweep: K = [2, 3, 5, 8, 10, 15, 20, 30].
+
+### K-sweep compactness (elbow analysis)
+
+| K | Compactness | Δ vs K-1 | Hard-species cluster | n_hard |
+|---|---|---|---|---|
+| 2 | 0.9207 | — | c1 | 7/10 |
+| 3 | 0.9280 | +0.0073 | c2 | 6/10 |
+| 5 | 0.9316 | +0.0036 | c1,c2,c3 (split) | 3 each |
+| 8 | 0.9370 | +0.0054 | c0 | 2 |
+| 10 | 0.9370 | +0.0000 | c0 | 2 |
+| 15 | 0.9420 | +0.0050 | c6 | 2 |
+| 20 | 0.9441 | +0.0021 | c11 | 3 |
+
+**Elbow at K=8–10**: compactness gain nearly zero at K=10 vs K=8. Natural structure is ~8 morphological clusters.
+
+### K=5 cluster summary (focus analysis)
+
+| Cluster | n_sp | mean_θ | angle_from_D_flower | mean_recall | n_hard | Hard species |
+|---|---|---|---|---|---|---|
+| c0 | 381 | 22.7° | 12.3° | 0.936 | 1 | Ricinus |
+| c1 | 357 | 26.1° | 14.5° | 0.707 | 3 | Galium, Crithmum, Centranthus |
+| c2 | 297 | 28.8° | 18.3° | 0.704 | 3 | Platanus, Rumex, Atractylis |
+| c3 | 285 | 23.6° | 9.8° | 0.797 | 3 | **Arisarum, Arum, Ferula** |
+| c4 | 592 | 21.1° | 12.3° | 0.974 | 0 | (main "good" cluster) |
+
+**Hard species are scattered across ALL clusters** — no single "hard morphology" cluster exists. Arisarum/Arum/Ferula are in c3 (9.8° from D_flower — nearly identical to D_flower in elevation), while Platanus/Rumex/Atractylis are in c2 (18.3° away).
+
+### Multi-cone gate simulation (centroid-level proxy)
+
+All hard species already pass the single D_flower gate (score ≥ 0.1). Multi-cone marginally increases scores (e.g., Arisarum 0.709 → 0.739) but makes no gating difference. **The gate is not the bottleneck** — confirmed again.
+
+### D_morph[c] angles from D_flower (K=5)
+
+All 5 centroids are within 9.8°–18.3° of D_flower. The cluster structure is in the azimuth plane but all centroids remain close to the elevation axis. There is no cluster radically far from D_flower.
+
+### Interpretation
+
+The scatter of hard species across clusters reveals: **the failures are not a single morphological class — they are individual species whose specific shape signatures fall outside SAM3's training distribution.** Each hard species lives in a different azimuth sector, mixed with normal-recall species that happen to have similar FPN fingerprints but standard flower morphologies.
+
+**Implication for injection**: cluster-specific injection (E95c) may help marginally — injecting D_morph[c3] instead of D_flower for Arisarum/Arum is only 9.8° rotation, whereas D_morph[c2] for Platanus/Rumex is 18.3°. The biggest benefit would come from species-specific injection using eps_hat[s] directly — but this is precisely E93b/E94.
+
+**Output**: `/scratch200/leardistel/petal_benchmark/results/exp_E95a_multi_cone_geometry/`
+
+---
