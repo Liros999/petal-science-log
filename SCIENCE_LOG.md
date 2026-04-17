@@ -31429,3 +31429,89 @@ strengthen beyond simple 5 km grid Jaccard.
 - E127: `petal_benchmark/results/exp_E127_circle_phenology/`
 
 ---
+
+## Entry 322 — E128/E129: vMF at full scale + corrected full-FPN product manifold (2026-04-17)
+
+### E128 — Per-family vMF concentration, full 1,912-species scale
+
+Replaces E125's 85-species pilot with all Israeli species using f_SAM3_israel.npz.
+Covers 26 families with ≥5 species. Computes κ on both S^255 (f_SAM3_n full direction)
+and S^254 (eps_hat, after removing D_flower elevation).
+
+**Top results (sorted by azimuth κ, phenotypic tightness)**:
+
+| Family | N | κ (S^254) |
+|---|---|---|
+| Lythraceae | 7 | 188 |
+| Orchidaceae | 34 | 186 |
+| Rosaceae | 22 | 185 |
+| Malvaceae | 27 | 182 |
+| Euphorbiaceae | 31 | 177 |
+| Papaveraceae | 27 | 158 |
+| Boraginaceae | 56 | 151 |
+| Amaryllidaceae | 53 | 148 |
+| Asteraceae | 235 | 123 |
+| Caryophyllaceae | 88 | 117 |
+| Lamiaceae | 100 | 111 |
+| Ranunculaceae | 37 | 90 |
+| Fabaceae | 257 | 65 |
+| Plantaginaceae | 49 | 65 |
+
+**Range: 2.9× (65 → 188)**. Smaller than E125's preliminary 5× (based on only 3-member samples).
+
+**Correlations**:
+- log(κ) vs log(N): r = -0.514, p = 8e-05 — **larger families are phenotypically more dispersed**
+- log(κ) vs mean elevation θ: r = +0.21, p = 0.14 (n.s.)
+- log(κ) vs mean chroma: r = +0.02, n.s.
+
+### Interpretation
+
+Family phenotypic tightness scales inversely with family size. This is consistent with
+adaptive radiation: large families (Fabaceae 257 sp, Asteraceae 235 sp) diversify into
+many niches; small families (Lythraceae 7 sp, Orchidaceae 34 sp in Israel — though
+globally thousands) stay on a narrow morphological archetype.
+
+### E129 — Full-FPN product manifold (correcting E124's scalar collapse)
+
+E124 used cos_az_easy (1D scalar) for the "cone" component. E129 uses the full S^255
+geodesic: d_S(A, B) = arccos(f_SAM3_n[A] · f_SAM3_n[B]).
+
+**N = 1,875 species with SAM3 FPN + Wormhole + GPS + month**.
+
+Single-component Mantel vs (1 − Jaccard co-occurrence):
+- cone S^255 (FULL):  **r = +0.066** (vs E124 scalar r ≈ 0.003)
+- month S^1:          **r = +0.103**
+- GPS R²:             **r = +0.313**
+- Wormhole W_32:      r = -0.002
+
+Leave-one-out Δr when component removed:
+- Without cone:      +0.006
+- Without month:     +0.014
+- Without GPS:       +0.012
+- Without Wormhole:  -0.011 (Wormhole HURTS when included)
+
+Full product Mantel: r = +0.008. R² = 0.106.
+Regression coefs: GPS +0.019 (dominant), month +0.004, cone +0.004, Wormhole −0.0003.
+
+### Refinement of E124 conclusion
+
+Fixing the scalar-collapse error did NOT unlock ecological signal. Cone contributes
+more (0.066 vs 0.003 scalar) but still dominated by GPS. Product manifold R² stays
+at ~0.10.
+
+**The honest claim**: Israeli species co-occurrence at 5 km grain is almost entirely
+geographic. Phenotypic, color, and phenological distances are largely orthogonal to
+where species grow together.
+
+### Publishable deliverables
+
+1. **E123 species_wormhole_emb.npz** — 2,417 × 32 Wasserstein-isometric color embedding
+   (r=0.996 vs true W_2)
+2. **E128 per-family vMF κ** — first parameter-free phenotypic-tightness measure,
+   significant correlation with family size (r=-0.51 log-log)
+
+### Files
+- E128: `petal_benchmark/results/exp_E128_vmf_full_scale/`
+- E129: `petal_benchmark/results/exp_E129_product_manifold_v2/`
+
+---
