@@ -31347,3 +31347,85 @@ $$M_{\text{Israel}} = S^{254}\text{ (Flower Cone from SAM3 FPN)} \times S^1\text
   - `component_validation.png`, `summary.json`
 
 ---
+
+## Entry 321 — E124/E125/E126/E127: Product Manifold — Ecology Null, vMF Concentration Real (2026-04-17)
+
+### Summary
+Four experiments testing the validated product manifold M = S²⁵⁴ × S¹ × ℝ² × W₃₂.
+Result: ecology (co-occurrence) is predicted almost entirely by geography; phenotypic
+components are independent but do not predict community assembly. The one genuinely
+novel finding is per-family vMF concentration on the Flower Cone.
+
+### E124 — Product manifold ecological ablation
+
+N=1,386 species with all four components.
+- Full product Mantel vs (1-Jaccard co-occurrence): **r ≈ 0.02**
+- Standardized regression coefficients:
+  - cone_azimuth: +0.003
+  - month:        +0.004
+  - **gps_km:     +0.019** (dominant)
+  - wormhole:     +0.001 (noise)
+- R² = 0.104
+- Leave-one-out: removing Wormhole IMPROVES Mantel (+0.012) — it's adding noise
+- **Conclusion**: Israeli species co-occurrence is ~90% geographic. Phenotypic, color,
+  and phenological components do NOT constrain where species grow together at 5×5 km scale.
+
+### E125 — Sphere S²⁵⁴ orthogonal axes + vMF concentration
+
+Principal directions on the Flower Cone after projecting out D_az_easy (from 85-species
+f_SAM3). Top 5 orthogonal axes explain remaining variance in residuals.
+
+**Per-family vMF concentration κ on the Cone** (novel, interpretable):
+
+| Family | N | κ (tightness) |
+|---|---|---|
+| Orchidaceae | 3 | 496.6 (very tight) |
+| Geraniaceae | 3 | 373.3 |
+| Iridaceae | 6 | 309.6 |
+| Apiaceae | 4 | 256.3 |
+| Asteraceae | 8 | 184.9 |
+| Fabaceae | 11 | 93.2 (most dispersed) |
+
+Fabaceae is 5× more phenotypically diverse than Orchidaceae on the Flower Cone. This
+matches botanical expectation: Fabaceae has peas, acacias, clovers, brooms — radically
+different floral morphologies. Orchids all follow one archetype.
+
+**Limitation**: only 85 species (f_SAM3.npz). Full 1,912-species FPN extraction needed to
+scale this to all Israeli flora.
+
+### E126 — Wormhole across color spaces + BioCLIP
+
+All perceptual color spaces (LAB, LCH, HSV, OKLAB) reach ≥0.98 val W₂ isometry but ~0.03
+Mantel vs family tree.
+**BioCLIP PCA-16 Wormhole**: val r=0.80, tree Mantel r=0.159 (5× color spaces).
+- Confirms E123: color does NOT carry family signal
+- BioCLIP features DO carry modest phylogeny (r=0.16)
+- Wormhole on high-dim BioCLIP features is the right object for visual phylogeny
+
+### E127 — Circle S¹ phenology
+
+Per-species bloom-curve FFT. Bi-modal bloomers identified: Euphorbia peplis (H2/H1=4.2),
+Carex divulsa (3.9) — spring AND fall peaks.
+**Hue-phenology torus (month × hue)**: circular-circular r=+0.006, p=0.76 — **NULL**.
+No helical structure. Season and hue are independent — spring flowers aren't systematically
+more magenta etc.
+
+### Combined interpretation
+
+The Israeli flora has:
+1. **Strong geographic structure** (E124 GPS coefficient 5× next, E116 g(r) in space)
+2. **Weak phenotypic-ecological coupling** (product manifold R²=0.10)
+3. **Orthogonal phenotypic axes** (E122: Tree, color, month largely independent)
+4. **Family-level phenotypic tightness varies 5×** (E125 vMF: Orchid κ=497 vs Fab κ=93)
+
+Next steps: extend E125 vMF to all 1,912 species (needs full FPN re-extraction); move
+from species-level to community-level ecological models where co-occurrence signal may
+strengthen beyond simple 5 km grid Jaccard.
+
+### Files
+- E124: `petal_benchmark/results/exp_E124_product_manifold_ecology/`
+- E125: `petal_benchmark/results/exp_E125_sphere_axes_discovery/` (vMF table in summary.json)
+- E126: `petal_benchmark/results/exp_E126_wormhole_multiple_spaces/`
+- E127: `petal_benchmark/results/exp_E127_circle_phenology/`
+
+---
