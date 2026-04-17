@@ -31515,3 +31515,75 @@ where species grow together.
 - E129: `petal_benchmark/results/exp_E129_product_manifold_v2/`
 
 ---
+
+## Entry 323 — E131/E132/E134: Blank spaces + disjoint distributions + online Wormhole (2026-04-17)
+
+### E131 — Blank spaces in the SAM3 FPN Cone
+
+Sampled 10,000 random unit vectors in the θ < 22.7° spherical cap around D_flower on
+S^255. For each random point, measured distance to nearest actual Israeli species.
+
+**Results**:
+- Median random-to-nearest-species distance: 7.15°
+- Species-to-species nearest-neighbor distance: mean 15.4°, median 14.7°, max 42.6°
+- **69% of random cone points are within 10° of some species** — the Cone is fairly well
+  populated, not sparse
+- **But a handful of species are extremely isolated**:
+  - Galium tricornutum (Rubiaceae): 42.6° to its NN Medicago scutellata
+  - Avena sterilis (Poaceae grass): 39.6° to its NN Alcea striata (Malvaceae)
+  - Most isolated: all Poaceae grasses with nearest-neighbor crossing into dicot families
+- Largest Voronoi territories on the Cone: Reichardia tingitana, Capparis sicula,
+  Silene odontopetala — species at θ=13-15°, near the cone boundary
+
+**Interpretation**: the monocot/dicot structure D_az_easy is visible as geometric
+isolation. Poaceae grasses form a distant cluster; their nearest neighbors sit in
+entirely different families because grasses are morphologically outlier-like.
+
+### E132 — Hellinger/Fisher-Rao distance (overlap-based alternatives to W_2)
+
+For each species, binned its Lab color masks into a 20×20×20 grid (8000 bins) and
+computed pairwise:
+  - Hellinger distance (bounded [0, 1], overlap-based)
+  - Fisher-Rao distance (geodesic on probability simplex)
+  - Bhattacharyya coefficient (direct overlap)
+
+**Key finding (striking)**: **69.3% of Israeli flower species pairs have near-disjoint
+color support** (Hellinger > 0.95). Most species occupy non-overlapping regions of Lab
+color space at per-mask resolution.
+
+Cross-metric correlations (1,601 aligned species):
+- Hellinger vs Wormhole W_2:    r = +0.615
+- Fisher-Rao vs Wormhole W_2:   r = +0.624
+- Hellinger vs Fisher-Rao:       r = +0.9995 (both derived from Bhattacharyya coefficient)
+
+**Disagreement examples** (W_2 / Hellinger normalized):
+- "Close geometrically but DISJOINT modes" (W ≈ 0.05, H = 1.0):
+  - Phalaris paradoxa (Poaceae) ↔ Scorzonera alpigena (Asteraceae)
+  - Withania somnifera (Solanaceae) ↔ Zygophyllum album (Zygophyllaceae)
+  - Centroids are nearly coincident, but the underlying distributions don't overlap
+- "Far geometrically but OVERLAPPING modes" are rare (no pair had >1% gap): vivid
+  polymorphic species vs each other
+
+### Biological implications
+
+Centroid-based color comparisons in Israeli flora are **misleading for 69% of species
+pairs**. Two species can have similar mean color but share NO actual mask colors.
+Wasserstein Wormhole (E123) and Hellinger (E132) both correct this; Hellinger is more
+stringent.
+
+This refines the "color is not phylogenetic" null finding (E123, Entry 319):
+- Color distributions are mostly disjoint pairwise (E132 finding)
+- Even with distribution-aware comparison, color does not cluster by family
+- The within-species color variance (E130 entropy) is genuinely large — species are
+  polymorphic, not just species means close
+
+### E134 — Online Wormhole O(1) insertion (GPU, running)
+
+Will validate the claim that Wormhole embeds held-out species via single forward pass
+with faithful distances. Result pending.
+
+### Files
+- E131: `petal_benchmark/results/exp_E131_fpn_blank_spaces/`
+- E132: `petal_benchmark/results/exp_E132_hellinger_fisher/`
+
+---
