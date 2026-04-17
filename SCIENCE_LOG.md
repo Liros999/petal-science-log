@@ -31760,3 +31760,91 @@ at ~3 img/s → ~3-4 hours on one A100. No proxy substitution.
 - E140 (running): `exp_E140_per_mask_fpn/`
 
 ---
+
+## Entry 327 — E144/E145 Continuous climate convergence (correcting E143) (2026-04-17)
+
+### Major correction to E143
+
+The discrete Mediterranean vs Saharo-Arabian chorotype comparison was **confounded with
+pool size**. Continuous climate analysis (E144) shows:
+
+- **Fabaceae**: E143 said p<0.001 desert convergence. E144 slope ρ=+0.55 but 95% CI
+  crosses zero (p=0.15). Signal is marginal when using continuous climate gradient.
+- **Amaryllidaceae**: E143 said p<0.001 desert convergence. E144 **REVERSES** — slope
+  −0.47, p=0.007 (species get MORE disperse with aridity, opposite to E143 claim).
+
+The n=5 SA species in E143 Amaryllidaceae gave spuriously high κ due to small-sample
+bias (R→κ transformation amplifies small sample dispersion). The continuous 53-species
+analysis inverts the finding.
+
+### E144 — Continuous climate-gradient convergence results
+
+Sliding-window κ across aridity quantiles per family (bootstrap 499x, n=2,322 species):
+
+| Family | N_sp | log-slope | 95% CI | ρ (Spearman) | p_linreg | Direction |
+|---|---|---|---|---|---|---|
+| **Brassicaceae** | 95 | **+0.624** | **[+0.33, +0.90]** | **+0.81** | **0.0014** | ↑ MONOTONIC DESERT CONVERGENCE |
+| Lamiaceae | 100 | +0.457 | [+0.20, +1.06] | +0.67 | 0.061 | ↑ marginal |
+| Fabaceae | 254 | +0.299 | [-0.09, +0.88] | +0.55 | 0.15 | ~ weak (vs E143 p<0.001) |
+| Asteraceae | 232 | +0.104 | [-0.24, +0.42] | +0.41 | 0.42 | ~ flat (CONFIRMS E143) |
+| **Amaryllidaceae** | 53 | **-0.470** | **[-0.91, -0.31]** | **-0.91** | **0.0068** | ↓ REVERSE of E143 |
+| Plantaginaceae | 48 | -0.783 | [-1.49, +0.04] | -0.67 | 0.05 | ↓ marginal |
+
+### Corrected finding
+
+**Brassicaceae is the only family that shows robust monotonic phenotypic convergence with
+aridity** (p=0.0014, CI excludes 0). Desert mustards converge on a tighter morphological
+archetype than Mediterranean mustards.
+
+**Fabaceae shows the SAME DIRECTIONAL SIGNAL** (ρ=+0.55) but with wider CI — needs more
+species to reach significance.
+
+**Amaryllidaceae REVERSES** — continuous analysis disconfirms E143's "desert convergence"
+claim. Aridity actually disperses Amaryllidaceae, not concentrates.
+
+### E145 — Spatial κ-field over Israel
+
+N=534 cells on 5x5 km grid. Moran's I = +0.063, p<0.001 — κ-field IS spatially
+autocorrelated.
+
+Correlations with climate/space:
+- κ vs **n_species**: ρ = -0.85 (DOMINANT — pool size effect)
+- κ vs BIO12 prec: ρ = -0.26, p = 2e-6 (drier cells slightly tighter)
+- κ vs latitude: ρ = -0.20 (southern cells tighter)
+- κ vs BIO1 temp: ρ = +0.08 (marginal)
+
+**The spatial κ-field exists but is dominated by pool size.** After controlling for
+species count, climate residual is weak (BIO12 r=-0.26).
+
+### Interpretation — honest revision
+
+The "Israeli flora shows climate-driven phenotypic convergence" story from E143 is
+**partly overclaimed**. The continuous gradient analysis retains only one robust
+example (Brassicaceae). The chorotype-based statistic confounded filter strength
+with pool size.
+
+### What to do going forward
+
+- Report E144 as the definitive climate-convergence test
+- **Brassicaceae** is the publishable clean result (p=0.0014, CI excludes 0, monotonic)
+- Per-species analyses controlling for pool size are required before claiming filter
+  strength
+- Extend to global iNaturalist (400K species) — more species per family per climate
+  bin would resolve current low-statistical-power cases (Fabaceae marginal)
+
+### E142 — Covariance-pooled Wormhole underperforms
+
+Mean+Std baseline: val r=0.83
+Mean+Std+Covariance (richer): val r=0.49 (WORSE)
+
+Reason: 592-dim pool input to ρ is too many parameters for only 2000 training pairs × 30
+epochs. Network overparameterized. Need either (a) much more training, (b) a bottleneck
+before covariance flattening, or (c) Set Transformer architecture. Mean+Std remains the
+practical best for this data volume.
+
+### Files
+- E144: `exp_E144_continuous_climate_convergence/`
+- E145: `exp_E145_spatial_kappa_field/`
+- E142: `exp_E142_wormhole_covariance_pool/`
+
+---
