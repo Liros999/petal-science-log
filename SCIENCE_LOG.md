@@ -31691,3 +31691,72 @@ Family × chorotype vMF concentration:
 - E139: `exp_E139_per_chorotype_kappa/`
 
 ---
+
+## Entry 326 — E123 revisit + E143 Phenotypic Convergence Index (2026-04-17)
+
+### E123 revisit — full fidelity metrics
+
+On 2,000 held-out pairs with true W_2 computed via POT:
+- **Pearson r = 0.9896**
+- **Spearman ρ = 0.9881** (rank correlation)
+- **CCC (Lin 1989) = 0.9888** (penalizes location/scale mismatch)
+- **Relative RMSE = 6.24%** — Wormhole Euclidean tracks W_2 to within ~6% on average
+- **Slope through origin: 0.9945** (near-perfect; 1.0 = ideal)
+- Bland-Altman: mean diff = -0.39, 95% LoA [-5.03, +4.26]
+
+Wormhole is confirmed not just correlated with W_2 but truly approximating it.
+
+### E143 — Formalized Phenotypic Convergence Index C(f)
+
+Definition: C(f) = κ(f, Saharo-Arabian) / κ(f, Mediterranean) on S^254 azimuth directions.
+
+Bootstrap test on log C (999 resamples, species-level):
+
+**Significant desert convergence (p < 0.001, log C CI excludes 0):**
+
+| Family | n_Med | n_SA | κ_Med | κ_SA | C | log C CI | p |
+|---|---|---|---|---|---|---|---|
+| Fabaceae | 135 | 17 | 63.6 | 149.8 | 2.36 | [+0.55, +1.37] | <0.001 *** |
+| Amaryllidaceae | 20 | 5 | 138.7 | 311.5 | 2.25 | [+0.37, +1.91] | <0.001 *** |
+
+**Not significant (climate-neutral):**
+
+| Family | C | p |
+|---|---|---|
+| Boraginaceae | 1.35 | 0.15 |
+| Plantaginaceae | 1.11 | 0.30 |
+| Asteraceae | 1.00 | 0.73 |
+| Caryophyllaceae | 0.88 | 0.68 |
+| Brassicaceae | 0.70 | 0.24 |
+
+**Asymmetry**: no family shows significant Mediterranean-driven convergence.
+The desert filter is one-directional — aridity selects toward morphological convergence,
+Mediterranean environment does not impose equivalent stringency.
+
+### Why this is novel
+
+Formalizes the Fabaceae observation from E139 into a principled quantitative scale:
+- Parameter-free (no hand-chosen traits)
+- Continuous scalar C(f) per family, comparable across all families
+- Bootstrap-validated with clear H_0: C = 1
+- Scalable to global iNaturalist
+
+**Publishable framing**: "Family-level phenotypic convergence under aridity stress in
+Israeli flora, measured via von Mises-Fisher concentration ratios on SAM3 FPN S^254."
+
+Fabaceae and Amaryllidaceae show strong desert convergence (>2×), matching botanical
+expectation: desert legumes (Astragalus, Alhagi, Prosopis, Acacia) converge on
+water-conserving xerophyte architecture; Mediterranean legumes (Trifolium, Medicago,
+Vicia) span a morphologically broader gallery.
+
+### E140 per-mask FPN extraction — RUNNING (4h budget)
+
+Extracting real per-mask FPN vectors for Wormhole E142. SAM3 forward pass on ~38K masks
+at ~3 img/s → ~3-4 hours on one A100. No proxy substitution.
+
+### Files
+- E123 revisit: `exp_E123_revisit_metrics/`
+- E143: `exp_E143_convergence_index/`
+- E140 (running): `exp_E140_per_mask_fpn/`
+
+---
