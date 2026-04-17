@@ -31282,3 +31282,68 @@ Output: `/groups/itay_mayrose_nosnap/leardistel/[App]Manual_Validator/data/produ
 - NOT destructive to citadel.db or existing nextgen_mask_db.db
 
 ---
+
+## Entry 319 — E123 Wasserstein Wormhole: W₂ isometry succeeds, phylogenetic signal null (2026-04-17)
+
+### Result — headline
+**Val Euclid↔W₂ Pearson r = 0.9958** — near-perfect W₂ isometry in a 32-dim Euclidean embedding.
+**Wormhole gain over centroid fidelity to W₂: +0.0125** (0.9954 vs 0.9829).
+**Phylogenetic signal null**: Wormhole↔tree r=0.0317, centroid↔tree r=0.0275.
+
+### Method
+Deep Sets set-encoder (mean+std pooling, 128 → 32 hidden) trained with MSE loss:
+$$\mathcal{L} = \mathbb{E}_{(\mu_A, \mu_B)} \left[ (\|\Phi(\mu_A) - \Phi(\mu_B)\|_2 - W_2(\mu_A, \mu_B))^2 \right]$$
+where Φ maps species mask point clouds (in centered Lab a*/b*/L* space, max 64 pts/cloud) to ℝ³².
+- 40 epochs, 3,000 training pairs per epoch, exact W₂ via POT library
+- N=2,417 species from israel_species.db
+- Training on GPU (compute-0-297), ~15 min
+
+### Findings
+1. **W₂ isometry nearly perfect** — Wormhole embedding distances reproduce true W₂ between held-out species pairs at r=0.996. This is a deployable drop-in replacement for O(n² OT) distance computation.
+2. **Wormhole beats centroid for W₂ fidelity** — marginal gain (+0.0125) because in Lab space most species are weakly multimodal. For the few polymorphic species (Anemone, Iris), W₂ differs substantially from centroid distance.
+3. **Color is NOT phylogenetic at Israeli flora scale** — Mantel r<0.035 for both centroid and Wormhole distances vs family tree. Converting centroids to full distributions does NOT unlock hidden phylogeny.
+
+### Scientific interpretation
+Refines E108: the r=+0.32 correlation between cos_az_easy and hue is a **direction correlation** (one SAM3 axis projects onto one color axis), not a community or phylogenetic signal. Color structure at Israeli flora scale is individual-level, not tree-level. This is consistent with Entry 129 ("the phenotypic manifold is flat, not hierarchical"): color in particular does not carry family-level structure.
+
+### Use going forward
+- `species_wormhole_emb.npz` (2,417 × 32) is a deployable W₂-isometric embedding. Use it any time per-species color distance matters, not centroids.
+- Refinement: for species-by-species queries (e.g., "which species has most similar color distribution to Anemone coronaria?"), use Wormhole Euclidean distance. For community-level or phylogenetic questions, color is NOT the right feature.
+
+### Files
+- Script: `petal_benchmark/experiments/exp_E123_wasserstein_wormhole.py`
+- Output: `petal_benchmark/results/exp_E123_wasserstein_wormhole/`
+  - `species_wormhole_emb.npz` (N=2417, d=32, families included)
+  - `wormhole_validation.png`, `summary.json`
+
+---
+
+## Entry 320 — E122 Product Manifold Validation: hyperbolic ruled out (confirming Entry 331) (2026-04-17)
+
+### Context
+Entry 331 (2026-04-07) ruled out hyperbolic geometry for ITS2 diffusion graph (dense k-NN with k=5660 neighbors, not a tree). Entry 129 established that the phenotypic manifold is flat, not hierarchical. E122 tests whether we can rescue hyperbolic for just the **label hierarchy** (family⊂genus⊂species), using it only as a COMPONENT of a product manifold M = H^k × S^m × S^1 × ℝ^2.
+
+### Test: H² Poincaré fit to family/genus/species tree
+N=2,417 Israeli species embedded into 2D Poincaré disk via Riemannian Adam (geoopt), 500 epochs, stress loss against a simple tree distance matrix with values {0 (same species), 1 (same genus), 2 (same family), 4 (different family)}.
+
+### Result
+- **Final stress loss: 1.80** (high — the H² embedding cannot fit 3 discrete distance levels smoothly)
+- **Mantel r = 0.08** between H² fitted distances and target tree distances (p=0.001)
+
+### Why
+The Israeli family tree has only **3 non-trivial depth levels** (family → genus → species, ~85 families, ~570 genera, 2,417 species). Only 3 distance values exist. Hyperbolic geometry's exponential volume growth excels for trees with MANY levels (e.g., full tree of life with ~20 taxonomic levels). A 3-level tree cannot be continuously embedded into H² with high fidelity: the metric space collapses to essentially a discrete 4-value structure.
+
+**This is the same failure mode as Entry 331 E107**, confirmed on a different data source (labels instead of features).
+
+### Implication — final geometry for Israeli flora
+$$M_{\text{Israel}} = S^{254}\text{ (Flower Cone from SAM3 FPN)} \times S^1\text{ (phenology)} \times \mathbb{R}^2\text{ (GPS)} \times \mathcal{W}_{32}\text{ (Wormhole color distributions)}$$
+
+**NO hyperbolic component.** If we later extend to the global iNaturalist dataset (400K species across a deeper taxonomic tree), hyperbolic may become appropriate. For Israeli flora (2,417 species, 3 taxonomic levels), it is ruled out.
+
+### Files
+- Script: `petal_benchmark/experiments/exp_E122_product_manifold_validation.py`
+- Output: `petal_benchmark/results/exp_E122_product_manifold_validation/`
+  - `poincare_embedding.npz` (the H² fit, for archival)
+  - `component_validation.png`, `summary.json`
+
+---
