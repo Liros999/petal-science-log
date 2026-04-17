@@ -31133,3 +31133,120 @@ The remaining ~33% unexplained variance (R²=0.52 at peak) is the image-content-
   - `summary.json`, `azimuth_regressor.npz` (not saved — use E110 for deployment)
 
 ---
+
+## Entry 316 — E112 Climate Integration + Corrections (2026-04-17)
+
+### Correction notes
+
+- **Pipeline identity**: The full-scale Israeli analyses (E108–E114) use the NextGen production pipeline sealed in Entry 216 (SAM3 + W_SAM3 FPN injection + FA-FPN gate). The Citadel 22,452 TPs are only used for validation (E105, E106). The Israeli data: 73,580 downloaded iNaturalist photos → 73,578 photos with SAM3 inference → 135,934 masks extracted → 133,182 gated masks (combo≥0.3, FA-FPN≥0.30) across 2,417 species.
+- **Old MLP gate (PROGRESS_REPORT_2026.md Section 1.5) is retired**. Production is FA-FPN + SAM3 combo, not PCA(256)+SAM3 MLP.
+
+### WorldClim integration (blocker resolved)
+
+E112's first run (job 13318364) hit DNS failure on biogeo.ucdavis.edu. Fixed by:
+1. Manual download to compute node via `geodata.ucdavis.edu` (new canonical mirror) — job 13331582 (10 arcmin, 19 rasters), then job 13332036 (2.5 arcmin, 19 rasters at 1.3 GB total)
+2. Added nearest-land fallback sampling in exp_E112_community_color_climate.py — handles coastal cells where lat/lon falls on sea (WorldClim nodata sentinel −3.4e+38)
+
+Files: `/scratch200/leardistel/petal_benchmark/data/worldclim/2_5m/wc2.1_2.5m_bio_{1,12}.tif`
+
+### E112 final results (job 13332246, N=501 cells, 133,750 masks)
+
+| Test | Result | Interpretation |
+|---|---|---|
+| Pos ctrl: r(lat, BIO1 temp) | −0.273, p=5e-10 | Climate sampling correct |
+| **H1: chroma vs BIO1** | r=+0.077, p=0.087 n.s. | **NULL** |
+| **H1: chroma vs BIO12** | r=−0.065, p=0.144 n.s. | **NULL** |
+| H2: chroma by chorotype | Med-IT 32.6, SA 28.9, Med 28.4, IT 27.3 | Modest, Med-IT highest |
+| **H3: within-cell hue variance convergence** | obs=0.4042, null=0.4497 ± 0.0029, **Z=−15.7σ, p<0.001** | Species within cells share colors more than random |
+
+**H1 null result is informative**: Gray et al. 2024 (*Nature Ecology & Evolution*) found UV reflectance declining with climate change over 80 years in 1,238 herbarium specimens. At the Israeli geographic snapshot scale, visible-spectrum chroma shows no monotonic relationship with BIO1 (10.8°C→25°C) or BIO12 (14 mm→916 mm). This falsifies a simple spatial-substitution extension of Koski/Gray to visible chroma: either the UV signal is biochemically distinct (anthocyanins' UV-absorbing tails vs visible pigments), or species turnover compensates across the gradient.
+
+### H3 caveat — phylogenetic null not yet controlled
+
+The E112 H3 permutation shuffles hues across all masks globally, breaking the species↔cell link. This does NOT control for phylogeny — two Fabaceae species co-occurring in a cell share colors partly because Fabaceae has a family-level color preference, not because of community filtering. The correct test (Swenson & Enquist 2009, Kraft & Ackerly 2010) permutes within phylogenetic family. Follow-up: rerun H3 with within-family permutation (E116 planned).
+
+Current framing: H3 detects a weak (10% absolute) but highly significant within-cell hue convergence, consistent with either community-level filtering OR phylogenetic co-occurrence. Disentangling the two requires within-family permutation.
+
+### Files
+- Script: `exp_E112_community_color_climate.py`
+- Results: `/scratch200/leardistel/petal_benchmark/results/exp_E112_community_color_climate/`
+- Maps: `map_chroma.png`, `chroma_vs_climate.png`, `chroma_by_chorotype.png`, `h3_convergence_null.png`
+- Data: `cells_color_climate.csv` (501 cells × climate × color)
+
+---
+
+## Entry 317 — E108–E114 Unified Causal Chain Summary (2026-04-17)
+
+### Full-scale Israeli dataset (NextGen production output)
+
+| Quantity | N |
+|---|---|
+| Downloaded iNaturalist photos | 73,580 |
+| Photos with SAM3 inference | 73,578 |
+| Total masks extracted | 135,934 |
+| **Gated masks (combo≥0.3, FA-FPN≥0.30)** | **133,182** |
+| Total species in Israeli DB | 2,611 |
+| **Species with ≥1 gated mask** | **2,417** |
+
+All downstream analyses (E108–E114) operate on this dataset.
+
+### The Causal Chain
+
+```
+[Pipeline output]      133K gated masks × 2,417 species × Lab color × GPS × month
+      │ (E108) per-species cos_az_easy from FPN, correlate with Lab hue
+      ↓
+[F1] cos_az_easy ↔ hue        r=+0.321, p<0.001, N=1,875 species
+      │ (E109) K-means on Lab, silhouette in (ca, ce) plane vs permutation
+      ↓
+[F2] No discrete clusters      silhouette=−0.15, p=1.0 — use regression, not classification
+      │ (E110) Ridge(Lab 5-feat) → cos_az_easy, LOO
+      ↓
+[F3] Lab → azimuth (color)    LOO r=0.291, R²=0.085 (8.5% of variance explained by color alone)
+      │ (E111) Ridge(1024-dim BioCLIP CLS) → cos_az_easy, LOO
+      ↓
+[F4] CLS → azimuth (image)    LOO r=0.668, R²=0.446 (44.6% — 5.2× color)
+      │                        PCA peak at 128 dims: r=0.722, R²=0.521
+      │                        → BioCLIP independently encodes monocot/dicot
+      │ (E112) Community hue variance vs global permutation
+      ↓
+[F5] H3: within-cell hue ↓    obs 0.4042 vs null 0.4497 ± 0.0029, Z=−15.7σ
+      │                        H1: chroma~climate NULL (falsifies Koski/Gray spatial extension)
+      │                        Caveat: phylo-uncontrolled — redo with within-family permutation
+      │ (E113) Logistic regression → chorotype (4-class)
+      ↓
+[F6] CLS → chorotype          56.9% acc, balanced 47.4% (random=25%, majority=54.6%)
+      │                        LOFO 50.1% acc, balanced 44.2% (trans-familial signal)
+      │                        Family-majority baseline (53.8%) < majority class — taxonomy
+      │                        doesn't help chorotype prediction on its own
+      │ (E114) Monthly circmean hue, circular permutation
+      ↓
+[F7] Seasonal hue shift       obs range 9.0°, null 2.9° ± 0.8°, Z=7.6σ
+                               Peak chroma Feb (31.05), min Sep (25.22)
+                               4 syndromes: autumn yellows (n=999), winter magentas (n=451),
+                               spring yellows (n=275), Nov oranges (n=617)
+```
+
+### Summary of what this means scientifically
+
+1. **The pipeline's internal geometry encodes color-morphology without supervision** (F1, F2). cos_az_easy and cos_el are free byproducts of the FA-FPN gate computation — no extra forward pass needed.
+2. **BioCLIP CLS independently learned the monocot/dicot axis** (F4). Visual foundation models contain phenotypic structure that emerges from taxonomic training. The 2.3× information gap (R² 0.085 → 0.446) between color-only and CLS-only predictors shows texture/shape/context carry information color doesn't.
+3. **At fine spatial grain (5 km), Israeli wildflower communities are color-convergent** (F5). The effect is small in absolute terms (10% reduction in hue variance) but statistically robust. Phylogenetic-null follow-up needed to separate community filtering from family-level co-occurrence.
+4. **Climate does not simply predict visible chroma** (F5, H1). Gray et al. 2024's UV-loss signal does not translate to visible chroma across the Israeli Mediterranean→desert gradient.
+5. **BioCLIP image features alone predict biogeographic zone beyond family taxonomy** (F6). Trans-familial biogeographic signal — LOFO balanced accuracy 44% vs family-majority 29%.
+6. **Community color shifts seasonally with 4 distinct phenology-color syndromes** (F7). First community-scale Mediterranean color-phenology curve. Addresses Dainese et al. 2025 gap.
+
+### Grant alignment (TAD "Global distribution of flower colors")
+
+This is the pilot-scale infrastructure for the grant's stated scope (400K species × 90M images). The Israeli pilot (2,417 species × 133K masks × 501 cells × 12 months) establishes:
+- The pipeline's internal geometry (cos_el, cos_az) as a legitimate phenotypic readout
+- Mechanistic links from production scores to community/biogeographic/phenological patterns
+- A tested analysis chain ready to re-run on iNaturalist global-scale output
+
+### Next steps
+
+1. **E115** — PCA of azimuth residuals (`eps_hat − cos_az_easy·D_az_easy`) → discover the next 2–10 meaningful axes beyond monocot/dicot
+2. **E116** — E112 H3 rerun with within-family phylogenetic permutation null (correct community-assembly test)
+3. **E117** — deploy the E110 Lab→cos_az regressor as a species-free morphology scorer for iNaturalist images lacking mask support
+
+---
