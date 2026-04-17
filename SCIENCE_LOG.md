@@ -31613,3 +31613,81 @@ gallery can grow indefinitely without marginal cost.
 - `online_wormhole_validation.png`
 
 ---
+
+## Entry 325 — E135/E136/E137/E138/E139: Wormhole on FPN + vMF classifier + family tree + polymorphic species + chorotype κ (2026-04-17)
+
+### E135 — Wormhole on FPN morphology (BioCLIP CLS PCA-32 proxy)
+
+- Val W_2 r = 0.7707 (vs 0.9958 for color; morphology higher-dim is harder)
+- Mantel FPN Wormhole vs family tree: r = 0.235 (5× stronger phylogeny signal than color)
+- FPN Wormhole vs Color Wormhole cross-correlation: r = 0.30 — orthogonal axes
+
+### E136 — vMF zero-shot family classifier
+
+LOSO vMF log-likelihood classification on 26 major families (N ≈ 1,100 species).
+- Small tight families identify well (Resedaceae: top-1 0.55, top-3 1.00)
+- Large diverse families classify poorly (Fabaceae, Asteraceae, Lamiaceae: top-1 ~ 0)
+- vMF κ of family ↔ classification accuracy: positive correlation
+- Overall vMF classifier is weak — the phenotypic sphere doesn't cleanly separate most families because most are phenotypically overlapping
+
+### E137 — Cross-family phenotypic phylogeny (26 families)
+
+Hierarchical clustering on 26×26 Bhattacharyya-like distance matrix on S^254.
+**Closest family pairs** (phenotypically similar):
+- Cyperaceae ↔ Juncaceae (0.618) — both grass-like monocots, real sister families
+- Polygonaceae ↔ Tamaricaceae (0.594)
+- Cistaceae ↔ Scrophulariaceae (0.614)
+- Primulaceae ↔ Geraniaceae (0.622)
+
+**Farthest family pairs**:
+- Apiaceae ↔ Solanaceae/Papaveraceae/Onagraceae (≥ 2.43) — Apiaceae umbels are phenotypically unique
+- Poaceae ↔ Primulaceae (2.40) — monocot grasses vs dicot small-flower
+- Resedaceae forms a distinctive cluster (many pairs > 2.4)
+
+### E138 — Polymorphic species from Wormhole-centroid disagreement
+
+Top candidates are GRASSES, not ornamental dicots (surprise):
+- Hordeum spontaneum (wild barley): disagreement +1.39, KDE modes=4
+- Festuca incurva, Arrhenatherum palaestinum, Taraxacum officinale
+- Erodium gruinum (KDE modes=3)
+- Scrophularia hierochuntina (KDE modes=6)
+
+Correlation (disagreement, KDE modes) = +0.25, p=1.6e-24.
+
+Hypothesis: grass flowers have HIGH within-species Lab variance because grass
+inflorescences have many sub-flowers at different maturation stages in one photo —
+color averaging fails here. Ornamental species (Anemone) have tighter per-photo color.
+
+### E139 — Per-chorotype κ: Fabaceae climate convergence (SIGNIFICANT)
+
+Family × chorotype vMF concentration:
+
+| Family | Mediterranean κ | Saharo-Arabian κ | p_boot |
+|---|---|---|---|
+| **Fabaceae** | **64** | **150** | **0.015** ← SIGNIFICANT |
+| Amaryllidaceae | 139 | 312 | 0.110 |
+| Boraginaceae | 184 | 247 | 0.320 |
+| Brassicaceae | 241 | 169 | 0.300 |
+| Asteraceae | 146 | 146 | 0.990 |
+| Plantaginaceae | 85 | 94 | 0.950 |
+| Caryophyllaceae | 154 | 136 | 0.775 |
+
+**Saharo-Arabian legumes are phenotypically 2.3× tighter than Mediterranean legumes** (p=0.015). Desert selection pressures (aridity, drought) force morphological convergence in Fabaceae. Other families show no significant chorotype-driven convergence, or the opposite direction (Brassicaceae).
+
+### Publishable story consolidated
+
+1. E123 Wormhole color: W_2 isometry r=0.996, O(1) online insertion
+2. E128 vMF κ per family: novel phenotypic-tightness metric, log(κ) ~ -log(N)
+3. E131 Cone blank spaces: Poaceae grasses are geometric outliers, monocot/dicot visible as isolation
+4. E132 Hellinger: 69% of species pairs color-disjoint
+5. E135 FPN Wormhole: 5× more phylogeny than color
+6. **E139 Fabaceae climate convergence**: desert legumes tighter than Mediterranean (p=0.015) — new ecological finding
+
+### Files
+- E135: `exp_E135_wormhole_fpn/`
+- E136: `exp_E136_vmf_classifier/`
+- E137: `exp_E137_family_phylogeny/`
+- E138: `exp_E138_polymorphic_species/`
+- E139: `exp_E139_per_chorotype_kappa/`
+
+---
