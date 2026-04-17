@@ -31250,3 +31250,35 @@ This is the pilot-scale infrastructure for the grant's stated scope (400K specie
 3. **E117** — deploy the E110 Lab→cos_az regressor as a species-free morphology scorer for iNaturalist images lacking mask support
 
 ---
+
+## Entry 318 — E115–E121 Multi-domain Color Analysis Program (2026-04-17)
+
+### E115: cos_az_easy × chorotype × climate — completed
+- 4-chorotype ANOVA: F=5.35, p=0.001, Permutation p=0.034
+- **Pairwise effect sizes are small**: Mediterranean vs IT Cohen's d=0.16 (small); other pairs d<0.03
+- Cell-level: cos_az_easy vs BIO1 temp r=−0.125, p=0.005 — monocot-like species weakly over-represented in warmer cells
+- cos_az_easy vs BIO12 precipitation r=+0.002, n.s. — no precipitation gradient
+- **Interpretation**: monocot/dicot axis is WEAKLY sorted by biogeography. The TAD grant can report: there IS a detectable sorting but effect sizes are small — chorotype explains ~2% of cos_az_easy variance
+
+### E116: Pair correlation g(r) — **OVERRIDES E112 H3 claim**
+- g_all(r) peaks at 1.06 at 0–0.5 km, oscillates near 1.00 elsewhere
+- **g_xfam(r) (cross-family, phylogenetically controlled) hovers at 1.00 at all scales**
+- The apparent community-color convergence in E112 H3 was **phylogenetic co-occurrence**, not community filtering
+- This is the correct scientific conclusion. E112 H3's 10% convergence effect is driven by families sharing cells, not ecological filtering.
+
+### E117: Wright F_ST + Moran's I (running, job 13337303)
+### E118: Chao 1984 color rarefaction (running, job 13337304)
+### E119: MVT patch residence map (running, job 13337305)
+### E120: Validator NextGen MaskDB v2 loader (running, job 13337744)
+### E121: Within-image color variance (running, job 13337799)
+
+### Loader plan (E120)
+Output: `/groups/itay_mayrose_nosnap/leardistel/[App]Manual_Validator/data/production_masks_v2.db`
+- Schema matches existing `nextgen_mask_db.db`
+- Loaded from `nextgen_israel_run/{taxon_id}/{photo_id}.json` polygons + `israel_species.db` gated mask rows
+- Source_folder tag: `nextgen_production_v2`
+- **Purple outline (180, 0, 255) is server-side default — no code change needed**
+- Activation: user stops server job 13189522, sets `CITADEL_MASKDB_PATH=.../production_masks_v2.db`, restarts
+- NOT destructive to citadel.db or existing nextgen_mask_db.db
+
+---
