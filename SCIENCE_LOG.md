@@ -31848,3 +31848,77 @@ practical best for this data volume.
 - E142: `exp_E142_wormhole_covariance_pool/`
 
 ---
+
+## Entry 328 — E146: Real FPN Wormhole (2026-04-18)
+
+### Results
+
+Input: 21,874 real per-mask SAM3 FPN vectors × 1,681 species (from E140 extraction, NO BioCLIP proxy).
+
+**Wormhole W_2 isometry fidelity**:
+
+| Regime | Val r | Best epoch |
+|---|---|---|
+| Full 256-dim FPN | 0.6769 | 105 |
+| **PCA-32 FPN** | **0.7640** | 120 |
+| (E135 BioCLIP proxy for reference) | 0.77 | 25 |
+| (E123 Lab color for reference) | 0.996 | 40 |
+
+**SURPRISE 1**: PCA-32 beats full 256-dim (+0.09). Dimensionality reduction helps —
+the full 256-dim has noise directions that degrade Wormhole's isometric training.
+
+**Mantel correlations** (1,681 species):
+
+| Comparison | Full-256 r | PCA-32 r | Reference |
+|---|---|---|---|
+| vs family tree | 0.0596 | 0.0573 | E135 BioCLIP proxy: 0.235 |
+| vs cos_az_easy (E99a) | 0.3744 | 0.3645 | — |
+| vs Lab Wormhole (E123) | 0.1278 | 0.2211 | — |
+
+### SURPRISE 2 (the important one)
+
+**Real SAM3 FPN carries LESS phylogenetic signal than BioCLIP CLS** (0.06 vs 0.235).
+Directly inverts the E135 interpretation.
+
+Why: BioCLIP is trained with taxonomic supervision (species labels via contrastive text).
+Its features are shaped to cluster taxonomy. SAM3 FPN is trained for SEGMENTATION, not
+taxonomy. Its internal axes reflect visual morphology without family-tree awareness.
+
+### Consistency with Entry 129
+
+Entry 129 (2026-03-07) said "the phenotypic manifold is FLAT, not hierarchical." E146
+confirms this at the production-pipeline level: SAM3 FPN does NOT encode phylogenetic
+hierarchy because it wasn't supervised to. Phylogeny only emerges in BioCLIP-derived
+features because BioCLIP was taxonomically supervised.
+
+### cos_az_easy correlation (r=0.37) is near-tautological but informative
+
+cos_az_easy lives WITHIN the Flower Cone (S^255 in FPN) by construction, so FPN Wormhole
+preserves within-cone geometry by design. The 0.37 correlation confirms the Wormhole
+isn't memorizing noise — it recovers the production pipeline's internal monocot/dicot
+axis.
+
+### Publishable story consolidated (updated)
+
+Three Wormhole embeddings now exist:
+
+| Artifact | Source | W_2 fidelity | Phylogeny Mantel | Notes |
+|---|---|---|---|---|
+| E123 Lab color | Per-mask Lab | r=0.996 | 0.032 | Deploy-ready, O(1) online |
+| E146 FPN (PCA-32) | Per-mask SAM3 FPN | r=0.764 | 0.057 | Production pipeline native |
+| E135 BioCLIP proxy | BioCLIP CLS PCA-32 | r=0.77 | 0.235 | Taxonomic supervision leaks through |
+
+**The production pipeline (SAM3 FPN) provides an unsupervised morphology space**
+free of phylogenetic bias. For the TAD grant: this matters — our 400K-species
+global morphology atlas will be driven by visual structure, not Linnaean prior.
+
+### Deliverables
+
+- `species_fpn_wormhole_emb_REAL.npz` (1,681 × 32 from PCA-32, 1,681 × 32 from Full-256)
+- Paired with `species_wormhole_emb.npz` (E123) for cross-modal queries
+
+### Files
+- Script: `petal_benchmark/experiments/exp_E146_fpn_wormhole_real.py`
+- Results: `petal_benchmark/results/exp_E146_fpn_wormhole_real/`
+
+---
