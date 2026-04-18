@@ -32027,3 +32027,132 @@ reviewing the discrete classifier thresholds.
 - E147-E153: `petal_benchmark/results/exp_E14{7,8,9}_*/`, `exp_E15{0,1,2,3}_*/`
 
 ---
+
+## Entry 330 — E155-E158 + E157c: Geodesics and graph theory on S^255 (2026-04-18)
+
+### E155 — Phylo-density along great-circle geodesics
+
+For each species pair, compute the great-circle geodesic γ(t) on S^255 (the Flower
+Cone in SAM3 FPN space), and at waypoints t ∈ {0, 0.25, 0.5, 0.75, 1}, report the
+k=10 nearest species' family distribution.
+
+**The trajectories are taxonomically interpretable**:
+
+**Anemone coronaria (Ranunculaceae) ↔ Bromus alopecuros (Poaceae), θ=56°**:
+- t=0.00 → Geraniaceae (3/10), Ranunculaceae (2/10)
+- t=0.25 → Papaveraceae (5/10)
+- t=0.50 → **Fabaceae (3/10)** — Fabaceae is the phenotypic bridge
+- t=0.75 → Fabaceae + Asteraceae tied
+- t=1.00 → Asteraceae (not Poaceae!) — grass is so outlier that its k-NN are dicots
+
+**Cyclamen persicum (Primulaceae) ↔ Ranunculus asiaticus (Ranunculaceae), θ=31.5°**:
+- t=0.00 → Fabaceae (5/10)
+- t=0.25 → Fabaceae (7/10)
+- t=0.50 → Fabaceae + Geraniaceae tied (3/10)
+- t=0.75 → Ranunculaceae (3/10)
+- t=1.00 → Ranunculaceae (5/10)
+
+**Finding**: Fabaceae occupies a central phenotypic "bridge" region on the Cone that
+is traversed by multiple geodesics. This is an emergent property — SAM3 FPN was
+never trained on family labels, yet its geometry encodes them.
+
+### Magnitude profile along chord
+
+Great-circle keeps ||f||=1 along path. Chord midpoint has ||f|| < max endpoints:
+- Anemone ↔ Bromus: endpoints 6.02/7.00, chord midpoint 5.75 (raw unnormalized FPN)
+- Cyclamen ↔ Ranunculus: 6.90/6.06, chord midpoint 6.24
+- Interpretation: magnitude = pipeline response strength. Chord intermediate species
+  would fire the pipeline at lower response than parents.
+
+### E157 — Graph theory on S^255 (τ=0.95)
+
+Species graph G with edges = cosine similarity > 0.95:
+- 1,912 nodes, 30,150 edges
+- Louvain: 451 communities; top-4 contain 258-510 members each
+- ARI with Linnaean families: **0.040** (communities NOT aligned with families)
+- NMI with families: **0.382** (share information but not topology)
+- Graph diameter: 13, avg clustering: 0.346
+
+**Top bridge species by betweenness centrality**:
+
+| Species | Family | BC |
+|---|---|---|
+| Orchis galilaea | Orchidaceae | 0.0364 |
+| Stachys palaestina | Lamiaceae | 0.0208 |
+| Catananche lutea | Asteraceae | 0.0180 |
+| Sideritis libanotica | Lamiaceae | 0.0173 |
+| Trifolium alexandrinum | Fabaceae | 0.0159 |
+| Frankenia hirsuta | Frankeniaceae | 0.0147 |
+| Allium carmeli | Amaryllidaceae | 0.0143 |
+| Lamium garganicum | Lamiaceae | 0.0130 |
+
+**Bridge species interpretation**: these sit between phenotypic clusters and have
+the largest fraction of shortest paths passing through them. Candidates for
+convergent evolution or transitional morphologies. Orchis galilaea's high BC is
+particularly interesting — orchids are evolutionary specialists yet this species
+bridges multiple non-orchid clusters.
+
+### E157c — τ-sweep with critical percolation
+
+Fine-grained sweep of 30 τ values, 0.80 → 0.999:
+
+**Critical threshold τ_c ≈ 0.975**: giant component fraction drops 0.340 → 0.099
+within τ window of 0.006. Phase transition signature.
+
+**Probe pair disconnect thresholds**:
+
+| Pair | Disconnect τ | Type |
+|---|---|---|
+| Anemone ↔ Bromus (dicot-grass) | **0.814** | Cross-kingdom distance |
+| Helianthus ↔ Lolium (Asteraceae-Poaceae) | 0.862 | Cross-family |
+| Trifolium angustifolium ↔ T. argutum | 0.910 | Same genus |
+| Papaver humile ↔ Iris atropurpurea | 0.951 | Close morphology |
+| Papaver humile ↔ Papaver syriacum | 0.965 | Same genus |
+
+Same-genus pairs stay connected longest, cross-family earliest. **Monocot/dicot
+chasm materializes at τ=0.81** — below that the entire graph is dense; above, grasses
+fragment from dicots. Quantifies E131's "Poaceae are morphological outliers" at graph level.
+
+### E156 — Density-weighted OT vs naive Euclidean OT
+
+Replaces Lab-Euclidean ground metric with graph-geodesic metric where edges are
+weighted by 1/√ρ (KDE density). OT via scipy-sparse Dijkstra.
+
+| Pair | W₂ naive | W₂ DW (km·inv_√ρ) | Naive logρ midpt | DW logρ midpt |
+|---|---|---|---|---|
+| Anemone ↔ Bromus | 45.7 | 59,768 | −12.92 | **−12.07** |
+| Papaver ↔ Iris | 49.6 | 73,852 | −14.44 | **−13.35** |
+| Helianthus ↔ Lolium | 40.2 | 21,063 | −12.60 | **−12.33** |
+
+Density-weighted midpoints consistently in higher-density regions (Δlog ρ ≈ +0.5
+to +1.0). The DW path genuinely detours around empty color-space coordinates —
+turning "walking the light spectrum" into "walking real flower space".
+
+### E158 — Wormhole R^32 vs S^255 FPN great-circle
+
+Wormhole linear interpolation retrieves MORE family transitions than FPN great-circle
+for every test pair:
+
+| Pair | WH unique sp | WH fam trans | FPN unique | FPN fam trans |
+|---|---|---|---|---|
+| Anemone ↔ Bromus | 5 | 4 | 5 | 3 |
+| Papaver ↔ Iris | 5 | 4 | 4 | 1 |
+| Helianthus ↔ Lolium | 5 | 2 | 2 | 1 |
+| Cyclamen ↔ Ranunculus | 6 | 4 | 4 | 2 |
+
+**Wormhole path**: color-distribution neighbors — walks across families freely
+**FPN great-circle**: morphology-direction neighbors — stays within broad morphology regions
+
+Both are valid but answer different phenotypic questions. For color-blend queries,
+use Wormhole. For morphology-direction queries, use FPN geodesic.
+
+### Files
+- E155: `exp_E155_phylo_density_geodesic/`
+- E157: `exp_E157_species_graph_theory/`
+- E157c: `exp_E157c_tau_sweep_fast/` (with critical τ_c and probe pair disconnect thresholds)
+- E156: `exp_E156_density_weighted_OT/`
+- E158: `exp_E158_wormhole_interpolation/`
+
+Memory: `geodesic_and_graph_findings.md`
+
+---
