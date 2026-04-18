@@ -32156,3 +32156,119 @@ use Wormhole. For morphology-direction queries, use FPN geodesic.
 Memory: `geodesic_and_graph_findings.md`
 
 ---
+
+## Entry 331 — E159-E162: Interest points + phenotypic axes + family overlap + tribes (2026-04-18)
+
+### E159 — Graph interest points (τ=0.95, 30,150 edges)
+
+**Six centrality metrics computed. Top bridge species by betweenness (new ranking with 300 pivots):**
+
+| Species | Family | BC |
+|---|---|---|
+| Orchis galilaea | Orchidaceae | 0.0405 |
+| Silene apetala | Caryophyllaceae | 0.0330 |
+| Frankenia hirsuta | Frankeniaceae | 0.0264 |
+| Catananche lutea | Asteraceae | 0.0234 |
+| Stachys palaestina | Lamiaceae | 0.0214 |
+| Viola modesta | Violaceae | 0.0199 |
+| Astragalus ehrenbergii | Fabaceae | 0.0196 |
+| Sideritis pullulans | Lamiaceae | 0.0189 |
+
+**Phenotypic outliers within family** (cohesion = fraction of top-10 NN in same family):
+
+Dozens of species have COHESION = 0.00 — all their top-10 nearest neighbors are in OTHER families. Examples:
+- Abutilon spp. (Malvaceae) → nearest are Fabaceae
+- Acantholimon libanoticum (Plumbaginaceae) → Brassicaceae
+- Ailanthus altissima (Simaroubaceae, invasive) → Fabaceae
+- Anacamptis laxiflora (Orchidaceae) → Lamiaceae
+- Abutilon theophrasti → Asteraceae(6) + Fabaceae(4)
+
+**These are candidates for convergent-morphology study**: species that share Linnaean classification but whose visual-morphological signature (SAM3 FPN) places them entirely among OTHER families. Useful for understanding phenotypic mimicry.
+
+Most-cohesive clique: 11 Centaurea species (Asteraceae) all have cohesion=1.00, confirming Asteraceae as a tight phenotypic clade.
+
+### E160 — Phenotypic axes via component-splitting events
+
+Fine 100-point τ-sweep (0.80→0.99). Found **6 major splits** (parent comp ≥ 200 species dividing into 2+ children ≥ 10 species):
+
+| τ | parent | child 1 (family) | child 2 (family) | discriminativity |
+|---|---|---|---|---|
+| 0.969 | 887 | 785 Asteraceae | 17 Apiaceae | 0.58 |
+| 0.973 | 689 | 569 Asteraceae | 14 Fabaceae | 0.54 |
+| 0.975 | 569 | 449 Asteraceae | 12 Asteraceae | 0.54 |
+| 0.977 | 449 | 246 **Caryophyllaceae** | 136 Asteraceae | 0.42 |
+| 0.978 | 136 | 82 Fabaceae | 16 Asteraceae | 0.61 |
+| 0.980 | 82 | 27 Scrophulariaceae | 19 Asteraceae | 0.38 |
+
+**The tree of phenotypic axes** (reading τ ascending):
+- **τ=0.81**: monocot/dicot (from E157c — Anemone↔Bromus)
+- **τ=0.969**: Apiaceae peels off from the Asteraceae-dominated giant component (Apiaceae has the umbel morphology that's distinctive)
+- **τ=0.973**: Fabaceae peels off (pea-flower shape becomes geometrically identifiable)
+- **τ=0.977**: Caryophyllaceae splits from Asteraceae cluster
+- **τ=0.978**: another Fabaceae vs Asteraceae split (secondary)
+- **τ=0.980**: Scrophulariaceae peels off
+
+Sequence:
+monocot/dicot (0.81) → umbels (0.97) → pea-flowers (0.973) → spiny-calyx (0.977) → snapdragons (0.98)
+
+### E161 — Cross-family overlap: convergent-morphology candidates
+
+**Top 10 most-phenotypically-overlapping family pairs** (high cross-cos, high fraction with cross-family NN):
+
+| Family A | Family B | N_A | N_B | mean cross-cos | A→B NN% | B→A NN% |
+|---|---|---|---|---|---|---|
+| Ranunculaceae | Cistaceae | 37 | 17 | 0.883 | 8.1% | **23.5%** |
+| Iridaceae | Colchicaceae | 35 | 11 | 0.904 | 11.4% | 18.2% |
+| Lamiaceae | Orchidaceae | 100 | 34 | 0.873 | 3.0% | **23.5%** |
+| Caryophyllaceae | Zygophyllaceae | 88 | 15 | 0.878 | 4.5% | 20.0% |
+| Apocynaceae | Rubiaceae | 19 | 23 | 0.816 | **15.8%** | 8.7% |
+| Campanulaceae | Geraniaceae | 17 | 23 | 0.939 | **23.5%** | 0% |
+| Cistaceae | Scrophulariaceae | 17 | 24 | 0.911 | 11.8% | 8.3% |
+
+**Interpretation**: These family pairs have species that "look like" each other to SAM3 FPN. Candidates for:
+- **Ranunculaceae-Cistaceae**: both have yellow/white simple flowers with 5 petals — convergent appearance
+- **Lamiaceae-Orchidaceae**: bilateral symmetric flowers — an Orchis looks like a Salvia to the pipeline
+- **Campanulaceae-Geraniaceae**: bowl-shaped 5-petaled flowers
+
+**Per-species convergent pairs** (top by cross-family cos):
+- Phlomis brachyodon (Lamiaceae) ↔ Hypecoum dimidiatum (Papaveraceae) cos=0.988
+- Legousia falcata (Campanulaceae) ↔ Erodium botrys (Geraniaceae) cos=0.988
+- Alkanna strigosa (Boraginaceae) ↔ Convolvulus siculus (Convolvulaceae) cos=0.987
+- Ficaria verna (Ranunculaceae) ↔ Senecio glaucus (Asteraceae) cos=0.986 — **classic yellow-flowered mimicry pair**
+
+### E162 — Phenotype tribes ARE better than families for predicting color
+
+**η² (variance explained)** in per-species mean hue and chroma:
+
+| Predictor | → hue | → chroma |
+|---|---|---|
+| Linnaean family (N=53) | 0.234 | 0.246 |
+| **Louvain community (N=5 big ones)** | **0.559** | **0.624** |
+
+**Communities explain 2.4× the hue variance and 2.5× the chroma variance** that families do, on far fewer labels (5 vs 53).
+
+**Discrete consensus color prediction accuracy** (leave-one-out majority vote):
+- Family-based: **35.2%**
+- Community-based: **33.5%**
+
+So for **continuous color traits** (hue, chroma), communities WIN decisively. For **discrete color class**, families are slightly better (different predictor structure — classification vs regression).
+
+### Combined story
+
+The S^255 graph encodes morphology via cosine similarity. At different τ thresholds, DIFFERENT phenotypic axes surface as component splits:
+- τ=0.81: monocot vs dicot (morphological form divide)
+- τ=0.97: umbel (Apiaceae), pea-flower (Fabaceae), spiny-calyx (Caryophyllaceae), snapdragon (Scrophulariaceae) — each is a visually distinct flower architecture
+
+This τ-sweep IS a hierarchical decomposition of Israeli flora by morphological specificity.
+
+**Cross-family convergent morphology is real**: ~20% of families have 2-4 close pairs in unrelated families, identifying convergent evolution candidates for botanical study.
+
+**Phenotypic communities > Linnaean families for predicting hue** (η²=0.56 vs 0.23), confirming that the FPN-emergent "tribes" capture color structure more directly than taxonomy.
+
+### Files
+- E159: `exp_E159_graph_interest_points/`
+- E160: `exp_E160_tau_axes_discovery/`
+- E161: `exp_E161_cross_family_overlap/`
+- E162: `exp_E162_phenotype_tribes_vs_color/`
+
+---
