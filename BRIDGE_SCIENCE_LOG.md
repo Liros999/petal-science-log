@@ -242,3 +242,46 @@ integrated over angular shells. For our case (d=256, κ̂=498): 0° center empty
 
 All experiments in `experiments/{49-70}_*_2026-04-{20,21}/`, all sealed artifacts in `artifacts/sealed/`. SHA of sealed DB: `f4b6a85b65455b2709aa7da99b281a274e451448d372116e038905eb0745b884`. Key scripts named for their central claim.
 
+
+## Entry 3 — Cross-model replication + phylogenetic validation of morphospace findings (2026-04-21)
+
+### Exp 71: cross-model replication — flower cone emerges in BioCLIP 2.5 CLS
+
+Tested whether morphospace structure (D_flower, empty center, DCI forbidden valley, specialist-generalist axis) is specific to SAM3 FPN or is a feature-model-agnostic property.
+
+- **Setup**: 1,912 species with ≥3 masks in BOTH sealed SAM3 FPN (256-dim) AND E76c BioCLIP 2.5 CLS cache (1024-dim, ViT-H/14).
+- **Empty-center radius**: SAM3 8.4°, BioCLIP 33.0°. Both massively exceed Jensen noise floor.
+- **Jensen overshoot**: SAM3 = 16.0×, BioCLIP = **24.3×**. Structure is STRONGER in BioCLIP.
+- **DCI valley**: SAM3 DCI(23°) = −2.43; BioCLIP DCI(47°) = −1.07. Forbidden valleys exist in both feature spaces.
+- **Per-species θ correlation across models**: Spearman ρ = +0.371, p = 2.2 × 10⁻⁶³.
+
+The flower cone is a property of the underlying species distribution, not an artifact of the segmentation model.
+
+### Exp 72: phylogenetic validation of manifold clusters
+
+For each 13°-cut manifold cluster (from exp 70) with ≥2 phylo-covered members (opentree 230-species subset), computed mean pairwise topological phylo distance.
+
+- **Cluster median phylo distance**: 52.6
+- **Baseline (random species pairs from same 230)**: 58.0
+- **Ratio**: 0.907 (clusters only 9% closer than random — convergence dominates)
+
+Top convergent clusters:
+- Malva nicaeensis group (n=53, 7 families, phylo=54.9)
+- Erodium crassifolium group (n=27, 7 families, phylo=53.8)
+- Ranunculus neocuneatus group (n=29, 5 families, phylo=52.6)
+
+Contrasting monophyletic clusters:
+- Scrophulariaceae-only cluster (phylo=2.0)
+- Orchidaceae-only cluster (phylo=5.0)
+- Convolvulaceae-only cluster (phylo=14.0)
+
+Validates that the manifold detects both convergence (dominant) and taxonomic coherence (minority) in Israeli flora.
+
+### Figures
+- `experiments/71_bioclip_cross_model_replication_2026-04-21/cross_model_replication.png`
+- `experiments/72_phylo_validation_clusters_2026-04-21/phylo_validation.png`
+
+### Reproducibility
+- Exp 71: `experiments/71_bioclip_cross_model_replication_2026-04-21/run.py` reads sealed DB + E76c cls_tokens.npz. Filters E76c by combo_score ≥ 0.30 to match sealed gate criteria. Deterministic.
+- Exp 72: `experiments/72_phylo_validation_clusters_2026-04-21/run.py` reads sealed DB + GBIF taxonomy + opentree phylo distances. Deterministic.
+
