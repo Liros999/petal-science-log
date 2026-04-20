@@ -118,30 +118,46 @@ All entries that follow must be consistent with this framing. Contradictions mus
 
 **Metric**: fraction of held-out masks with `cos(v̂ − bg_mean, D_flower_N) ≥ 0.30`.
 
-**Result** (averaged across 3 reps):
+**Full result** (averaged across 3 reps, N ∈ {10, 25, 50, 100, 200, 500, 1000, 1500, 2000, 2400}):
 
-| N | angle(D_flower_N, D_flower_sealed) | held-out cone @ 0.30 | QDA family-match (nearest training sp) |
-|---|---|---|---|
-| 10 | 32.3° | **98.2%** | 10.0% |
-| 25 | 25.4° | **98.9%** | 11.0% |
-| 50 | 28.7° | 98.6% | 15.2% |
-| 100 | 26.9° | 98.7% | 19.0% |
-| 200 | 26.9° | 98.7% | 22.8% |
-| 500 | 26.7° | 98.8% | 29.5% |
-| 1000 | 26.9° | 98.7% | 34.6% |
+| N | angle(D_flower_N, D_flower_sealed) | holdout cent p99 (°) | **ho mask cone @0.30** | cone @0.20 | cone @0.10 | **QDA fam_match** | mean ang pred-true (°) | median ang pred-true (°) |
+|---|---|---|---|---|---|---|---|---|
+| 10 | 32.26° | 56.65° | **98.23%** | 99.54% | 99.96% | 9.90% | 46.34 | 33.75 |
+| **25** | 25.43° | 51.68° | **98.92%** | **99.81%** | **100.00%** | 11.03% | 43.70 | 31.90 |
+| 50 | 28.67° | 54.33° | 98.58% | 99.69% | 99.98% | 15.25% | 42.54 | 30.93 |
+| 100 | 26.98° | 52.95° | 98.75% | 99.78% | 100.00% | 19.04% | 40.97 | 29.56 |
+| 200 | 26.90° | 52.90° | 98.75% | 99.76% | 99.99% | 22.80% | 39.72 | 28.92 |
+| 500 | 26.73° | 52.65° | 98.80% | 99.80% | 99.99% | 29.50% | 37.94 | 27.59 |
+| 1000 | 27.31° | 52.95° | 98.64% | 99.76% | 99.98% | 34.26% | 37.59 | 27.20 |
+| 1500 | 26.82° | 52.87° | 98.75% | 99.71% | 99.99% | 36.31% | 36.65 | 26.82 |
+| 2000 | 26.91° | 54.24° | 98.57% | 99.74% | 100.00% | 38.65% | 36.33 | 26.50 |
+| **2400** | 26.89° | 51.85° | **99.05%** | **99.94%** | **100.00%** | **39.04%** | **35.63** | **26.90** |
 
-**Detection saturation**: ≥98% held-out mask inclusion at N = 25. Adding more species does not improve detection. The cone axis direction is robustly learnable from any ~25 random flowers.
+**Two distinct saturation regimes**:
 
-**QDA identification saturation**: NOT saturated at N=1000; family-match rate is still climbing. Identification requires representative coverage across all 126 Israeli families.
+**Regime A — Detection (D_flower geometric mean)**:
+- Held-out mask inclusion at FA-FPN ≥ 0.30: reaches **98.9% at N=25**, stays flat (98.6–99.05%) through N=2400. Saturated.
+- Held-out mask inclusion at FA-FPN ≥ 0.10: reaches **100.0% at N=25**, never moves. Saturated.
+- Angle of D_flower_N to sealed D_flower: drops to ~27° by N=25 and stays there. Saturated.
+- Held-out centroid p99 angle: 51–56° across all N. Saturated.
+- **Conclusion**: Any ~25 random Israeli species establish the flower cone axis with detection recall indistinguishable from the full 2,608-species estimate.
 
-**Interpretation**: two distinct scales.
-- `D_flower` direction = mean on S²⁵⁵, estimable at N = 25 within the loose FA-FPN threshold's tolerance.
-- Per-species discrimination needs representative density across the 2,608-class manifold, which is far from saturating at N = 1000.
+**Regime B — Identification (QDA family match on held-out species)**:
+- Monotone climb: 9.9% (N=10) → 15.3% (N=50) → 29.5% (N=500) → **39.0% (N=2400)**.
+- Growth rate slowing but NOT saturated. Incremental species continue to improve within-family similarity match.
+- Mean angle from predicted to true species: 46.3° (N=10) → **35.6° (N=2400)** — monotone decrease.
+- **Conclusion**: Identification does NOT saturate at the available sample sizes. More species = better identification, continuing past N=2400.
+
+**Mathematical interpretation**:
+- `D_flower` is a **mean direction** on S²⁵⁵. Estimable from a small sample (central limit theorem behavior). The √(N) convergence of the mean estimator explains why N=25 already gets us within the FA-FPN 0.30 tolerance.
+- Per-species discrimination requires covering the **manifold of 2,608 species centroids**. Needs representative density across all 126 Israeli families for family-match to approach ceiling. Far from saturating.
 
 **Reproducibility**:
 - script: `experiments/37_cone_generalization_2026-04-20/run.py`
-- output: `results/37_cone_generalization_2026-04-20/results_A_detection.json`, `results_B_identification.json`
-- seed: `np.random.default_rng(42 + rep*100 + N)` per sample
+- full JSON: `results/37_cone_generalization_2026-04-20/results_A_detection.json`, `results_B_identification.json`
+- random seed: `np.random.default_rng(42 + rep*100 + N)` per sampling draw
+
+**Integrity constraint for publication**: the "cone saturates at N=25" claim is scoped to FA-FPN ≥ 0.30 gate. Tighter gates (e.g. ≥ 0.50) may exhibit different saturation dynamics; not tested here. The identification (fam_match) claim is scoped to the subset of species with ≥3 masks available as holdout. Cross-reference: each measurement averaged across 3 independent random draws of the N training species.
 
 ### β=1 pure-QDA collapse (exp 36, job 13539745)
 
