@@ -285,3 +285,58 @@ Validates that the manifold detects both convergence (dominant) and taxonomic co
 - Exp 71: `experiments/71_bioclip_cross_model_replication_2026-04-21/run.py` reads sealed DB + E76c cls_tokens.npz. Filters E76c by combo_score ≥ 0.30 to match sealed gate criteria. Deterministic.
 - Exp 72: `experiments/72_phylo_validation_clusters_2026-04-21/run.py` reads sealed DB + GBIF taxonomy + opentree phylo distances. Deterministic.
 
+
+## Entry 4 — Visual validation, cut-level sweep, BioCLIP asymmetry (2026-04-21 continued)
+
+### Exp 74: visual validation of convergence clusters
+
+Generated family-color-bordered image atlases for top 5 convergence clusters. Visual inspection of actual flower photos confirms morphological convergence across unrelated families:
+
+- **Cluster 602** (29 species, 5 families: Asteraceae, Ranunculaceae, Cistaceae, Solanaceae, Oxalidaceae) = **BRIGHT YELLOW RADIAL FLOWERS**. Classical bee-pollination syndrome: visible across Ranunculus, Helianthemum, Senecio, Oxalis, Adonis, Verbascum.
+
+- **Cluster 728** (27 species, 7 families: Brassicaceae, Fabaceae, Campanulaceae, Boraginaceae, Geraniaceae, Malvaceae, Papaveraceae) = **PINK-TO-LILAC OPEN 5-PETAL**. Cross-family "generalist pollinator-accessible" morphology.
+
+- **Cluster 729** (53 species, 7 families: Geraniaceae, Caryophyllaceae, Asteraceae, Boraginaceae, Iridaceae, Plantaginaceae, Brassicaceae) = **PALE LILAC SLENDER**. Adjacent to 728 in morphospace but shifted toward slender plant habit.
+
+### Exp 75: cut-level sweep (11 angular cuts 3-50°)
+
+Sweep reveals that cross-cutting rate peaks at **17-20° cut** (21-23%), not 13° as was previously inferred. Phylo-to-baseline ratio grows monotonically:
+
+| cut | n_clusters | cross≥2% | phylo/baseline |
+|---|---|---|---|
+| 10° | 2,276 | 2.3% | 0.65 |
+| 13° | 1,665 | 11.6% | 0.88 |
+| 17° | 1,083 | 21.6% | 0.89 |
+| 20° | 774 | 23.4% | 0.91 |
+| 30° | 165 | 42.9% | 0.94 |
+
+**Publishable threshold: 20° cut for cross-cutting measurement.** At 10° cuts are monophyletic (phylo/baseline 0.65); at 20°+ convergence fully dominates.
+
+### Exp 76: BioCLIP 2.5 full morphospace reference
+
+Ran complete morphospace analysis on BioCLIP 2.5 CLS (1,912 species, 1024-dim) for side-by-side comparison to SAM3.
+
+| quantity | SAM3 FPN | BioCLIP 2.5 |
+|---|---|---|
+| τ_c (50% giant) | 13° | 37° |
+| τ_90 | 29° | 43° |
+| Empty center | 8.4° | 33.0° |
+| Jensen overshoot | 16× | 24× |
+| DCI valley | −2.43 @ 23° | −1.07 @ 47° |
+| Cross-cutting at 13° | 11.6% | 0.0% |
+| Cross-cutting at 50° | 100% (few cl.) | 11.2% |
+
+**Interpretation**: BioCLIP 2.5 is contrastive-trained, so per-species clusters are tighter. The model-appropriate cut in BioCLIP is ~50° for cross-cutting measurement. Empty center + forbidden valley + specialist-generalist axis ALL replicate; cluster granularity depends on model training objective.
+
+### Take-away for methodology
+
+- **SAM3 FPN is better for continuous-manifold analysis** (convergence clusters, 17-20° scale).
+- **BioCLIP 2.5 is better for species-identity analysis** (tight clusters, contrastive-learned boundaries).
+- **Both independently confirm the empty-center + forbidden-valley finding** — feature-model-robust.
+
+### Reproducibility
+
+- Exp 74: `experiments/74_validate_cluster_biology_2026-04-21/run.py`
+- Exp 75: `experiments/75_cut_level_sweep_2026-04-21/run.py`
+- Exp 76: `experiments/76_bioclip_morphospace_2026-04-21/run.py`
+
