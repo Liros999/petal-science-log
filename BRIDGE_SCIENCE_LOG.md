@@ -340,3 +340,49 @@ Ran complete morphospace analysis on BioCLIP 2.5 CLS (1,912 species, 1024-dim) f
 - Exp 75: `experiments/75_cut_level_sweep_2026-04-21/run.py`
 - Exp 76: `experiments/76_bioclip_morphospace_2026-04-21/run.py`
 
+
+## Entry 5 — Decision: BioCLIP 2.5 primary + SOTA decoder training + cluster-color observation (2026-04-21)
+
+### Decision: BioCLIP 2.5 CLS is primary from this point forward
+
+All future morphospace experiments use BioCLIP 2.5 CLS (1024-dim) as the primary feature representation. SAM3 FPN retained for cross-model validation + mask extraction + sealed scoring pipeline.
+
+Rationale:
+- BioCLIP trained contrastively on 2M+ plant images (biology-specific)
+- 1024-dim resolution (4× SAM3 FPN 256-dim)
+- Cross-model replication with SAM3 already validated (exp 71)
+- Downstream applications benefit from biology-pretrained representation
+
+Naming convention: new experiment folders use `_BIOCLIP` suffix when relevant.
+
+Data: `/scratch200/leardistel/petal_benchmark/results/exp_E76c_cls_all_israel/cls_tokens.npz` (52K masks × 1024d, gate at combo>=0.30 → 1,912 species with >=3 masks).
+
+### Exp 77: SOTA decoder Phase A (submitted, pending)
+
+Architectural upgrade from exp 63b blurry MSE decoder:
+- Encoder-decoder 256-d → 128×128×3 (double resolution)
+- MLP 256 → 1024 → 4096 → 16384 → 8×8×256 → upsample 4× with conv blocks
+- Perceptual loss: VGG16 conv3_3 feature matching
+- PatchGAN discriminator (LS-GAN loss)
+- Losses: 0.5 MSE + 0.3 L1 + 0.3 perceptual + 0.1 adversarial
+- 30 epochs, cosine LR decay, grad clip 1.0
+
+Goal: visible floral structure in outputs. If Phase A succeeds, Phase B adds latent-diffusion conditioning; Phase C loads SD-2.1-unclip.
+
+### Observation: cluster color uniformity varies across clusters
+
+Inspection of exp 74 atlases reveals:
+- Cluster 602 (yellow, 5 families) — COLOR IS UNIFORM across family borders (nearly all yellow).
+- Cluster 729 (pale lilac slender, 7 families) — color mostly uniform, some pale variants.
+- Cluster 728 (open 5-petal, 7 families) — **COLOR IS HETEROGENEOUS**: pink, purple, white, yellow, dark-red all present. What unifies this cluster is the OPEN-RADIAL 5-PETAL SHAPE, not color.
+
+This is a useful signal: the manifold clustering does NOT reduce to "group by color." Different clusters are driven by different dominant features:
+- 602: color (yellow)
+- 728: shape (open cup)
+- 729: color + habit
+
+Strengthens the biological interpretation — the manifold detects multi-feature morphological attractors, not trivial pigmentation buckets.
+
+### Reproducibility
+- Exp 77: `experiments/77_BIOCLIP_decoder_phaseA_2026-04-21/train_decoder_v2.py` (SOTA decoder)
+
