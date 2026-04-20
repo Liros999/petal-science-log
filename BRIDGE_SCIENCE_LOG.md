@@ -386,3 +386,53 @@ Strengthens the biological interpretation — the manifold detects multi-feature
 ### Reproducibility
 - Exp 77: `experiments/77_BIOCLIP_decoder_phaseA_2026-04-21/train_decoder_v2.py` (SOTA decoder)
 
+
+## Entry 6 — Overnight cross-model validation sweep (2026-04-21, exps 78-89)
+
+Completed 11 experiments replicating all prior morphospace findings on BioCLIP 2.5 CLS and comparing to SAM3 FPN. Pre-registered pass/fail verdicts applied.
+
+### Universal claims (replicate across both models)
+
+1. **Empty center of flower cone** — Jensen overshoot 16× (SAM3), 24× (BioCLIP). Both dramatically exceed noise floor.
+2. **Specialist-generalist axis** — Spearman ρ(θ, log κ) = +0.566 (SAM3), +0.539 (BioCLIP). Both p < 10⁻¹²⁷.
+3. **Morphology decoupled from GBIF family** — ARI = 0.026 / 0.047. Both near zero.
+4. **Per-species typicality agreement cross-model** — ρ=+0.371, p=2e-63 (from exp 71).
+5. **Pairwise geometric agreement** — Mantel Spearman ρ=+0.331 on 1,826,916 pairs (exp 89), permutation p=0.001.
+6. **Same-cluster pair lift** — 2.5-14.7× over independence (SAM3 cut × BioCLIP cut variations, exp 89).
+
+### Partial / model-dependent
+
+- **DCI forbidden valley** depth: SAM3 −2.43 at θ=23°, BioCLIP −1.07 at θ=47°. Valley EXISTS in both but weaker in BioCLIP.
+- **Cluster granularity**: SAM3 sweet spot 17°, BioCLIP 50°. Different percolation scales due to contrastive training in BioCLIP.
+
+### Falsified
+
+- **Convergence-cluster parity** (exp 79): BioCLIP phylo_ratio 0.17-0.69 across cuts, vs SAM3 0.89-0.94. **BioCLIP clusters are MORE monophyletic** due to contrastive training pushing species-level discrimination. Convergence framing works for SAM3 at 17° cut, does NOT replicate on BioCLIP clustering.
+- **Ecological prediction test** (exp 87): n=47 species, 512 phy-distant pairs, morph-vs-pollinator-JSD ρ=−0.068, permutation p=0.26. Hypothesis in right direction but NOT significant at this sample size.
+
+### FMA (Flower Manifold Address) nomenclature
+
+Designed and generated per-species FMA addresses in both models:
+- Fields: theta_deg, elev_rank (percentile), zone (6 percentile buckets), hood (prototype species), cluster_id, conv_status (CCC/MIX/MONO)
+- Cross-model zone agreement: 24.7% (percentile-based zones)
+- Cross-model hood agreement: 6.3% (reflects granularity mismatch, not absence of agreement — see Mantel result)
+- 783 CCC species in SAM3 at 17° cut; 71 CCC species in BioCLIP at 50° cut
+
+### Causal chain document
+
+Exp 85 produces a full raw-image → validated-cluster causal chain at
+`experiments/85_causal_chain_document_2026-04-21/CAUSAL_CHAIN.md` with per-step
+validation status.
+
+### Revised framing for publication
+
+"Morphospace geometry (empty center, specialist-generalist, family-decoupling) is FEATURE-MODEL-AGNOSTIC and validates as universal biology. Convergence-cluster detection is FEATURE-MODEL-DEPENDENT and requires SAM3-like segmentation features (not contrastive-trained biology embeddings like BioCLIP). The two models are complementary: BioCLIP for species identification, SAM3 for morphological-attractor discovery."
+
+### Key artifacts
+- `experiments/78-89_*/` — 12 experiment directories with run scripts + results + summaries
+- `results/84_*/comparison.md` — side-by-side table
+- `results/85_*/CAUSAL_CHAIN.md` — full validation chain
+- `results/86_*/sam3_cluster_*.png` — 16 SAM3 cluster atlases for browsing
+- `results/88_*/fma_addresses.tsv` — FMA per species in both models
+- `results/89_*/summary.json` — cross-model pair consistency
+
