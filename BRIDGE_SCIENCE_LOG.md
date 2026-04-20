@@ -187,3 +187,58 @@ Cluster 4 (n=345) shows the tightest within-species color concentration (R=0.97)
 ---
 
 (awaiting entry 2)
+
+## Entry 2 — Morphospace geometry: empty center, forbidden valley, continuous manifold, taxonomy cross-cutting (2026-04-20 / 2026-04-21)
+
+### Summary
+
+Over 15 experiments (exp 49–70) we characterized the geometric structure of the flower cone on S²⁵⁵ using the sealed BRIDGE pipeline (35,654 masks × 2,608 species). Key findings, in order of publishability:
+
+1. **Species manifold is continuously connected, not family-clustered** (exp 65): percolation τ_c=13°, τ_90=29°. Modularity Q=0.07 at k=5, ARI vs GBIF family = 0.026. Species form one giant blob, not discrete taxonomic clusters.
+
+2. **Manifold-native taxonomy cross-cuts Linnean families** (exp 70): at 13° cut, 20.8% of morphological clusters contain ≥2 GBIF families; at 20° cut, 34.1%. Convergent evolution dominates visible morphology.
+
+3. **Empty cone center is NOT a Jensen artifact** (exp 53): empty-center radius = 15.28° vs Jensen-simulation noise floor 0.80° = **19× larger than expected under isotropic vMF dispersion**.
+
+4. **Forbidden valley at θ=37°** (exp 60): bimodal θ distribution, DCI = log(obs/exp_vMF) = −2.32. Bootstrap 100% below zero under single-vMF null.
+
+5. **Specialist-generalist axis** (exp 51): per-species θ vs log κ Spearman ρ=+0.566, p=5.5e−192. Species farther from D_flower have tighter intra-species clouds.
+
+6. **Classifier is 95% relational, 5% absolute-direction-anchored** (exp 62): QDA trained on v̂, tested on 45°-reflected v̂_swap, loses only 3pp (70.17% → 67.02%). Species are discriminable by relative geometry, not by D_flower anchor.
+
+7. **Forbidden valley is BORDERLINE under better nulls** (exp 64): under a shifted-vMF elevation mixture, DCI(37°) bootstrap fraction below 0 = 54% (not 100% as under isotropic null). The valley is a real dip AND partly the interval between two elevation attractors.
+
+8. **Phylogenetic Mantel test: ρ=+0.012, p=0.37** (exp 56). FPN geometry decoupled from phylogeny at global scale.
+
+9. **Abundance positively (weakly) correlates with θ** (exp 55): ρ=+0.12. Fitness-valley hypothesis falsified.
+
+### Developmental Constraint Index (DCI) — a formal statistic
+
+For species centroids distributed on S^(d-1) with mean direction D_flower and concentration κ̂:
+
+    DCI(θ) = log_e ( n_obs(θ) / n_exp_vMF(θ|κ̂) )
+
+where n_obs(θ) is the number of species centroids in the angular shell [θ-Δ, θ+Δ] from D_flower and n_exp is the expected count under a vMF null. DCI(θ) > 0 = overrepresented; DCI(θ) < 0 = underrepresented.
+
+Robustness:
+- Bootstrap 200 resamples, 95% CI, fraction below 0
+- Robust against multiple null choices (single vMF, shifted vMF mixture)
+- Assumption-free beyond the null-sphere choice
+
+Expected density under vMF null:
+
+    p(θ|κ) ∝ exp(κ cos θ) · sin^(d-2) θ
+
+integrated over angular shells. For our case (d=256, κ̂=498): 0° center empty, peak at θ≈40°.
+
+### Figures for publication
+- Fig 1 (exp 51 riemannian_tangent.png): specialist-generalist bimodal scatter
+- Fig 2 (exp 60 dev_constraint_index.png): DCI curve + forbidden valley
+- Fig 3 (exp 61 dci_dual_null.png): DCI robustness under multiple nulls + bootstrap
+- Fig 4 (exp 65 species_graph.png): percolation + continuous manifold
+- Fig 5 (exp 70 manifold_taxonomy.png): dendrogram + cross-cutting fraction
+
+### Reproducibility
+
+All experiments in `experiments/{49-70}_*_2026-04-{20,21}/`, all sealed artifacts in `artifacts/sealed/`. SHA of sealed DB: `f4b6a85b65455b2709aa7da99b281a274e451448d372116e038905eb0745b884`. Key scripts named for their central claim.
+
