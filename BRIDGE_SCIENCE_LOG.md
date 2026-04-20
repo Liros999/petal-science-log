@@ -110,4 +110,64 @@ All entries that follow must be consistent with this framing. Contradictions mus
 
 ---
 
-(awaiting entry 1)
+## Entry 1 — Cone saturates at N≈25; pure QDA collapses; unsupervised color clusters (2026-04-20)
+
+### Cone detection saturation (exp 37, job 13548474)
+
+**Sampling protocol**: from 2,608 sealed Israeli-flora species (each with ≥3 mask FPN vectors in resealed DB), randomly sample N species, build `D_flower_N` = normalize(mean of N species centroids). Held-out masks = species not in the N. Repeat 3× per N. N ∈ {10, 25, 50, 100, 200, 500, 1000, 1500, 2000, 2400}.
+
+**Metric**: fraction of held-out masks with `cos(v̂ − bg_mean, D_flower_N) ≥ 0.30`.
+
+**Result** (averaged across 3 reps):
+
+| N | angle(D_flower_N, D_flower_sealed) | held-out cone @ 0.30 | QDA family-match (nearest training sp) |
+|---|---|---|---|
+| 10 | 32.3° | **98.2%** | 10.0% |
+| 25 | 25.4° | **98.9%** | 11.0% |
+| 50 | 28.7° | 98.6% | 15.2% |
+| 100 | 26.9° | 98.7% | 19.0% |
+| 200 | 26.9° | 98.7% | 22.8% |
+| 500 | 26.7° | 98.8% | 29.5% |
+| 1000 | 26.9° | 98.7% | 34.6% |
+
+**Detection saturation**: ≥98% held-out mask inclusion at N = 25. Adding more species does not improve detection. The cone axis direction is robustly learnable from any ~25 random flowers.
+
+**QDA identification saturation**: NOT saturated at N=1000; family-match rate is still climbing. Identification requires representative coverage across all 126 Israeli families.
+
+**Interpretation**: two distinct scales.
+- `D_flower` direction = mean on S²⁵⁵, estimable at N = 25 within the loose FA-FPN threshold's tolerance.
+- Per-species discrimination needs representative density across the 2,608-class manifold, which is far from saturating at N = 1000.
+
+**Reproducibility**:
+- script: `experiments/37_cone_generalization_2026-04-20/run.py`
+- output: `results/37_cone_generalization_2026-04-20/results_A_detection.json`, `results_B_identification.json`
+- seed: `np.random.default_rng(42 + rep*100 + N)` per sample
+
+### β=1 pure-QDA collapse (exp 36, job 13539745)
+
+Confirming the shrinkage math: at β=1 (no pooled Σ_w contribution), regardless of α∈{0.001, 0.005, 0.01, 0.03, 0.1, 0.3}, mask-top-1 plateaus at **43.35–43.59%** and centroid-top-1 at **61.17–61.55%**. α does not recover pure QDA — the rank-10 classwise covariance estimated from ~11 training masks per class is insufficient alone.
+
+The peak at β=0.20–0.30 (70.08% mask / 88.91% centroid) is the sealed baseline. β=1 confirms the shrinkage law: the ~30% weight on Σ_c is actionable; 100% Σ_c is not.
+
+**Reproducibility**:
+- script: `experiments/36_qda_pure_beta1_2026-04-20/run.py`
+- output: `results/36_qda_pure_beta1_2026-04-20/summary.json`
+
+### Unsupervised color clusters (exp 39, job 13548921)
+
+Per-species 5-D chromatic fingerprint (circular hue, R, mean chroma, σ chroma, mean L) for 2,167 species with ≥5 chromatic masks. KMeans K=6 on standardized + hue-as-(sin,cos) features:
+
+| cluster | n_sp | mean hue° | R | chroma | σ chroma | L | top families |
+|---|---|---|---|---|---|---|---|
+| 0 | 319 | 93 (yellow) | 0.87 | 39.0 | 20.9 | 65 | Asteraceae, Poaceae, Fabaceae |
+| 1 | 541 | 99 (yellow-green) | 0.88 | 19.1 | 9.5 | 70 | Fabaceae, Apiaceae, Brassicaceae |
+| 2 | 298 | 48 (red-orange) | 0.49 | 13.2 | 9.2 | 67 | Fabaceae, Caryophyllaceae, Lamiaceae |
+| 3 | 367 | 56 (red-orange) | 0.88 | 24.2 | 9.6 | 52 | Fabaceae, Asteraceae, Amaryllidaceae |
+| 4 | 345 | 96 (yellow) | 0.97 | 55.2 | 14.5 | 69 | Fabaceae, Asteraceae, Brassicaceae |
+| 5 | 297 | 355 (magenta) | 0.69 | 28.1 | 14.9 | 57 | Fabaceae, Asteraceae, Lamiaceae |
+
+Cluster 4 (n=345) shows the tightest within-species color concentration (R=0.97) at peak chroma — high-chroma yellow specialists. Cluster 2 (R=0.49, low chroma) is the diffuse/pastel cluster. Reproducibility: `experiments/39_pollinator_cloud_2026-04-20/run.py`, KMeans seed=0, n_init=20.
+
+---
+
+(awaiting entry 2)
