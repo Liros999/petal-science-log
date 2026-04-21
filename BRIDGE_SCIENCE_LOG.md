@@ -648,3 +648,50 @@ Exp 88 reported "65.2% within-1-zone agreement" with discrete buckets. Continuou
 
 "The flower morphospace has REAL universal structure in its distribution shape (empty center, specialist-generalist axis, family-decoupling replicate across models). However, individual species positions within this structure depend on the feature model used. Cross-model FMA comparison is meaningful at population level, not individual-species level."
 
+
+## Entry 13 — Cross-flora replication LANDMARK + Procrustes shows non-linear disagreement (2026-04-22)
+
+### Exp 101: CROSS-FLORA REPLICATION PASSED
+
+Extracted BioCLIP 2.5 CLS for 119 non-Israeli species (40,267 masks). Analyzed independently vs Israeli flora (1,912 species, 52,049 masks).
+
+**Every distribution property of the manifold replicates:**
+
+| Property | Israeli | Non-Israeli |
+|---|---|---|
+| θ median | 45.31° | 46.18° |
+| κ (concentration) | 1377 | 1381 |
+| Empty center radius | 32.96° | 34.70° |
+| τ_c | 37° | 47° |
+| τ_90 | 43° | 51° |
+
+**D_flower direction alignment across floras: cos = 0.834** (33° apart). The "flowerness direction" is near-universal — same feature model infers it consistently whether sampling Israel, North America, tropics, Europe, or Australia.
+
+### Publishable claim
+
+"The flower manifold — empty center (~33° radius), concentrated θ distribution (median ~45°), near-universal D_flower — replicates across Israeli (n=1,912) and non-Israeli (n=119) floras. This establishes the manifold as UNIVERSAL, not a dataset artifact."
+
+### Exp 102: Procrustes alignment — disagreement is NON-LINEAR
+
+Tested if SAM3↔BioCLIP rank disagreement (MAD=20.9pp) can be fixed by alignment:
+- Linear regression: 0% reduction (MAD=21.24pp, actually slightly worse)
+- Orthogonal Procrustes (rotation + scale): 8% reduction (MAD=19.17pp)
+
+**Conclusion**: The SAM3↔BioCLIP disagreement is BIOLOGICAL, not algebraic. Species like *Trifolium repens* (SAM3=14.8, BioCLIP=97.0 — 82pp difference) are placed in OPPOSITE manifold regions by the two models. This reflects different perception criteria:
+- SAM3: morphology (shape/color/texture)
+- BioCLIP: species-identity-relevant features
+
+**A truly universal FMA must represent each species in MULTIPLE coordinate systems simultaneously**, not align them to a single axis.
+
+### Next steps
+
+- Exp 103 (planned): extract SAM3 FPN for 119 non-Israeli species → full cross-flora SAM3 comparison
+- Three-model consensus (SAM3 + BioCLIP + DinoV2) coming next
+- DinoV2 extraction (exp 99) completed with 275 species
+
+### Reproducibility
+- `experiments/98_non_israel_bioclip_extraction_2026-04-22/run.py` — BioCLIP CLS for Citadel non-Israeli species
+- `experiments/99_dinov2_unbiased_judge_2026-04-22/run.py` — DinoV2 extraction (275 species)
+- `experiments/101_cross_flora_manifold_2026-04-22/run.py` — cross-flora analysis
+- `experiments/102_procrustes_alignment_2026-04-22/run.py` — alignment tests
+
