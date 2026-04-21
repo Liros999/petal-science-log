@@ -554,3 +554,32 @@ Cluster boundaries differ between SAM3 and BioCLIP (different granularities, dif
 
 > "Local neighborhood structure of the Israeli flora morphospace is strongly conserved across feature models (58× above chance at k=5). While cluster partitions depend on the feature extractor, the underlying morphospace topology is model-invariant."
 
+
+## Entry 10 — Neighborhood agreement is mostly phylogeny (exp 97, 2026-04-22)
+
+Decomposed the 58× local-NN agreement from exp 96 by family.
+
+### Results (1,162 labeled species via GBIF + genus-enrichment)
+
+Shared NN events between SAM3 and BioCLIP at k=5:
+- Same family as anchor: **85.0%** (816 events)
+- Different family: **3.1%** (30 events)
+- Unknown: 11.9%
+
+Observed P(same family | shared NN) = 0.85, random baseline = 0.073. **11.7× enrichment.**
+
+Only 28/1,162 species (2.4%) have any cross-family shared NN between the two models.
+
+### What this means
+
+Exp 96's strong local consistency is REAL but is overwhelmingly a **phylogenetic** consistency. Both models agree on "Lotus is close to other Lotus" — that's where the 58× signal comes from.
+
+**Cross-family convergence detection** is NOT in the shared-NN subset; it's SAM3-specific. This reconciles the exp 96 and exp 90 findings:
+- Both models agree locally (mostly via phylogeny)
+- Only SAM3 detects convergence (cross-family visual similarity)
+- BioCLIP pushes cross-family-similar species apart (contrastive training)
+
+### Revised publishable claim
+
+> "Local neighborhood consistency between SAM3 and BioCLIP (58× above chance at k=5) is mostly phylogenetic (85% of shared-NN events are same-family). Cross-family visual convergence is detected uniquely by SAM3 FPN. BioCLIP 2.5 CLS's species-contrastive training actively pushes apart convergent species."
+
