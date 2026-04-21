@@ -695,3 +695,72 @@ Tested if SAM3↔BioCLIP rank disagreement (MAD=20.9pp) can be fixed by alignmen
 - `experiments/101_cross_flora_manifold_2026-04-22/run.py` — cross-flora analysis
 - `experiments/102_procrustes_alignment_2026-04-22/run.py` — alignment tests
 
+
+## Entry 14 — 🚨 CRITICAL CORRECTION: Jensen floor test was measurement error (exp 103, 2026-04-22)
+
+### The flaw
+
+The empty-center finding from exp 53 (reported as "15.28° empty radius vs 0.80° Jensen = 19× above noise") was based on a MEASUREMENT ERROR.
+
+Looking at the exp 53 code: the "Jensen sim" statistic was **the angle between the Karcher mean of vMF-simulated samples and D_flower** — which is ~0.9° under vMF sampling by construction (the Karcher mean converges to the vMF's center direction).
+
+**This is NOT the empty-center radius.** It's the angle from the center-of-mass of simulated centroids to the null direction — a tautologically small number.
+
+### The correct measurement (exp 103)
+
+Empty-center radius = min angular distance from ANY simulated centroid to D_flower. Under vMF(Df, κ=498) with n=2,606 samples:
+- **vMF simulation: 32.8° empty radius**
+- **Real data: 15.28° empty radius**
+- **Real/sim ratio: 0.5×** (real is SMALLER than vMF predicts)
+
+Multiple nulls agree:
+| Null | Simulated empty | Real/sim ratio |
+|---|---|---|
+| vMF Banerjee κ=498 | 32.8° | 0.5× |
+| Uniform-on-band [20°, 50°] | 19.6° | 0.8× |
+| Label permutation | 15.2° | 1.0× |
+| Random-mask grouping | 15.5° | 1.0× |
+
+**Our real data is CONSISTENT with or TIGHTER than what random nulls produce.** Not 19× more empty.
+
+### Downstream claims affected
+
+The framing "empty center is astronomically more empty than random, proving the manifold is real" is WRONG as stated.
+
+However, many specific findings remain valid via other tests:
+- Bimodal θ distribution (visible empirically, doesn't need Jensen)
+- Azimuth anisotropy (χ²=18,724, own test, likely valid)
+- Cross-family convergence clusters (phylo-based test, independent)
+- Specialist-generalist axis (ρ=+0.57, correlation)
+- Cross-flora D_flower alignment (exp 101, independent measurement)
+
+### What needs re-audit
+
+- exp 60 DCI (same style of null comparison — may have similar bug)
+- exp 54 azimuth anisotropy (probably OK but re-check)
+- The manifold cone existence claim — needs a new positive test that isn't vulnerable to this bug
+
+### Honest science
+
+The empty-center finding as framed was wrong. Many memory entries and 3 science log entries (2, 6, 13) cite the 19× ratio. These need correction.
+
+What we still genuinely have:
+- 2,606 species centroids on S^255 in a concentrated band (observed directly)
+- D_flower replicates at cos=0.834 across floras (exp 101, still valid)
+- Cross-family convergence clusters (phylo-validated, exp 72, independent)
+- SAM3↔BioCLIP disagreement mechanism (exp 90, independent)
+- ρ(θ, log κ) = +0.57 specialist-generalist axis (correlation, independent)
+
+The manifold is still MAYBE real — but we need a different test to prove it, not the flawed Jensen comparison.
+
+### Reproducibility
+- `experiments/103_jensen_audit_rigorous_2026-04-22/run.py` — all 6 audit attacks
+- `results/103_jensen_audit_rigorous_2026-04-22/summary.json` — full numbers
+
+### Action items
+
+1. Repair CLAIMS: remove "19× above Jensen" from all publishable framings
+2. Design a correct positive test for "empty center is non-random"
+3. Audit other null-comparison claims (DCI, azimuth χ²)
+4. Retain findings that don't depend on Jensen
+
