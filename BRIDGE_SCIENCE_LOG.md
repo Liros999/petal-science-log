@@ -764,3 +764,49 @@ The manifold is still MAYBE real — but we need a different test to prove it, n
 3. Audit other null-comparison claims (DCI, azimuth χ²)
 4. Retain findings that don't depend on Jensen
 
+
+## Entry 15 — Re-audit vindicates most manifold claims (exp 104, 2026-04-22)
+
+After exp 103 exposed the Jensen bug, re-audited exp 60 DCI, exp 54 azimuth anisotropy, and designed a new positive test for D_flower specialness.
+
+### Audit 1: DCI re-check — VALIDATED
+
+| Null | DCI(37°) |
+|---|---|
+| vMF integral (orig exp 60) | −2.325 |
+| vMF Monte Carlo (new) | −2.336 |
+| Uniform-on-band | −0.678 |
+| Shuffle mask→species | −0.624 |
+
+Bootstrap 200 resamples: 100% below 0, 95%CI [−2.54, −2.09]. **Forbidden valley is robust.** The DCI calculation in exp 60 was correct (vMF integral matches vMF Monte Carlo at 0.01).
+
+### Audit 2: Azimuth anisotropy — VALIDATED
+
+Observed χ²=15,143 (against uniform null). Re-tested against vMF-null χ² distribution (100 trials): median 43, max 74. **Observed is at 100th percentile** — 200× larger than any vMF sample produces. Anisotropy is genuinely real.
+
+### Audit 3: Is D_flower a special direction? — VALIDATED
+
+1,000 random unit vectors in 256-dim: median min-distance to any species centroid = **84.22°**. D_flower's min-distance = **15.28°**. D_flower is at 0th percentile — dramatically denser than random directions.
+
+**Correct framing**: the "empty center" was framing a tautology (centroids are always offset from their members in high dim). The REAL finding is that **species are MORE concentrated around D_flower than vMF predicts** (data tighter than vMF, not more empty).
+
+### What stands after rigorous audit
+
+✅ Azimuth anisotropy (200× above vMF null)
+✅ Forbidden valley at θ=37° (DCI=−2.33, bootstrap 100%)
+✅ D_flower is a dense direction (0th percentile of random)
+✅ Cross-family convergence clusters (exp 72, phylo-independent)
+✅ Specialist-generalist axis (ρ=+0.57, correlation)
+✅ Cross-flora D_flower alignment (exp 101, cos=0.834)
+
+### What was reframed
+
+❌ "19× above Jensen noise floor" — REMOVED
+✓ **Species are MORE concentrated around D_flower than vMF predicts** (not less) — correct framing
+
+### The manifold narrative, corrected
+
+**"Flowering plant morphospace on the 256-sphere shows (a) a concentrated cluster around D_flower, tighter than vMF predicts; (b) strong azimuth anisotropy (χ² 200× above vMF); (c) a forbidden valley at θ=37° (DCI=−2.33, robust under multiple nulls); (d) cross-family convergence clusters phylo-validated; (e) a specialist-generalist axis (ρ=+0.57); (f) replicates across independent floras (cos=0.834 non-Israeli vs Israeli D_flower)."**
+
+Most claims survive. One framing was wrong and is corrected. The rigor of re-audit improves confidence in what remains.
+
