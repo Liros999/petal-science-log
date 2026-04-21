@@ -854,3 +854,43 @@ r adds ~30% independent information after κ is removed. Not fully independent b
 
 **"The flower manifold is a structured 4-coordinate space (θ, ε̂, r, κ). Local density maxima at θ=27° (generalists, low r, low κ) and θ=43° (specialists, high r, high κ). Forbidden valley at θ=37° visible in all three non-azimuth coordinates simultaneously, validated under vMF null (100% trials show more species). Azimuth anisotropy validated at 44,518× above vMF. Elevation anisotropy validated at 200× above vMF."**
 
+
+## Entry 17 — 4-coordinate manifold + KDE fitness landscape (exp 107, 108, 2026-04-22)
+
+### Exp 107: Option C — intra-species variance SHAPE
+
+For 2,602 species with ≥5 masks, computed tangent-plane residual covariance eigendecomposition.
+
+Key metrics:
+- anisotropy λ1/λ2: median 1.54 (slightly elongated)
+- effective rank: median 4.91 (individuals vary in ~5 dims)
+- log trace vs log κ: ρ=−0.999 (total variance and κ measure same thing)
+- **anisotropy vs θ: ρ=+0.049** (essentially independent — NEW axis)
+- effective rank vs θ: ρ=−0.21 (mild negative)
+
+**Anisotropy is a genuinely independent 4th axis** — not redundant with θ or κ.
+
+### Exp 108: 3D KDE + fitness landscape
+
+Kernel density estimation on (θ, log r, log κ) — smooth continuous density field.
+
+**Finding: ONE genuine local maximum in 3D joint space.**
+- Peak at θ=41.1°, log r=0.96, log κ=3.18 (specialist attractor)
+- Hessian eigenvalues: [−96, −96, −0.24] — two sharp curvatures + one flat direction
+- No second local maximum at θ=27° despite 1D θ distribution appearing bimodal
+
+### Refined manifold narrative
+
+The "bimodal θ distribution" IS real as a marginal observation but in the JOINT 3D space (θ, r, κ), only one sharp attractor exists. The "generalist mode" at θ=27° is actually a broad plateau where species spread across multiple (r, κ) values without a tight center.
+
+**This is a genuinely new finding**: the fitness landscape in morphology space has one sharp specialist attractor plus a broad generalist plateau. Not two symmetric attractors as previously inferred from θ marginal alone.
+
+### Publishable claim
+
+"The flower manifold fitness landscape has one sharp attractor at θ=41°, log r=0.96, log κ=3.18 (specialist mode) with Hessian eigenvalues [-96, -96, -0.24]. Species away from this attractor populate a broader plateau region. The bimodal appearance in 1D θ marginal reflects the attractor plus plateau structure, not two separate attractors."
+
+### Reproducibility
+- `experiments/107_option_c_residual_variance_2026-04-22/run.py`
+- `experiments/108_kde_hessian_landscape_2026-04-22/run.py`
+- Plots at `results/.../{option_c_variance_shape, kde_landscape}.png`
+
