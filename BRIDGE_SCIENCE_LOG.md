@@ -583,3 +583,42 @@ Exp 96's strong local consistency is REAL but is overwhelmingly a **phylogenetic
 
 > "Local neighborhood consistency between SAM3 and BioCLIP (58× above chance at k=5) is mostly phylogenetic (85% of shared-NN events are same-family). Cross-family visual convergence is detected uniquely by SAM3 FPN. BioCLIP 2.5 CLS's species-contrastive training actively pushes apart convergent species."
 
+
+## Entry 11 — Formal framework + cross-flora extraction + DinoV2 judge (2026-04-22)
+
+### Formal manifold framework (new)
+
+Defined the manifold formally for arbitrary domains:
+$$\text{Manifold}(S) = \{(s_a, s_b) : \rho_\text{partial}(\mathcal{F}_1(s_a, s_b), \ldots, \mathcal{F}_k(s_a, s_b) | \Phi) > \tau\}$$
+
+Where $S$ is any finite set, $\mathcal{F}_i$ are multiple feature distances (geodesic on unit sphere), $\Phi$ is ground-truth distance (phylogeny in our case).
+
+Four logical cases: monophyletic (case 1), true CCC (case 2 — our pea-flower finding), SAM3-only convergence (case 3 — our 753 species), BioCLIP phy-bias (case 4).
+
+### Generalizes beyond flowers
+
+Framework applies to: cells/expression, proteins/structure, languages/semantics, molecules/fingerprints. Any domain with multiple feature embeddings + external hierarchy.
+
+### Deep explanations committed to memory
+
+- `manifold_formal_framework.md` — discrete math formalization + 4-case logic + theorems
+- `cone_geometry_visualized.md` — the cone is a 2D surface on S²⁵⁵, centroid is apex direction only
+- `visual_vs_functional_convergence.md` — pea-flower (functional) > Malva cluster (visual-only)
+- `pea_flower_syndrome_biology.md` — pollination mechanics + 130 My phylogenetic divergence
+- `fma_4_claims_explained.md` — each FMA claim with why it's valid
+- `ccc_tests_1_and_2_explained.md` — CCC robustness bootstrap details
+
+### Cross-flora replication IN PROGRESS
+
+Exp 98: BioCLIP 2.5 CLS extraction for 119 non-Israeli species in Citadel DB (48,616 masks). This UNLOCKS cross-flora validation — we can now redo the manifold analysis on species NOT in our Israeli training set.
+
+### DinoV2 unbiased judge (exp 99)
+
+Self-supervised model (no labels, no species contrastive) as third judge between SAM3 and BioCLIP. If DinoV2 agrees with SAM3 on cross-family convergence but not BioCLIP, that's definitive evidence that BioCLIP's phy-bias is the issue, not that convergence is SAM3-specific artifact.
+
+Running on both Israeli + non-Israeli masks (90,272 masks total, 275 species). Expected embeddings 768-dim.
+
+### Publishable claim refinement
+
+> "We formalize the flower manifold as the pairwise-distance structure shared across multiple independent feature models, after removing phylogenetic distance. The shared signal is measurable (partial ρ=+0.67). Cross-flora replication (119 non-Israeli species) and third-model validation (DinoV2) are underway."
+
