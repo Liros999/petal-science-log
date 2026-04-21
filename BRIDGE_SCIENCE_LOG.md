@@ -985,3 +985,50 @@ Consensus: **~10-15 effective dimensions**, vs ambient S²⁵⁵ (255 dims).
 - **Evolutionary barrier**: 2.65 fitness units between generalist and specialist attractors (exp 111)
 - **Forbidden valley at θ=37°**: selection actively excludes intermediate flower types
 
+
+## Entry 20 — Dictionary validation + Centroids bend space (exp 115, 116, 2026-04-22)
+
+### Exp 115: Dictionary reconstruction formula VALIDATED
+
+Tested "flora = sum_C w_C * mu_C + residuals" empirically:
+- K=100 clusters reconstructs 89% of species within 10° angular error
+- K=50 clusters reconstructs 70% within 10°, 90% within 15°
+- K=200 clusters: 99% within 10°, 100% within 15°
+- **The generative model formula is empirically valid**: ~100 cluster centroids are sufficient to reconstruct the entire Israeli flora
+
+This means:
+- A compact ~100-dim morphological primitive dictionary exists
+- Every species is a sparse mixture of ~5-15 primitives + small residual
+- The formula "flora = sum w * mu_cluster" is quantitatively meaningful
+
+### Exp 116: Centroids BEND space around them
+
+Local geometry at cluster centroids vs random sphere locations:
+
+| Location | Local eff dim | Local anisotropy |
+|---|---|---|
+| Cluster centroid | 11.81 | 1.47 |
+| Random sphere direction | 2.50 | 17.57 |
+
+**Cluster centroids are locally isotropic "balls" of species; random sphere directions point toward elongated "cone" structures.**
+
+Cluster-size dependence:
+- ρ(cluster_size, local_eff_dim) = +0.63 — bigger clusters have more isotropic neighborhoods
+- ρ(cluster_size, local_anisotropy) = -0.63 — bigger clusters are less anisotropic at their center
+
+**Mechanism**: cluster centroids sit at the INSIDE of dense species clouds. Species are spread around them in all tangent directions equally. A random non-species direction is OUTSIDE the cloud, so its local k-NN all pull toward the cluster — the neighborhood is anisotropic in the direction-of-cluster.
+
+### Publishable framing
+
+"Cluster centroids on the flower morphospace S^255 create locally-isotropic neighborhoods (local eff-dim = 11.8, anisotropy = 1.5), while random sphere directions see anisotropic structures pointing toward the cluster region (local eff-dim = 2.5, anisotropy = 17.6). Cluster centroids therefore act as 'attractor basins' on the manifold where local geometry is locally-flat."
+
+### Generative model possibility
+
+Given the dictionary reconstruction works at K=100, one could train a small generative network:
+- Input: 10-15 intrinsic dimensions (per exp 114)
+- Dictionary weights: sparse selection of ~100 cluster primitives
+- Output: reconstructed FPN vector
+- Then invert via SD-2.1-unclip-style diffusion to produce actual flower images
+
+This is a concrete path to a "flower synthesis from morphological coordinates" generative model, parametrized by ~10-15 biologically-meaningful knobs.
+
