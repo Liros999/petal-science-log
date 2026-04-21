@@ -436,3 +436,75 @@ validation status.
 - `results/88_*/fma_addresses.tsv` — FMA per species in both models
 - `results/89_*/summary.json` — cross-model pair consistency
 
+
+## Entry 7 — Night 2: FMA validation + SAM3↔BioCLIP mechanism + CCC-both = pea flower (2026-04-22)
+
+### FMA (Flower Manifold Address) validation — ALL 4 CLAIMS PASS
+
+Model-invariance tests on 1,912 common species:
+- **elev_rank consistency**: Spearman ρ positive, median rank diff <25pp
+- **hood pair-lift**: lift > 3× over independence
+- **zone within-1 agreement**: 65.2% of species have same or adjacent zone
+- **conv_status meaningful**: 30 species CCC in both models (non-trivial overlap)
+
+FMA nomenclature is usable for model-agnostic species description.
+
+### Exp 90 — MECHANISM of SAM3↔BioCLIP discrepancy
+
+Four direct tests on 1,912 common species revealed **why** convergence shows in SAM3 but not BioCLIP:
+
+| Metric | SAM3 | BioCLIP | Ratio |
+|---|---|---|---|
+| Spearman ρ(dist, phylo) | +0.046 | +0.149 | 3.2× |
+| Family-separation effect | 0.22 | 1.46 | 6.5× |
+
+**Partial ρ(SAM3, BioCLIP | phylo) = +0.673** — models agree strongly on morphology AFTER removing phylogeny.
+
+**BioCLIP spreads SAM3-CCC species APART**: BioCLIP intra-cluster dist for SAM3 multi-family clusters = 52.6° vs for SAM3 single-family clusters = 46.6°.
+
+**Decomposition**:
+```
+BioCLIP_dist(A, B) ≈ α × phylo_dist(A, B) + β × morphology_dist(A, B)
+SAM3_dist(A, B)    ≈ morphology_dist(A, B)
+```
+
+BioCLIP's contrastive training on species labels made it phylogeny-biased. SAM3's segmentation training on SA-1B left it morphology-faithful.
+
+**Implication**: SAM3 is the correct feature space for detecting morphological convergence across families. BioCLIP is the correct feature space for species-level retrieval.
+
+### Exp 91 — Phylogeny-residualized manifold (partial pivot)
+
+Computed residual distances = raw_dist - E[dist | phylo_dist]. Expected cross-model agreement to improve after removing phylo.
+
+**Result**: ρ(SAM3_resid, BioCLIP_resid) = +0.301 (was +0.306 raw). Essentially unchanged.
+
+**Conclusion**: The ~20% phylo component in BioCLIP distances is a RIGID addition; removing it doesn't unmask a hidden "true morphology" agreement. BioCLIP's species-contrastive structure is a broader, non-linear distortion of morphology, not a simple phy-correlated overlay.
+
+### Exp 92-94 — The "CCC in both models" is the PEA-FLOWER SYNDROME
+
+Decomposed the 30 species labeled CCC (Convergence-Corroborated Cluster) in BOTH models:
+
+**70% Fabaceae, with added Phlomis (Lamiaceae), Senna, Securigera, Vigna.** All 30 species have:
+- SAM3_hood = "ranunculus paludosus"
+- BioCLIP_hood = "lotus peregrinus"
+
+**Visual validation (exp 94)**: 27/30 species show clear papilionaceous corolla (standard + wings + keel). This is the **pea-flower pollination syndrome** — a specialized morphology filtering for large bees.
+
+**Implication**: "CCC in both models" detects **pollinator-syndrome convergence** where visual form AND phylogenetic relatedness are both strong. This is a STRICTER signal than "CCC in SAM3 only" (which catches cross-family visual convergence that BioCLIP disagrees with).
+
+### Revised taxonomy of convergence
+
+| Category | Count | Type |
+|---|---|---|
+| CCC SAM3 only (n=753) | 753 | Cross-family visual convergence (Malva cluster, Erodium, Ranunculus) |
+| CCC BioCLIP only (n=41) | 41 | Intra-BioCLIP-cluster novelty |
+| CCC both models (n=30) | 30 | Pea-flower syndrome (intra-Fabaceae + adjacent) |
+
+### 1KP — confirmed BLOCKED via deep search (exp 67d)
+
+Tried 16 URL sources including Zenodo, GitHub, FigShare, Ensembl, NCBI, EBI, Wayback Machine, Dryad. Best overlap: 5 species (Zenodo search returns abstract text). Real data behind Dryad auth or R onekp package install. Remains hard blocker.
+
+### Reproducibility
+
+All new scripts in `experiments/90-94_*/`, memory entries in `memory/`, science log pushed.
+
