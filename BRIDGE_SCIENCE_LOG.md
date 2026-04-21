@@ -622,3 +622,29 @@ Running on both Israeli + non-Israeli masks (90,272 masks total, 275 species). E
 
 > "We formalize the flower manifold as the pairwise-distance structure shared across multiple independent feature models, after removing phylogenetic distance. The shared signal is measurable (partial ρ=+0.67). Cross-flora replication (119 non-Israeli species) and third-model validation (DinoV2) are underway."
 
+
+## Entry 12 — Continuous FMA honest assessment (exp 100, 2026-04-22)
+
+Replaced exp 88's discrete zone-based FMA with continuous consensus rank.
+
+### Results on 1,912 common species
+
+Residual (BioCLIP rank − SAM3 rank) distribution:
+- Mean: +12.57 pp (BioCLIP systematically ranks species more atypical)
+- Median: +12.50 pp  |  SD: 28.1 pp  |  MAD: 20.9 pp
+
+Agreement by tolerance:
+- ±5 pp: 13.5%  |  ±10 pp: 26.3%  |  ±15 pp: 38.0%  |  ±20 pp: 48.7%
+
+Only **1.5% truly model-invariant** (|Δrank| < 10pp AND same hood).
+
+### Honest correction to exp 88
+
+Exp 88 reported "65.2% within-1-zone agreement" with discrete buckets. Continuous FMA shows this is the ±25pp equivalent tolerance — far too loose.
+
+**Revised framing**: the manifold is universal at the POPULATION LEVEL (distribution shape, ρ partial = +0.67) but NOT at the INDIVIDUAL SPECIES LEVEL. Only ~1.5% of species have model-invariant positions.
+
+### Corrected publishable claim
+
+"The flower morphospace has REAL universal structure in its distribution shape (empty center, specialist-generalist axis, family-decoupling replicate across models). However, individual species positions within this structure depend on the feature model used. Cross-model FMA comparison is meaningful at population level, not individual-species level."
+
