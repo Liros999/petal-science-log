@@ -2759,4 +2759,63 @@ two spaces."
 ### Artefacts
 - `results/exp_247_dna_permutation_null_DNA/dna_perm_null.json`
 
+---
+
+## Entry 52 — Dominance biology CORRECTED for sampling (exp 250, 2026-04-23)
+
+### Question
+Exp 244 found ρ(α, Δn_masks) positive + significant for several genera,
+suggesting dominance direction is partly a sampling artifact (better-
+sampled parent's centroid is tighter, looks dominant). Control for this
+and see which dominance signals are REAL.
+
+### Method
+Two approaches:
+  A — Subset to matched-sampling triples (|Δn|/min(n) ≤ 30%): 482/880
+      triples. Recompute per-genus α.
+  B — Partial regression: α = β₀ + β₁·Δn + ε per genus.
+      β₀ = intercept (real dominance, controlling for sampling).
+      β₁ = slope (sampling bias component).
+
+### Result — genera with REAL dominance (β₀ significant after control)
+
+| Genus | β₀ | p(β₀) | n triples |
+|---|---|---|---|
+| **Ranunculus** | −0.0198 | 0.005 | 34 |
+| **Convolvulus** | −0.0121 | 0.002 | 78 |
+| **Malva** | +0.0261 | 0.013 | 28 |
+| **Lathyrus** | −0.0161 | 0.042 | 32 |
+
+Only **4 genera** show real dominance (down from 6 in exp 244).
+
+### Sampling-artifact genera (β₁ significant, β₀ NOT)
+
+10 genera: Anthemis, Campanula, **Erodium**, Fagonia, Gagea, Helianthemum,
+Linum, Romulea, Stachys, Verbascum.
+
+**Erodium correction**: exp 244 reported Erodium α = −0.014, p = 0.019.
+Controlled result: β₀ = −0.0093, p = 0.116 (NOT significant).
+**Erodium's dominance was a sampling artifact**. The Erodium-inverted-direction
+story from exp 238 is about γ (D_flower pull), which stands; but the
+per-triple dominance α was driven by mask-count imbalance, not biology.
+
+### Updated Entry 48 correction
+
+Exp 244 reported 6 genera with significant dominance. After this controlled
+analysis, **only 4 remain**: Ranunculus, Convolvulus, Malva, Lathyrus.
+Erodium and Picris were sampling artifacts.
+
+### Paper-ready statement
+> *"Partial regression of α on Δn_masks reveals that per-genus dominance
+> asymmetry in hybrid offspring is a mixture of real biological signal
+> and sampling artifact. After controlling for sample-size imbalance between
+> parents, only 4/36 genera retain significant dominance: Ranunculus
+> (β₀ = −0.020, p = 0.005), Convolvulus (β₀ = −0.012, p = 0.002),
+> Malva (β₀ = +0.026, p = 0.013), Lathyrus (β₀ = −0.016, p = 0.042).
+> Ten genera (including Erodium) had apparent dominance that was
+> fully explained by mask-count imbalance (β₁ significant, β₀ not)."*
+
+### Artefacts
+- `results/exp_250_dominance_controlled_FPN/dominance_controlled.json`
+
 
