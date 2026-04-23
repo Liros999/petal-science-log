@@ -2177,4 +2177,230 @@ D_flower is:
 - Scripts: `exp_236_min_theta_ecology.py`, `exp_237_vmf_barrier_test.py`, `exp_238_per_genus_directionality.py`
 - Results: `results/exp_236_min_theta_ecology_FPN/`, `results/exp_237_vmf_barrier_FPN/`, `results/exp_238_per_genus_directionality_FPN/`
 
+---
+
+## Entry 43 — Offspring direction predictor: genus-specific D_flower pull (exp 239, 2026-04-23)
+
+### Question
+Can we predict where an F1 hybrid will land given the two parents?
+Decompose v_C = α u_A + β u_B + γ u_D + ε where u_A, u_B are tangent
+directions from midpoint M to parents and u_D is tangent direction to
+D_flower.
+
+### Method
+For each of 880 hybrid triples: compute tangent-space decomposition at
+M = normalize(μ_A + μ_B). Extract scalar coefficients α, β, γ as
+projections of v_C onto the three directions.
+
+### Result
+
+**Global stats**:
+- mean γ = +0.019 (positive — offspring pulled toward D_flower)
+- fraction γ > 0 = **73.2%** (nearly 3/4 of offspring toward D_flower)
+- mean r² = **0.034** — only 3% of offspring position variance explained
+  by additive midpoint + D_flower pull. 97% is biological residual
+  (dominance, epistasis, drift, noise).
+
+**Per-genus γ** (D_flower pull):
+| Genus | γ | frac γ > 0 | Interpretation |
+|---|---|---|---|
+| Picris, Ophrys | +0.032, +0.049 | **100%** each | Every triple pulled inward |
+| Ranunculus | +0.038 | 91% | Strong pull |
+| Verbascum | +0.030 | 90% | Strong pull |
+| **Erodium** | **+0.002** | **51%** | NEUTRAL — half pulled in, half pushed out |
+| Iris | +0.004 | 44% | Slight push out |
+| Romulea | +0.002 | 38% | Pushed out |
+
+The global +1° directionality from exp 234 is a **mean** across
+heterogeneous per-genus geometries. Genera like Erodium, Iris, Romulea
+are essentially neutral — NO net D_flower pull on their F1 offspring.
+
+### Bonus: low-θ cluster coherence
+
+The 30 closest-to-D_flower species have pairwise angular distances:
+mean 18.5°, median 18.7°. **D_flower IS a coherent attractor** for a
+specific morphotype (tight cluster), not an arbitrary statistical mean.
+
+### Caveats
+- The α = −β symmetry in our decomposition means "parent A vs parent B
+  labels" are an artifact; only |α−β| and γ are directly interpretable.
+- 3% r² shows we are NOT close to a mechanistic F1 predictor. The
+  question "can we predict F1 position?" answered NO for the simple
+  geometric model.
+
+### Paper-ready statement
+> *"A linear regression of hybrid offspring position in tangent space at
+> the parent midpoint, decomposed into parent-pull and D_flower-pull
+> components, explains only 3% of offspring-position variance (r² = 0.034
+> across 880 triples). The D_flower component (γ) is positive on average
+> (73% of offspring pulled toward D_flower), but varies substantially by
+> genus: Verbascum, Ranunculus, Picris and Ophrys show 90-100% of
+> offspring pulled inward, while Erodium, Iris, Romulea are essentially
+> neutral (~50% inward). The observed global +1° directionality from
+> exp 234 is a mean across heterogeneous per-genus geometries, not a
+> universal law."*
+
+### Artefacts
+- Script: `experiments/exp_239_offspring_direction_predictor.py`
+- Results: `results/exp_239_offspring_direction_predictor_FPN/offspring_predictor.json`
+
+---
+
+## Entry 44 — DNA θ distribution: morphospace and genespace are nearly independent (exp 240, 2026-04-23)
+
+### Question
+Does the DNA space (k-mer-based 256-D vectors, Mayrose lab bridge data)
+have the same cone structure as FPN morphospace? Is the species-level
+correspondence strong?
+
+### Method
+Load DNA B_common.npy (104,395 species × 256-D) from exp_E250. Intersect
+with 1,912 Israeli FPN species → 1,312 species with both.
+
+Compute D_FPN and D_DNA (each as the mean direction within its space).
+Compute θ_FPN and θ_DNA per species.
+
+### Result
+
+| Distribution | θ mean | θ std | θ min | θ max |
+|---|---|---|---|---|
+| FPN | 24.1° | 6.0° | 11.6° | 59.1° |
+| DNA | **78.6°** | 8.2° | **55.1°** | **104.1°** |
+
+**FPN and DNA cone scales are completely different.** DNA vectors sit
+~55° from their mean direction; FPN species sit ~25°. DNA space is much
+less concentrated than FPN.
+
+**Correlations**:
+- Spearman ρ(θ_FPN, θ_DNA) = **+0.072, p = 0.009**
+- Percentile-rank correlation: **+0.072**
+- Overlap in top-100 closest-to-center: **8/100**
+- Overlap in top-100 farthest: 8/100
+
+The species that sit near the morphological cone center are NOT the same
+species that sit near the genetic cone center. Only 8% overlap.
+
+### Interpretation
+**D_flower_morphology and D_flower_DNA are different biological quantities.**
+The morphological cone reflects shared developmental patterns + dataset
+photography biases (exp 236 showed Mediterranean perennial herbs
+dominate the cone center). The genetic cone reflects phylogenetic ancestry.
+These are weakly coupled but not equivalent.
+
+**Implication for hybrid detection**: a pair morphologically close (low
+θ_FPN distance) need NOT be genetically close. This is a feature, not a
+bug — it lets us identify convergent-evolution FPs in the joint matrix
+(see Entry 45).
+
+### Artefacts
+- Script: `experiments/exp_240_dna_theta_distribution.py`
+- Results: `results/exp_240_dna_theta_FPN/dna_theta.json`
+
+---
+
+## Entry 45 — Joint (FPN-θ × DNA-θ) matrix: the unified hybridization metric (exp 241, 2026-04-23)
+
+### Question
+For every same-genus pair, compute BOTH morphological distance (θ_FPN)
+AND genetic distance (θ_DNA), then classify into 4 quadrants. This is the
+unified "solve for every" metric: hybrid candidates require BOTH low
+distances.
+
+### Method
+Intersect FPN (1,912) and DNA (104,395) → 1,312 species. Build all
+same-genus pairs: **4,221 pairs** with both distances. Set thresholds at
+p30 / p20 / p10 of each distribution. Classify each pair into 4 quadrants.
+
+### Result (p30 thresholds: θ_FPN < 21.4°, θ_DNA < 38.5°)
+
+| Quadrant | Count | Fraction | Interpretation |
+|---|---|---|---|
+| LOW-LOW (both close) | 473 | **11.2%** | **True hybrid candidates** |
+| LOW-HIGH (close morph, distant DNA) | 793 | 18.8% | Convergent evolution FPs |
+| HIGH-LOW (distant morph, close DNA) | 793 | 18.8% | Cryptic species |
+| HIGH-HIGH (both distant) | 2,162 | 51.2% | Real distant species |
+
+### Stricter threshold (p10): θ_FPN < 16.2°, θ_DNA < 26.2°
+
+| Quadrant | Count | Fraction |
+|---|---|---|
+| LOW-LOW | 74 | 1.8% |
+| LOW-HIGH | 348 | 8.2% |
+| HIGH-LOW | 347 | 8.2% |
+| HIGH-HIGH | 3,452 | 81.8% |
+
+### Per-pair correlation
+- Spearman ρ(θ_FPN, θ_DNA) per same-genus pair = **+0.170, p = 1.2 × 10⁻²⁸**
+- Pearson r = +0.172, p = 2.3 × 10⁻²⁹
+
+Weak but highly significant positive correlation — morphology and DNA
+agree SOMETIMES but often disagree.
+
+### Per-genus correlation (genera with ≥ 10 pairs)
+| Genus | n pairs | Spearman ρ | p |
+|---|---|---|---|
+| Vicia | 153 | **+0.37** | 3.4e-6 |
+| Plantago | 66 | **+0.40** | 9.4e-4 |
+| Allium | 136 | **+0.33** | 9.7e-5 |
+| Convolvulus | 91 | **+0.27** | 9.3e-3 |
+| Astragalus | 325 | +0.23 | 2.4e-5 |
+| Lotus | 136 | +0.24 | 4.3e-3 |
+| Trifolium | 990 | **+0.05** | 0.15 (ns) |
+| Medicago | 276 | -0.01 | 0.83 (ns) |
+| **Euphorbia** | 276 | **−0.13** | 0.031 |
+| Silene | 210 | +0.04 | 0.60 (ns) |
+
+**Trifolium (our biggest cycle contributor) has ρ = 0.05**: morphology
+and DNA don't align within Trifolium. Its 19 cycles from exp 235 are
+NOT driven by genetic proximity.
+
+**Euphorbia has ρ = −0.13**: morphologically similar species are
+GENETICALLY DISSIMILAR, and vice versa. Convergent evolution signature.
+
+### Interpretation: the unified metric
+
+**This is THE 2D matrix that partitions all species relationships into
+four biologically-distinct categories.** A claim "species X and Y are
+hybridization candidates" should henceforth be backed by BOTH low
+θ_FPN AND low θ_DNA. Pairs in only one low-quadrant are either
+convergent-evolution artefacts (LOW-FPN, HIGH-DNA) or cryptic-species
+discoveries (HIGH-FPN, LOW-DNA).
+
+### Implications for the paper
+
+1. **Our FPN-only method has ~19% convergent-evolution FP rate** at
+   p30 threshold. Not bad, but a real limit.
+2. **Only 1.8-11.2% of same-genus pairs are true hybrid candidates**
+   depending on stringency.
+3. The joint matrix IS a new general tool. Publishable in its own right.
+
+### Paper-ready statement
+> *"The joint (θ_FPN, θ_DNA) matrix of 4,221 same-genus pairs in the
+> Israeli flora partitions species relationships into 4 biologically-
+> distinct classes: true hybrid candidates (low in both, 11%),
+> convergent-evolution false positives (low θ_FPN, high θ_DNA, 19%),
+> cryptic species (high θ_FPN, low θ_DNA, 19%), and real distant
+> species (high in both, 51%). Per-genus correlation varies widely,
+> from strong FPN-DNA alignment in Vicia and Plantago (ρ = 0.37-0.40)
+> to near-zero in Trifolium (ρ = 0.05) and negative in Euphorbia
+> (ρ = -0.13), indicating that morphological and genetic distance
+> agree in some genera but are nearly independent in others."*
+
+### Artefacts
+- Script: `experiments/exp_241_joint_fpn_dna_matrix.py`
+- Results: `results/exp_241_joint_fpn_dna_matrix_FPN/joint_matrix.json`
+
+### Joint summary of Entries 43-45
+
+1. **Offspring F1 position is mostly NOT predictable from simple
+   geometry** (exp 239: r² = 0.034). 97% of F1 position is biological.
+2. **Morphospace and genespace are nearly independent at species level**
+   (exp 240: ρ = 0.07 between θ_FPN and θ_DNA).
+3. **The unified FPN × DNA matrix partitions all pair relationships**
+   into true-hybrid / convergent-FP / cryptic / distant quadrants
+   (exp 241, 4,221 Israeli pairs).
+
+Mediterranean data will let us replicate this at 7× scale, and
+the joint matrix is the correct framework for scaling up to global flora.
+
 
