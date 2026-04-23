@@ -2403,4 +2403,159 @@ discoveries (HIGH-FPN, LOW-DNA).
 Mediterranean data will let us replicate this at 7× scale, and
 the joint matrix is the correct framework for scaling up to global flora.
 
+---
+
+## Entry 46 — Fixed offspring predictor + D_flower geometric structure (exp 242+243, 2026-04-23)
+
+### Context
+Exp 239 had a methodological bug: decomposition into (α, β, γ) forced
+α = −β exactly because u_A and u_B (tangent directions from midpoint
+to parents) are anti-parallel by construction. Exp 243 fixes this with
+a proper 2-parameter (α, γ) decomposition.
+
+### exp 243 — Fixed predictor V2
+
+Correct decomposition:
+  v_C = α · u_parent + γ · u_D_flower + ε
+where u_parent = unit tangent from midpoint M toward parent A (the
+"dominance axis"), u_D = unit tangent toward D_flower (the "regression-
+to-mean axis"). These are approximately orthogonal (mean u_parent · u_D
+= +0.006 across 880 triples).
+
+**Global result:**
+- α: mean = −0.003, std = 0.041, t = −2.19, p = 0.029 (barely significant;
+  effectively no global dominance)
+- γ: mean = +0.019, std = 0.031, **t = +18.29, p = 1.35e-63** — strongly
+  positive (Galton 1886 regression-to-mean confirmed)
+- **r² = 0.113** (fixed version, vs 0.034 in buggy exp 239)
+
+**Per-genus dominance (α) — significantly non-zero:**
+| Genus | ᾱ | p | Direction |
+|---|---|---|---|
+| Ranunculus | -0.028 | 0.0002 | toward parent-B |
+| Malva | +0.023 | 0.022 | toward parent-A |
+| Erodium | -0.014 | 0.019 | toward parent-B |
+| Lathyrus | -0.017 | 0.034 | toward parent-B |
+| Convolvulus | -0.009 | 0.028 | toward parent-B |
+| Picris | +0.031 | 0.034 | toward parent-A |
+
+**Per-genus γ — significant vs not:**
+
+| Group | Genera | γ̄ | p_γ |
+|---|---|---|---|
+| Strong D_flower pull | Verbascum, Ranunculus, Trifolium, Silene, Picris, Convolvulus, Lathyrus, Malva | +0.017 to +0.038 | p < 0.001 |
+| No D_flower pull | **Erodium, Iris, Romulea, Anthemis, Colchicum, Geranium** | +0.002 to +0.008 | p > 0.05 |
+
+**Critical observation**: hybrid-complex / cycle-rich genera (Erodium,
+Iris, Romulea) show NO significant regression toward D_flower. This
+matches the exp 238 finding that these genera invert the global
+directionality. These genera have their own local attractor (genus
+centroid), not the global one.
+
+### Classical baselines for comparison
+- **Galton 1886 regression-to-mean**: prediction γ > 0 universally.
+  Confirmed globally (p = 1.35e-63) but rejected per-genus for Erodium,
+  Iris, Romulea.
+- **Wright 1921 dominance**: prediction |α| > 0 per-cross. We find
+  6/36 genera significant.
+- **Fisher 1918 polygenic**: prediction large residual ||ε||. Our
+  r² = 0.113 means 89% of F1 position is Fisherian residual.
+
+### exp 242 — D_flower geometric structure from pure geometry
+
+**Test C — low-θ predicts hybrid-graph centrality**:
+- Spearman ρ(θ, offspring_count) = **-0.22, p = 3.9e-7**
+- Top-100 closest-to-D_flower species: 247 total graph edges
+- **Top-100 farthest-from-D_flower species: 0 total graph edges**
+
+**This is a major structural finding**: the cone PERIPHERY (wind-pollinated
+grasses, Araceae, Euphorbiaceae) is completely absent from the hybrid graph.
+The hybrid graph exclusively lives in the morphological interior.
+
+**Test D — azimuthal isotropy**:
+- 12-bin azimuth histogram of species in tangent space of D_flower
+- χ² = 277.75, **p = 4.2e-53**
+- Highly non-uniform. Top-2 tangent PCs explain 32% of tangent variance.
+
+The flora is NOT rotationally symmetric around D_flower. There is a
+preferred azimuthal direction (e.g., azim bin −15° has 317 species vs
+expected 159). This means the "cone" we've been calling S²⁵⁵-around-
+D_flower is really a 3D+ structure, not just a 1D elevation axis.
+
+### Paper-ready statement
+
+> *"A fixed 2-parameter tangent-space decomposition of offspring F1
+> position v_C = α·u_parent + γ·u_D_flower + ε shows strong global
+> regression-to-mean (γ̄ = +0.019, t = 18.3, p = 1.4e-63), matching
+> Galton 1886. Per-genus γ separates genera with strong pull toward
+> D_flower (Verbascum, Ranunculus, Trifolium, p < 0.001) from genera
+> with no pull (Erodium, Iris, Romulea, p > 0.05) — the latter are
+> precisely our most hybrid-complex genera. Per-genus dominance (α)
+> is significant for 6/36 tested genera. r² = 0.113 means 89% of F1
+> position is unexplained by the 2-parameter geometric model —
+> consistent with Fisher 1918 polygenic inheritance. The top-100
+> species closest to D_flower have 247 hybrid-graph edges; the top-100
+> farthest have 0 — hybridization lives in the cone interior.
+> Azimuthally, the flora is highly non-uniform (χ² p = 4e-53), with
+> 32% of tangent variance in top 2 principal directions."*
+
+### Artefacts
+- Scripts: `exp_242_d_flower_geometric_structure.py`, `exp_243_offspring_direction_predictor_v2.py`
+- Results: `results/exp_242_d_flower_geometric_structure_FPN/`, `results/exp_243_offspring_direction_predictor_v2_FPN/`
+
+---
+
+## Entry 47 — DNA side NOT validated at FPN rigor: CAUTION on cross-modality claims (2026-04-23)
+
+### The issue
+
+We have invested extensive rigor in the FPN (morphological) side: sealed
+pipeline, BRIDGE constants, 40+ experiments, multiple null tests.
+
+We have NOT invested equivalent rigor in the DNA side. The DNA vectors in
+our cross-modality tests come from `exp_E250_dna_angle_nucleotide/B_common.npy`
+— an output of a DNA-to-FPN bridge that was trained once, not independently
+validated as a biological embedding.
+
+### What we DID NOT do on the DNA side
+
+- No temperature (threshold) calibration analogous to exp 209
+- No sealed-pipeline equivalent
+- No dimensional-scaling validation (τ_DNA prediction from √d is untested)
+- No vMF density check on DNA cone
+- No null test (k-mer permutation)
+- No per-scale check (k = 4, 5, 6, 7 sensitivity)
+
+### Implications for our cross-modality claims
+
+**Exp 241 joint matrix**: the 19% convergent-FP rate assumes DNA-θ is
+correctly scaled. If DNA-θ should be at a different threshold, quadrant
+boundaries shift and the FP rate changes substantially.
+
+**Exp 240 low FPN-DNA correlation (ρ = 0.07)**: the weak correlation
+might partly reflect that the DNA space itself has noise we haven't
+characterised.
+
+### Required before strong cross-modality claims
+
+1. DNA threshold sweep → establish τ_DNA equivalent of τ_FPN = 10°
+2. DNA density structure → vMF fit, check for bimodality
+3. DNA cycle enumeration → confirm the same 38-197× null enrichment as FPN
+4. DNA-side null test → k-mer permutation
+5. Cross-k-scale consistency check
+
+Until these are done, **the joint-matrix quadrant percentages (11% hybrid,
+19% convergent, 19% cryptic, 51% distant) are preliminary, not robust**.
+
+### Paper language correction
+
+All cross-modality FP-rate claims should be flagged as "preliminary,
+pending DNA-side pipeline validation equivalent to the FPN sealing effort."
+
+### Next steps
+
+When Mediterranean data lands, run the DNA-side validation experiments
+in parallel with the cross-flora replication. Until then: hold off on
+strong cross-modality conclusions.
+
 
