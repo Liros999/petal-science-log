@@ -1494,4 +1494,80 @@ CLS from day one.
 - `.claude/memory/pivot_attractor_full_narrative.md` — full narrative
 - `.claude/memory/mediterranean_scaleup_pipeline_plan.md` — detailed plan
 
+---
+
+## Entry 34 — Correction: the narrative seed is exp 131 (triangles), not exp 158 (pairs) (2026-04-23)
+
+### Why this correction matters
+Entry 33's narrative started the story at exp 158 — "does a midpoint
+species exist between same-genus pairs?". That was the SECOND step.
+The actual conceptual seed was the shift **from pair geometry to
+triangle geometry** in exp 131.
+
+### exp 131 — THE seed finding
+
+On 1,912 FPN species centroids (S^255), sampled 1,000,000 random
+3-species triples and computed the **spherical triangle area** by
+L'Huilier's formula. Compared to a null of 99,852 triangles drawn
+from sphere-uniform random points in d=256.
+
+| Distribution | mean area (sr) | median | p5 | p95 |
+|-|-|-|-|-|
+| **Real species triangles** | **0.148** | 0.141 | 0.074 | 0.247 |
+| Sphere-uniform null | 1.571 | 1.568 | 1.396 | 1.754 |
+| **Real is tighter by** | **10.6×** | | | |
+
+And the distributions do not overlap — null p5 (1.40) is already
+**6× larger than real p95** (0.25).
+
+### Per-genus refinement (exp 131, same script)
+
+Across 185 genera with ≥3 species:
+- Median ratio (mean_area / null_mean) = **0.47**
+- **92.4% of 185 genera** have triangles tighter than null
+- A few outliers: **Bromus z=6.0** (5 species, 10 triangles), Galium z=2.2,
+  Acacia z=1.8 — genera with triangles LARGER than null. These are
+  candidates for "spread out, polytypic, ecologically diverse".
+
+### Why this reframes the whole paper
+
+Before exp 131, morphospace work (ours and the literature) was
+**pair-centric**: distances, angles, Mantel tests on pair matrices.
+Pairs give you one scalar per relationship — no shape.
+
+**Triangles have shape**: area, angular excess, interior angles,
+centroid, shape category. exp 131 showed real triangles are
+dramatically tighter than random → the flora sits on a sub-manifold
+of S^255. That observation opened every subsequent question: "what
+lives near the middle of a triangle?" (exp 158, hybridization),
+"who is at many midpoints?" (exp 162, pivots), "what's the angular
+law?" (exp 199, 203, pivot attractor 6.43°).
+
+### Narrative chain corrected
+
+0. exp 131 — **Triangles are 10.6× tighter than random** (THE seed)
+1. exp 132/136/142/147 — Triangle shape is meaningful + phylo Mantel +
+   shape spectrum + shape decoupled from taxonomy
+2. exp 158 — Hybrid midpoints: 880 candidates in 10°, 555 same-genus
+3. exp 162 — Hub: Verbascum sinuatum bridges 33 pairs
+4. exp 164 — SVD: spectral rank matches counting rank
+5. exp 166/175 — Pivots central, NOT closest to D_flower
+6. exp 199 — Δ_p geometric definition
+7. exp 203 — **6.43° ± 0.82° invariant, ρ(Δ, n_bridged) = −0.75**
+8. exp 209 — Cross-encoder τ ∝ √d scaling
+9. exp 222 — **CLS 12.49° ± 1.49° vs predicted 11.57°, ratio 1.08**
+
+### v2 plots (exp 226)
+10 intuitive plots now covering **step 0 to step 9** (v1 covered only
+1-9). In `results/pivot_narrative_plots_v2/`:
+- step0: real-vs-null triangle area histogram
+- step0b: per-genus tightness distribution
+- step1-9: as before
+
+### Result artefacts
+- `results/pivot_narrative_plots_v2/` (10 plots + README)
+- `.claude/memory/pivot_attractor_full_narrative.md` — rewritten with
+  triangle seed
+- `exp_226_pivot_narrative_plots_v2.py` — plot-generation script
+
 
