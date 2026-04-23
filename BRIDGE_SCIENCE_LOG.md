@@ -1447,3 +1447,51 @@ See `.claude/memory/discoveries_timeline_master_audit.md` for the complete ledge
 4. Remove any claim about clique COUNT being significant (exp 220) — the signal is in clique SELECTION
 5. Report cross-encoder backbone as "same dominant families, different specific species" (exp 221)
 
+---
+
+## Entry 33 — Pivot-narrative intuitive plots + Mediterranean scale-up kickoff (exp 225, 2026-04-23)
+
+### exp 225 — Eight publication-ready plots
+Eight plots generated covering the full pivot-attractor narrative
+(exp 158 → 222). See `results/pivot_narrative_plots/` for PNGs and
+README. Each plot grounds one conceptual step with real numbers drawn
+from the original experiment JSONs.
+
+### Mediterranean scale-up kickoff
+Decision taken (2026-04-23): extend the pipeline from 1,912 Israeli
+species to the Mediterranean flora at **taxonomic scale (no bbox geo
+filter, mask-level processing)**, keeping both SAM3 FPN AND BioCLIP
+CLS from day one.
+
+**Species pool selected** via `select_mediterranean_species.py`:
+
+| Stage | Count |
+|-|-|
+| Classic Mediterranean genera (literature) | 226 |
+| Israeli-DB genera | 889 |
+| Union (Mediterranean genus list) | **915** |
+| Angiospermae species in those genera | 72,976 |
+| With ≥50 research-grade iNat observations | **13,989** |
+| Genera covered | 841 |
+| Families covered | 126 |
+
+**Top families in selection**: Asteraceae (1,395 species), Fabaceae
+(1,246), Cyperaceae (628), Poaceae (612), Lamiaceae (507), Rosaceae
+(473).
+
+### Next steps
+- URL manifest build (running, ~4h)
+- Streaming SAM3 FPN + BioCLIP CLS inference (~48h on GPU partition)
+- Mediterranean DB construction
+- Re-run pivot attractor (expect 6.43°/12.49° invariant to hold)
+- Re-run equilateral Fisher + cross-encoder scaling
+
+### Result artefacts
+- `[Pipeline]iNaturalist_Scale/scripts/select_mediterranean_species.py`
+- `[Pipeline]iNaturalist_Scale/scripts/build_mediterranean_url_manifest.py`
+- `[Pipeline]iNaturalist_Scale/data/mediterranean_batch/mediterranean_species_manifest.csv`
+- `results/pivot_narrative_plots/` (8 plots + README)
+- `.claude/memory/pivot_attractor_full_narrative.md` — full narrative
+- `.claude/memory/mediterranean_scaleup_pipeline_plan.md` — detailed plan
+
+
