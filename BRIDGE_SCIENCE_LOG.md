@@ -2084,4 +2084,97 @@ at the morphological level. The genetic-level answer (whether these
 morphological cycles track actual gene flow cycles) requires per-cycle
 DNA validation beyond exp 165's scope.
 
+---
+
+## Entry 42 — D_flower is NOT a barrier, NOT a black hole (exp 236+237+238, 2026-04-23)
+
+Three experiments jointly address the "what is D_flower and why is it
+directional?" question.
+
+### exp 237 — vMF barrier test (Q4)
+
+**Setup.** Fit vMF(D_flower, κ) to the 1,912 Israeli centroids. Simulate
+10,000 samples from fitted vMF. Compare observed θ distribution to
+simulated.
+
+**Result.**
+- κ̂ = 1337.35, R = 0.909 — very concentrated.
+- Observed θ: min 11.73°, p5 = 16.42°, mean 23.94°, std 5.96°.
+- Simulated (vMF) θ: min 21.13°, p5 = 23.19°, mean 24.99°, std 1.10°.
+- KS test: D = 0.495, p = 7.58 × 10⁻³²¹.
+
+**Key finding.** vMF predicts ZERO species below θ = 20°; observed 27%
+of species below 20°. Observed distribution has a LONGER lower tail
+than vMF — opposite of the barrier hypothesis.
+
+**Hypothesis B (barrier) FALSIFIED.**
+
+The flora is not vMF-distributed; it is a mixture with cone-center
+and cone-periphery modes. No hard lower bound on θ exists.
+
+### exp 236 — Ecology of species closest to D_flower (Q2)
+
+**Setup.** Rank 1,912 species by θ. Pull bottom-30 vs top-30 metadata.
+
+**Bottom 30 (θ = 11.73°–14.76°):**
+- 20/30 perennial
+- Caryophyllaceae (7 Silene), Lamiaceae (7 Ballota, Sideritis, Stachys)
+- Colors: white, cream, pink (no yellow or green in closest 15)
+
+**Top 30 (θ = 40°–59°):**
+- 20/30 annual
+- Poaceae (7), Araceae (2), Amaryllidaceae (2), Euphorbiaceae (2)
+- Colors: 10 green (wind-pollinated grasses), atypical forms
+
+**Interpretation.** Cone center is NOT "platonic average flower." It is
+specifically **Mediterranean perennial herbs with small bilateral flowers**
+(Caryophyllaceae + Lamiaceae). The cone periphery is grasses and
+morphologically unusual families. D_flower is a dataset-corpus bias,
+not a fundamental direction.
+
+### exp 238 — Per-genus directionality variation (Q1)
+
+**Setup.** Rebuild directed hybrid graph at τ = 10°. For each genus with
+≥ 5 directed edges, compute mean Δθ per genus.
+
+**Result.**
+- Flora-wide mean Δθ = +0.996° (confirms exp 234)
+- 7/39 genera show INVERTED directionality (mean Δθ < 0):
+  - **Erodium (n=110, Δθ = −0.134°)** — our largest hybrid complex, biggest
+    cycle contributor (37%), inverts global direction
+  - Iris (−0.088°), Alcea (−0.461°), Romulea (−0.197°), Ipomoea (−0.443°),
+    Daucus (−0.753°), Onopordum (−1.011°)
+- Strongest positive Δθ: Medicago (+4.548°), Astragalus (+3.477°),
+  Ophrys (+2.505°), Allium (+2.525°)
+
+**Interpretation.** The global "offspring closer to D_flower" signal is a
+MEAN across heterogeneous per-genus dynamics. Most genera regress to mean;
+hybrid-complex genera (Erodium) can invert. Erodium's inversion is
+consistent with it being a peripheral cluster where hybridization pushes
+OUTWARD from the local centroid, not toward global D_flower.
+
+### Joint picture
+
+D_flower is:
+- **Not a black hole** (H_A falsified by exp 156: older lineages further, not closer)
+- **Not a barrier** (H_B falsified by exp 237: vMF predicts fewer low-θ species than observed)
+- **A dataset-biased mean direction** (exp 236: cone center is Med. perennials)
+- **Locally but not universally attractive** (exp 238: 7/39 genera invert)
+
+### Paper-ready statement
+
+> *"Three hypotheses for the +0.996° directionality are tested. H_A
+> (D_flower as attractor) falsified by exp 156's ρ(age, θ) = +0.455:
+> older lineages are further, not closer. H_B (barrier) falsified by
+> exp 237: vMF-simulated samples predict 0% species below θ = 20° vs
+> observed 27% (KS D = 0.495, p = 7.6 × 10⁻³²¹). H_C (shifting mean)
+> supported by exp 236 showing cone center is specifically Mediterranean
+> perennial herbs. Per-genus analysis (exp 238) finds 7/39 genera invert
+> global directionality (including Erodium, our most hybrid-rich genus)
+> — the +1° signal is a mean across heterogeneous geometries, not universal."*
+
+### Artefacts
+- Scripts: `exp_236_min_theta_ecology.py`, `exp_237_vmf_barrier_test.py`, `exp_238_per_genus_directionality.py`
+- Results: `results/exp_236_min_theta_ecology_FPN/`, `results/exp_237_vmf_barrier_FPN/`, `results/exp_238_per_genus_directionality_FPN/`
+
 
