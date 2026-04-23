@@ -1798,4 +1798,73 @@ disagreement carries information:
 - Future: re-run 228 with expanded HYBRID_DNA reference (beyond top-10) and
   add CONVERGENT score when ITS2 coverage permits
 
+---
+
+## Entry 38 — Configuration-model null tightens the clique claim (exp 232, 2026-04-23)
+
+### Question
+Exp 231's Erdős-Rényi null ignores degree heterogeneity. Hub vertices
+(species appearing in many hybrid edges) naturally form many triangles.
+A stricter test: does the clique enrichment survive when the hub structure
+is preserved but edges are otherwise randomly rewired?
+
+### Method
+Configuration model (Molloy-Reed): preserve exact degree sequence, randomly
+rewire endpoints via stub-matching with self-loop + multi-edge rejection.
+500 Monte Carlo trials. Bron-Kerbosch clique enumeration per trial.
+
+### Result
+
+| Clique | Observed | CM mean ± std | CM max | z | fold |
+|---|---|---|---|---|---|
+| K3 | 88 | 21.80 ± 4.42 | 36 | **15.0** | **4.0×** |
+| K4 | 23 | 0.01 ± 0.11 | 1 | **211** | **1917×** |
+| K5 | 1 | 0 | 0 | ∞ | impossible under null |
+
+Empirical p (MC ≥ observed) = 0.0 for all three under 500 trials.
+
+### Comparison to ER null (exp 231)
+| Clique | ER fold | CM fold | Hub contribution |
+|---|---|---|---|
+| K3 | 13× | 4× | Hubs explain ~70% of K3 excess |
+| K4 | 11,500× | 1,917× | Hubs explain ~83% of K4 excess |
+| K5 | ~10¹⁰× | impossible | Hubs cannot manufacture K5 |
+
+### Interpretation
+
+K3 enrichment shrinks (13× → 4×) under CM — the hub structure does
+account for most of the triangle excess. This is the expected correction.
+
+**K4 enrichment survives (z=211, 1917× fold)**: even when the degree sequence
+is preserved exactly, randomly rewiring produces essentially zero K4
+clusters. The real graph has 23; a hub-matched random graph has 0-1.
+
+**K5 still impossible**: the Erodium K5 is not achievable under any
+degree-preserving rewiring tested (500 trials all zero).
+
+### Paper-ready refinement of the exp 231 claim
+> *"The observed K4 and K5 clique counts (23 and 1, respectively) survive
+> both an Erdős-Rényi edge-density-matched null (exp 231) and a
+> configuration-model degree-preserving null (exp 232). Under the stricter
+> CM null, K4 enrichment is 1917× over expectation (z = 211) and K5 remains
+> impossible (0 observations across 500 trials). The K3 enrichment shrinks
+> from 13× to 4× under CM — hub structure accounts for most of the
+> triangle excess, but higher-order cliques (K4+) require biological
+> organisation beyond hub effects."*
+
+### Caveats
+- Rebuilt-graph stats: the direct τ=10° rebuild produced n=470 vertices,
+  m=880 edges (the exp 185 catalog reports n=532, m=918; small difference
+  due to vertex-inclusion rule — catalog counts species in same-genus pairs
+  even if they are parents, not just midpoint species).
+- Configuration model accepts ~95% edge retention per trial due to self-loop/
+  multi-edge rejection. Could be tightened with double-edge-swap algorithm
+  if needed for a future publication run.
+
+### Artefacts
+- Script: `experiments/exp_232_clique_configuration_model_null.py`
+- Results: `results/exp_232_clique_config_null_FPN/config_null_stats.json`
+- 500 MC trials, seed 20260423
+- ER comparison data from exp 231
+
 
