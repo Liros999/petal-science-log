@@ -2979,4 +2979,64 @@ PCA-φ "syndrome trajectory" framework is dead. Native syndrome-vs-wind angles a
 
 ---
 
+## Entry 58 — NAMING: The Flower-Cone Metric (sin(θ) amplification law)
+
+**Date**: 2026-04-25
+**Type**: Theoretical naming / interpretation entry — promotes Entry 54 to a named result.
+
+### What it is
+The flower morphospace on S^255 (FPN) admits an exact additive decomposition of geodesic distance via the spherical law of cosines:
+
+`d(i,j) = arccos[cos θ_i cos θ_j + sin θ_i sin θ_j cos ψ_ij]`
+
+with the small-Δθ approximation
+
+`d ≈ sin(θ̄) · ψ      (r = 0.992 on 902,314 species pairs)`
+
+### Why this matters (the breakthrough)
+- **What we have actually defined**: the angular distance between any two flowers in the FPN morphospace, decomposed into two coordinate-free scalars per pair: their *radial* tilt difference and their *azimuthal* native angle. Both are measurable from raw cosines — no PCA, no LDA, no embedding.
+- **The model has zero free parameters.** `sin(θ̄)` is the entire predictor. The 1.6 % unexplained variance is the spherical-law curvature term (O(ψ⁴)), not noise.
+- **`sin(θ̄)` is the evolutionary cost-per-azimuth-step.** At modal θ̄=25°, 1° of azimuthal disagreement converts to 0.42° of geodesic distance. At forbidden-valley θ̄=35°, the same 1° converts to 0.57° (a 35 % amplification). This is the *geometric pressure* that makes peripheral specialisation expensive — the channeling effect (Entry 57) follows from `sin(θ̄)`, it is not an independent fact.
+- **Defensibility**: every claim downstream of this entry is now traceable to raw cosines on `f_SAM3_israel.npz`. The committee cannot ask "why this projection?" because there is none.
+
+### The proposed names
+- **Conversational / paper title**: *the flower-cone metric*. Captures that flower morphospace is a metric cone whose tangent metric scales as `sin(θ)`.
+- **Mathematical / methods**: *the sin(θ) amplification law*. Direct, falsifiable, equation-friendly.
+- **Implementation tag**: `flower_cone_metric` (reuse `θ` and `ψ` as canonical scalar names everywhere downstream).
+
+### Implications for downstream work (will affect every future experiment)
+1. Hybrid-offspring math becomes additive in `θ` and `ψ` — radial pull and azimuthal commitment separate algebraically.
+2. Per-band vMF fitting replaces global vMF — concentration κ_band is now a function of `sin(θ̄)`.
+3. The "forbidden valley" at θ ≈ 32-38° is not a sparse band — it is a band where the *cost* of azimuthal moves is highest. Density correlates with `1 / sin(θ)`, predictably.
+4. Mediterranean scale-up (in flight, job 13713218) is a universality test: if the law survives at 14 K species, it is a property of BioCLIP's FPN representation of flowerness — not an Israeli-flora artefact.
+
+### The PCA-falsification corollary
+The exp 254/259 claim "all syndromes converge to φ ≈ 160° at high θ" is a PCA artefact (PC1 of high-θ residuals points at wind because wind dominates that population). In native ψ the trajectories are non-monotonic (Entry 57). Methodological lesson the professor will appreciate: **if your axes were defined by the data, your conclusions are about the axes.**
+
+### Plots (proper, no collapse)
+A separate plot rebuild (exp 265) replaces the bar/line plots from exps 257-264 with proper geometry-preserving figures. All native, all per-pair / per-species (no aggregation):
+
+- `fig_A_pairwise_d_heatmap.png` — full 1912×1912 geodesic distance matrix sorted by syndrome → family → θ. Block diagonal = within-syndrome closeness.
+- `fig_B_psi_vs_dtheta_hexbin.png` — joint density of (ψ, |Δθ|) over 1.83 M pairs.
+- `fig_C_d_vs_psi_per_band.png` — six θ̄-bands, every pair plotted as density, cyan theory line `d = sin(θ̄)·ψ`. r = 0.994–0.997 per band.
+- `fig_D_native_sphere_anchored.png` — every species as a point on (cos ψ→bee, cos ψ→wind ⟂ bee, θ).
+- `fig_E_centroid_orbit.png` — syndrome × θ-band centroid trajectories on the same anchored sphere.
+- `fig_F_sinTheta_amplification.png` — joint density of d/ψ vs θ̄ overlaid with the closed-form `sin(θ̄)` curve. **The visualization of the breakthrough.**
+- `fig_G_psi_distribution_by_grouping.png` — empirical CDFs of ψ by within-genus / within-family / within-syndrome / random.
+- `fig_H_syn_centroid_matrix.png` — full syndrome × syndrome centroid ψ matrix.
+
+### Methodological policy added concurrently
+- **Bar charts, line plots, error-bars, pie, stacked-histograms, %-explained bars are FORBIDDEN as primary figures** for any geometric or distributional claim (CLAUDE.md rule #15). The plots in `/scratch200/leardistel/plots/` from this date are documented examples of the failure mode and are not paper figures.
+- See `feedback_no_collapsed_plots.md` and `explanation_style.md` in the project memory for the full rule and the four-part explanation template (geometric → biological → falsifier → consequence).
+
+### Artefacts
+- Theory + numbers: Entry 54 (exp 260).
+- Twist + narrowing: Entry 55 (exp 261).
+- Spread within syndromes: Entry 56 (exp 262).
+- Channeling + non-monotonicity: Entry 57 (exp 263+264).
+- **Proper figures**: `experiments/results/plots_265_proper/fig_A.png` … `fig_H.png`.
+- Generation script: `experiments/scripts/exp_265_proper_plots.py`.
+
+---
+
 
