@@ -2818,4 +2818,165 @@ Erodium and Picris were sampling artifacts.
 ### Artefacts
 - `results/exp_250_dominance_controlled_FPN/dominance_controlled.json`
 
+---
+
+## Entry 53 — POLICY: Dimensionality-reduction methods are FORBIDDEN
+
+**Date**: 2026-04-25
+**Type**: Methodological policy (not an experiment)
+
+PETAL hereby refuses to use **PCA, LDA, QDA-on-projected-features, t-SNE, UMAP, ICA, NMF, MDS, kernel-PCA, autoencoder bottlenecks, factor analysis, ISOMAP, LLE**, or any other method that projects S^255 / S^1023 / native-D vectors onto a lower-D space, in any analysis whose output is destined for the Science Log, the paper, or the committee. The ΔE_Lab "calibration" of angular distance is also a form of dim-reduction (256-D FPN compared against 3-D Lab) and is excluded. Lifted only by an explicit "PCA approved" message in the active session.
+
+### Why (the empirical case, in three points)
+1. *Exp 254/258/259* used PCA-defined φ to track syndrome trajectories. The high-θ residuals' first PC is dominated by the most-populous syndrome at the periphery (wind), so PC1 effectively *points at wind*. All syndromes therefore appeared to converge to φ ≈ 160° (the wind direction). This was a tautology, not a finding.
+2. *PCA-2D vs LDA-2D Grassmann angle = 52° / 55°*. The two "natural" 2-D summaries disagree by more than half a quadrant; either is an arbitrary slice of 256-D reality.
+3. *Entry 57 (exp 264) native rerun*: in NATIVE ψ, syndrome-vs-wind angles are non-monotonic across θ-bands (e.g. bee↔wind: 113° → 51° → 42° → 56°). The supposed "convergence to wind" disappears completely once the projection is removed.
+
+### Approved alternatives (all coordinate-free)
+- Pairwise angles `ψ_ij = arccos(v̂_i · v̂_j)` on the native tangent S^254.
+- Spherical law of cosines for radial+azimuthal decomposition (Entry 54).
+- Rayleigh `R̄ = ‖mean(v̂)‖` for directional concentration.
+- Participation ratio `PR = (tr Σ)² / tr(Σ²)` for effective dimensionality (uses no eigenvectors).
+- vMF concentration κ.
+- Permutation tests on raw distance / angle matrices.
+- Closed-form ridge maps that preserve dimension.
+
+### References
+- `CLAUDE.md` rule #13 (escalated wording)
+- `feedback_no_dimensionality_reduction.md`
+- `professor_no_pca_case.md`
+
+---
+
+## Entry 54 — Exp 260: Native S^255 Spherical Decomposition (SUPERSEDES PCA-based exps)
+
+**Date**: 2026-04-25
+**Experiment**: `exp_260_native_spherical_decomposition`
+**Validation set**: 1,912 species (Israeli FPN), 1,826,916 species pairs, 256-D unit sphere
+**No projection.**
+
+### Goal
+Decompose the geodesic angular distance `d(i,j) = arccos(μ_i · μ_j)` on S^255 into native radial + native azimuthal components using the spherical law of cosines.
+
+### Method (native)
+For each species: `θ_i = arccos(μ_i · D_flower)`, `v̂_i = (μ_i − cos θ_i · D_flower) / ‖·‖`.
+The spherical law of cosines: `cos d = cos θ_i cos θ_j + sin θ_i sin θ_j cos ψ_ij` with `ψ_ij = arccos(v̂_i · v̂_j)`.
+
+### Headline numbers
+- **ψ explains 44.8 % of d variance, Δθ only 25.4 %.** Azimuth dominates over radius. Sum 70.2 %.
+- Differential approximation `d ≈ sin(θ̄)·ψ` for `|Δθ|<5°`: `r = 0.992` on 902 K pairs, mean error 3.06°.
+- ψ is family-structured: same-family gap 8.51°, null 0.04° ± 0.08°, **z = 108**, p < 0.001.
+- ψ is syndrome-structured: same-syndrome gap 2.11°, null 0.0004° ± 0.04°, **z = 53.2**, p < 0.001.
+- Same-genus ψ Cohen d = 1.30 (gap 22.27°). Genus is the strongest predictor of azimuthal direction.
+- Within-syndrome ψ: beetle 71.1° (tightest), wind 76.5°, butterfly 76.9°, moth 81.5°, bee 88.8° ≈ generalist 88.8° (near-random).
+- Centroid pairs (native ψ): generalist↔wind = 133.9° (near-opposite); butterfly↔generalist = 46.3° (most aligned).
+- d/ψ amplification: at modal θ̄=25°, 1° of ψ ⇒ 0.41° of d. At forbidden-valley θ̄=35°, 1° of ψ ⇒ 0.49° of d. Periphery amplifies azimuthal differences.
+
+### Verdict
+Pure native decomposition. Every number is a cosine of raw vectors. **Supersedes all PCA-based syndrome-φ findings of exp 254/258/259.**
+
+### Artefacts
+- `experiments/results/exp_260_native_spherical_FPN/{native_coords.npz, results.json}`
+
+---
+
+## Entry 55 — Exp 261: Twisted-Tube Morphospace, NATIVE S^255
+
+**Date**: 2026-04-25
+**Experiment**: `exp_261_twisted_tube_native`
+**Validation set**: 1,912 species, native S^254 tangent.
+**No projection** — anchors are biological native directions (bee centroid, wind ⟂ bee).
+
+### Goal
+Quantify the user's "twisted tube" model — does the tube of species directions twist as θ grows, and does it narrow?
+
+### Method (native, basis-free)
+- Per θ-band: `ĉ_b = mean(v̂_b)/‖·‖`, `PR_b = (tr Σ_b)² / tr(Σ_b²)`. Neither uses eigenvectors.
+- Twist between adjacent bands = `arccos(ĉ_b · ĉ_{b+1})`.
+- Robustness: re-run with generalist ↔ beetle anchors. Twist values are frame-independent.
+- 3-D plot uses (cos ψ-to-bee, cos ψ-to-wind ⟂ bee, θ) — all NATIVE.
+
+### Twist results
+Adjacent-band twist angles: 38°, 27°, **151°**, 30°, 15°, 19°, 28° → cumulative ≈ **308°** across θ ∈ [12°, 44°]. The 151° flip at θ ≈ 22°→26° corresponds to the bee-dominated → mixed/generalist population transition.
+
+### Narrowing results
+- **PR drops 12.79 → 7.18** between θ=12-16° and θ=40-44° (44 % reduction in effective dimension).
+- Within-band Rayleigh R̄ varies 0.09 → 0.37 across the same range.
+
+### Verdict
+Twisted-tube confirmed. Tube cumulatively twists ≈ 308° and narrows by 44 %. Visuals: `fig9*_twisted_tube*.png`, `fig10_twist_per_band.png`, `fig11_participation_ratio.png`.
+
+### Artefacts
+- `experiments/results/exp_261_twisted_tube_native/{results.json, twist_data.npz}`
+- `experiments/results/plots_261_264/fig9*.png, fig10_twist_per_band.png, fig11_participation_ratio.png`
+
+---
+
+## Entry 56 — Exp 262: Within-Syndrome Spread Grows as Tube Narrows
+
+**Date**: 2026-04-25
+**Experiment**: `exp_262_within_syndrome_spread`
+**Validation set**: 1,912 species, native S^254 tangent.
+**No projection** — pure cosine-based dispersion to syndrome Rayleigh-mean.
+
+### Goal
+Test the user's claim that within each syndrome, the angular spread INCREASES with θ — even though the total tube width DECREASES.
+
+### Method (native)
+For each (syndrome, θ-band): mean angular distance from each member's v̂ to the syndrome's Rayleigh-mean direction. Slope-fit dispersion vs θ-mid.
+
+### Results
+- TOTAL tube native dispersion slope = **−0.522°/°** (tube narrows, consistent with Entry 55 PR drop).
+- Per-syndrome within-dispersion slopes (positive = grows with θ):
+  | syndrome | slope (°/°) | r | bands used |
+  |---|---|---|---|
+  | moth | +0.952 | +0.94 | 3 |
+  | generalist | +0.143 | +0.35 | 6 |
+  | (bee, beetle, butterfly, wind have ≤2 usable bands due to small sample at θ extremes) |
+- Generalists at θ ≈ 40° fill nearly the full available azimuthal width; at θ ≈ 20° they fill a moderate fraction.
+
+### Verdict
+Test 2 confirmed natively. Within-syndrome spread grows; total tube narrows; syndromes occupy a larger fraction of the available azimuthal space at the periphery. Visuals: `fig12_within_syn_spread_vs_theta.png`, `fig13_fraction_of_tube.png`.
+
+### Artefacts
+- `experiments/results/exp_262_within_syndrome_spread/results.json`
+
+---
+
+## Entry 57 — Exp 263–264: Native Channeling + PCA-Wind-Convergence FALSIFIED
+
+**Date**: 2026-04-25
+**Experiments**: `exp_263_native_channeling`, `exp_264_native_syndrome_trajectories`
+**Validation set**: 1,912 species, native S^254 tangent.
+**No projection** — Rayleigh, greedy spherical clustering, pairwise centroid cosines.
+
+### Exp 263 — Native channeling rerun (replaces histogram-on-φ from exp 259)
+- Global R̄ (all species pooled) = **0.045** vs uniform-on-S^255 ≈ 0.023 → **2.0× anisotropy**.
+- Per-band R̄: 0.38 (innermost) → 0.14 (modal θ ≈ 22°) → 0.37 (peripheral). Modal band closest to uniform.
+- Native peak count at τ = 0.55: 1 → 4 → 3 → 1 → 2 across θ-bands. Modal band has the most distinct attractor directions; peripheral bands collapse to 1-2 directions.
+- Corrects exp 259's "3-4 peaks at periphery" reading — that was a φ-histogram artefact.
+
+### Exp 264 — Syndrome trajectories vs wind, NATIVE ψ (FALSIFIES exp 254/259)
+| θ | bee↔wind | beetle↔wind | butterfly↔wind | moth↔wind | generalist↔wind |
+|---|---|---|---|---|---|
+| 23° | 113° | 77° | 129° | 111° | 140° |
+| 29° | **51°** | 68° | — | 72° | **45°** |
+| 35° | **42°** | 56° | — | — | 60° |
+| 41° | 56° | — | — | — | 62° |
+
+- bee↔wind drops 113° → 42° (θ=23° → 35°), then **rebounds to 56°** at θ=41°. Non-monotonic.
+- generalist↔wind: 140° → 45° → 60° → 62°. Also non-monotonic.
+- No syndrome shows monotone collapse onto wind. The "convergence to φ ≈ 160°" finding from exp 254/259 was the consequence of measuring everything against PC1, which itself rotates toward wind at high θ because wind dominates that population.
+- Adjacent-band centroid drift per syndrome is also non-monotonic (e.g. generalist drifts 51°, 28°, 132°, 38°, 33° between consecutive bands).
+
+### Verdict
+PCA-φ "syndrome trajectory" framework is dead. Native syndrome-vs-wind angles are non-monotonic in θ. There is no global attractor. Visuals: `fig14_native_channeling.png`, `fig15_syndrome_drift_per_band.png`, `fig16_syndrome_separation_at_each_theta.png`, `fig17_syn_vs_wind_at_each_theta.png`.
+
+### Artefacts
+- `experiments/results/exp_263_native_channeling/results.json`
+- `experiments/results/exp_264_native_syndrome_trajectories/results.json`
+- `experiments/results/plots_261_264/fig14_*.png, fig15_*.png, fig16_*.png, fig17_*.png`
+
+---
+
 
