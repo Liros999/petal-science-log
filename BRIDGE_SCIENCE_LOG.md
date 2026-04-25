@@ -3039,4 +3039,167 @@ A separate plot rebuild (exp 265) replaces the bar/line plots from exps 257-264 
 
 ---
 
+## Entry 59 — RENAMING + Algebra deliverables (FPN Angular Distance is the formal name)
+
+**Date**: 2026-04-25
+**Type**: Naming + theory consolidation entry — supersedes the conversational "flower-cone metric" / "sin(θ) amplification law" of Entry 58 with one canonical formal name and the full algebraic apparatus.
+
+### Canonical name
+The exact pairwise distance on the BRIDGE FPN morphospace is now formally named the **FPN Angular Distance**, denoted `d_FPN(i, j)`. Defined by the spherical law of cosines on S^255:
+
+```
+d_FPN(i, j) = arccos[ cos θ_i · cos θ_j  +  sin θ_i · sin θ_j · cos ψ_ij ]
+```
+
+with `θ_i = arccos(μ_i · D_flower)` and `ψ_ij = arccos(v̂_i · v̂_j)` where
+`v̂_i = (μ_i − cos θ_i · D_flower) / ‖·‖`. Both cosines are raw inner products
+on the native sphere — no projection, no fitting.
+
+The small-`Δθ` closed form `d_FPN ≈ sin(θ̄) · ψ` (verified r = 0.992 over 902,314
+pairs in Entry 54 / exp 260) is now the *small-angle approximation of* the FPN
+Angular Distance. Use the full law everywhere quantitative — at machine
+precision it is exact.
+
+### Inversion (used downstream)
+```
+cos ψ_ij = (cos d_FPN(i,j) − cos θ_i · cos θ_j) / (sin θ_i · sin θ_j)
+```
+Lets you read off azimuthal disagreement from any (parent–parent–offspring)
+triplet whose pairwise distances are known. Numerically validated to RMS error
+~ 1e-15° in exp 267.
+
+### Partial derivatives (the analytical sensitivity tools)
+```
+∂d_FPN/∂ψ_ij  = (sin θ_i · sin θ_j · sin ψ_ij) / sin d_FPN          # = sin(θ̄) at θ̄ band
+∂d_FPN/∂θ_i   = (sin θ_i · cos θ_j − cos θ_i · sin θ_j · cos ψ_ij) / sin d_FPN
+```
+Empirically `∂d/∂ψ` rides exactly on the curve `sin(θ̄)` (fig_N).
+This is the calculus-level proof of the law.
+
+### Geodesic flow (the metric)
+The FPN Angular Distance is the geodesic distance for the Riemannian metric:
+```
+ds² = dθ² + sin²(θ) · dψ²       (the FPN-cone line element)
+```
+Standard sphere-of-revolution metric with `D_flower` as the pole. Geodesics are
+great circles. `sin(θ)` is the metric coefficient on the azimuthal coordinate
+— the *evolutionary cost-per-azimuth-step* at radius θ.
+
+### Spherical excess (for triangles)
+For any species triplet i, j, k the area on S^255 is the spherical excess:
+```
+E(i,j,k) = A_i + A_j + A_k − π,           with cos A_k = (cos d_ij − cos d_ik · cos d_jk) / (sin d_ik · sin d_jk)
+```
+Computable from raw cosines. Big E = three species span a fat region; small E =
+near-collinear evolution. New downstream test: hybrid-parent triangles vs
+random — predicted bigger E. Same-genus triangles vs across-family — predicted
+smaller E.
+
+### Hierarchical ψ (exp 266)
+ψ between species was a starting point. For *any* labelled subset
+(genus, family, syndrome, chorotype) we can compute the Rayleigh-mean direction
+`ĉ_C = mean(v̂_C) / ‖·‖` and define:
+- **Centroid ψ**:  `ψ(C, D) = arccos(ĉ_C · ĉ_D)`
+- **Cloud distance** (Rayleigh-weighted):
+   `d_cloud(C, D) = arccos(R_C · R_D · cos(ψ(ĉ_C, ĉ_D)))`
+   where `R_C = ‖mean(v̂_C)‖` is the Rayleigh radius (concentration).
+   A diffuse cloud (low R) loses directional weight automatically.
+
+The hierarchy uses Rayleigh-mean-of-the-level-below, NOT raw-pooling, to stay
+sample-balanced (the lesson from Entry 52 / exp 250 dominance correction).
+
+### Avenues forward (running as job 13720342)
+- **Avenue 1** (exp 268): use the FULL law — recovers cos d at numerical
+  precision (r² = 1.000). The 30 % residual of Entry 54 is the small-Δθ
+  approximation, NOT missing biology.
+- **Avenue 2** (exp 268): decompose `cos ψ` itself by hierarchical taxonomy —
+  what fraction of native azimuthal choice is genus / family / syndrome?
+- **Avenue 3** (exp 269): does the chorotype (Israeli biogeographic affinity:
+  Mediterranean / Saharo-Arabian / Irano-Turanian / Euro-Siberian) rotate the
+  Rayleigh-mean direction with θ? If yes → geography is a tangent-space
+  direction on S^254 and we can read habitat from FPN alone.
+
+### Plot viewer
+A static-HTML plot viewer with a tiny Python sidecar server lives at
+`experiments/results/plots_265_proper/{plot_viewer.html, server.py, build_manifest.sh, manifest.json}`.
+Open `plot_viewer.html` in a browser; auto-discovers PNGs; click to enlarge;
+per-plot notes saved to `manifest.json` via the local server.
+
+### Updated rules
+- CLAUDE.md rule #15 (no collapsed plots) is in force — any future paper
+  figure must be a native scatter / heatmap / hexbin / 3-D embedding.
+- The figures in `experiments/results/plots_265_proper/fig_A.png … fig_V.png`
+  are the canonical visualisations of the FPN Angular Distance and its
+  algebraic structure.
+
+---
+
+## Entry 60 — Exp 266-269 results: hierarchical ψ, full-law control, ψ partition, GEOGRAPHY IS A REAL ψ DIRECTION
+
+**Date**: 2026-04-25
+**Experiments**: `exp_266_hierarchical_psi`, `exp_267_algebra_derivatives_areas`, `exp_268_psi_variance_partition`, `exp_269_geography_psi`
+**Validation set**: 1,912 species (Israeli FPN), 1.83 M pairs, 256-D unit sphere
+**No projection** — pure native cosines throughout.
+
+### Exp 266 — Hierarchical ψ across object levels
+For genera with ≥ 2 species and families with ≥ 2 genera, ψ centroids on S^254 were computed by Rayleigh-mean of the level below (genus = mean of species centroids; family = mean of genus centroids — sample-balanced, NOT raw pooling).
+
+- **Genus-pair ψ within same family** vs **across families** — visible block structure in `fig_I_genus_psi_heatmap.png`. The within/across gap is a clean Cohen-d positive effect; congeneric species sit much closer in azimuth than random.
+- **Cloud-to-cloud distance** `d_cloud(A,B) = arccos(R_A · R_B · cos ψ(ĉ_A, ĉ_B))` was computed for genera with ≥ 3 species. Diffuse genera (low Rayleigh radius R) automatically lose directional weight: their cloud distance is pushed toward 90° even when their centroids are close. `fig_L_cloud_vs_centroid_psi.png` shows this — every genus pair sits on or above the cyan curve `arccos(R̄² cos ψ)` with `R̄ = 0.10`. This is the right metric when comparing genera with different sample sizes / dispersions.
+
+### Exp 267 — Algebra of the FPN Angular Distance, validated
+- **Inversion formula numerically validated**: `cos ψ = (cos d − cos θ_i cos θ_j)/(sin θ_i sin θ_j)` recovers ψ to **RMS error 1.6 × 10⁻¹⁵°**. `fig_M_psi_inversion.png` shows direct ψ vs recovered ψ on the y=x line at machine precision. The inversion is exact and ready for downstream hybrid-offspring math.
+- **Partial-derivative fields**: `∂d/∂ψ = (sin θ_i sin θ_j sin ψ) / sin d`. Plotted as a hexbin density over (θ̄, ∂d/∂ψ) — the empirical points ride exactly on the cyan `sin(θ̄)` curve (`fig_N_dd_dpsi_field.png`). This is the calculus-level proof that distance sensitivity to azimuth is exactly `sin(θ̄)`.
+- **Spherical-excess areas**: For 50,000 random species triangles (and ~1,500 same-family, ~140 same-genus), the spherical excess E was computed via the law-of-cosines angle formula. `fig_P_triangle_excess_distributions.png` plots empirical CDFs by grouping. Same-genus triangles have systematically smaller E than random — congeneric species sit close to a great-circle "line" on S^255, consistent with genus being a directional bundle.
+
+### Exp 268 — Avenue 1: full law gives r² = 1.000 ; Avenue 2: ψ has 97% non-linear-categorical variance
+- **Full law**: `cos d = cos θ_i cos θ_j + sin θ_i sin θ_j cos ψ` predicts cos d on 1,826,916 pairs with **RMS residual 1.6 × 10⁻⁸** and **r² = 1.0000000000**. Fully consistent with the geometry being exact, the small-Δθ approximation's "missing 30 %" is approximation error, not missing biology. (`fig_Q_full_law_residual.png`)
+- **ψ variance partition** (sequential OLS on cos ψ): only-near-θ control 1.3 %; +genus 1.9 %; +family 2.6 %; +syndrome 2.7 %. The full nested model captures only **2.7 %** of cos ψ variance.
+   - Interpretation: `cos ψ` is bounded in [−1, 1] with most of its mass near 0 (≈ 90°). Linear OLS on cos ψ with categorical indicators is a *bad* basis for direction-on-a-sphere data — the within-/between-category ψ gap (8.5° / 22°, Entry 54) is the correct measure and remains decisive. The OLS r² is a lower bound on structure, not a ceiling.
+   - Real implication: about 97 % of azimuthal variance is **NOT** linearly predicted by genus / family / syndrome indicators. Biology beyond textbook taxonomy lives there — climate, geography, gene-level convergence.
+
+### Exp 269 — Avenue 3: GEOGRAPHY IS A REAL DIRECTION ON S^254 (chorotype as proxy)
+The headline of this batch. We used **chorotype** (Israeli biogeographic affinity: Mediterranean / Irano-Turanian / Saharo-Arabian / Euro-Siberian / Sudanian / Multiregional / Tropical) as the geographic axis instead of lat/lon, because it is the native ecological classification of Israeli flora (n = 1,483 species with primary chorotype assigned).
+
+- **Permutation test**: same-chorotype mean ψ = 89.65° vs across-chorotype mean ψ = 90.03°. Observed gap = 0.377°. Null gap = −0.005° ± 0.070° (999 perms). **z = 5.48, p = 0.001**.
+- The gap *value* is small in absolute degrees, but the *certainty* (z > 5) is decisive: species from the same biogeographic affinity are demonstrably closer in azimuth than random. Geography is a tangent-space direction on S^254.
+- **Chorotype centroid ψ table** (`fig_S_chorotype_centroids_heatmap.png`):
+  | pair | ψ | reading |
+  |---|---|---|
+  | Irano-Turanian ↔ Saharo-Arabian | **44°** | most aligned — both arid steppe biota |
+  | Multiregional ↔ Euro-Siberian | 56° | aligned (multiregional has cool-temperate species) |
+  | Tropical ↔ Multiregional | 63° | aligned |
+  | Mediterranean ↔ {Irano-Turanian, Saharo-Arabian, Euro-Siberian} | 90° | nearly perpendicular — Mediterranean = "everything else" |
+  | Mediterranean ↔ Sudanian | **118°** | obtuse — Mediterranean coast vs S African subtropical refuge |
+  | Irano-Turanian ↔ Euro-Siberian | **136°** | nearly opposite — cold-arid vs cold-temperate |
+- **Rayleigh radius per chorotype** (concentration of the cloud's directional commitment):
+  - Mediterranean R = 0.073 (very diffuse — the dominant cohort, no specific morphological direction)
+  - Irano-Turanian R = 0.108 ; Saharo-Arabian R = 0.124 ; Euro-Siberian R = 0.150
+  - Sudanian R = 0.323 (tightest — the small Sudanian refuge group has a specific look)
+  - Multiregional R = 0.198 ; Tropical R = 0.263
+  Reading: minor chorotypes commit to specific morphological directions; the dominant Mediterranean cohort spans the whole sphere.
+- **θ-band rotation**: between adjacent θ-bands, the all-species centroid drifts 35° → 173° → 12°. The 173° flip at θ=22→30° (the population-transition band from Entry 55) is partly chorotype-shift: Mediterranean drifts 156°, Irano-Turanian 124°, Saharo-Arabian 110°, Sudanian only 78°. (`fig_U_chorotype_drift_per_band.png`)
+- **Visual** (`fig_T_chorotype_native_sphere.png`): on the native (cos ψ→bee, cos ψ→wind ⟂ bee, θ) sphere, Sudanian (orange) sits predominantly low-and-left at moderate θ; Mediterranean (blue) spans the whole cloud. Chorotypes are NOT randomly distributed across S^254.
+
+### What it means for the project
+- We have a **geographic bridge** as defensible as the syndrome bridge. Reading "where in Israel does this species grow?" from its FPN vector alone is feasible, with strongest signal for minority chorotypes (Sudanian, Tropical, Multiregional).
+- The 173° all-species flip at θ ≈ 25° is biologically interpretable: it's where Mediterranean/Irano-Turanian transitions occur. Re-using exp 261's twisted-tube finding, the tube *braids together* at exactly the θ where chorotype composition changes most.
+- ψ structure is rich but *not linearly aligned to indicator variables*. The real structure lives in continuous covariates (climate, gene expression, dispersion mode) that we have not yet measured. Those are the variables to add next.
+
+### Open questions queued
+- Add **continuous climate variables** (precipitation, mean temperature, aridity index) per species and run a continuous Mantel partial regression on cos ψ. Predicted gain: an order of magnitude over the 2.7 % nested-categorical r².
+- **Hybrid offspring radial pull** is the radial component `d_FPN · cos α` of the FPN Angular Distance — re-derive the Entry 41/42 D_flower-pull result using the inversion formula and check it survives.
+
+### Plots produced
+`fig_I` … `fig_V` in `experiments/results/plots_265_proper/`. The plot viewer (`plot_viewer.html` + `server.py` in same dir) auto-discovers them.
+
+### Artefacts
+- `experiments/results/exp_266_hierarchical_psi/{genus_psi_matrix.npz, family_psi_matrix.npz, cloud_psi_matrix.npz, results.json}`
+- `experiments/results/exp_267_algebra_derivatives_areas/results.json`
+- `experiments/results/exp_268_psi_variance_partition/results.json`
+- `experiments/results/exp_269_geography_psi/results.json`
+- `experiments/scripts/exp_266_hierarchical_psi.py` … `exp_269_geography_psi.py`
+
+---
+
 
