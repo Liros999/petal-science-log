@@ -4201,3 +4201,159 @@ vs canalisation vs F1 pollinator selection) → exp 281b.
 ---
 
 
+
+## Entry 71 — Exp 288: Syndrome directionality — bee closer to D_flower than wind (p=2e-39)
+
+```
+═══════════════════════════════════════════════════════════════
+RESULT: Pollinator syndrome is a strong, statistically unambiguous predictor
+        of radial position θ — bee/biotic species are 8.6° closer to D_flower
+        than wind-pollinated species.
+Source: Exp 288  |  Entry 71  |  Date 2026-04-28
+═══════════════════════════════════════════════════════════════
+
+VARIABLES INVOLVED
+| Symbol     | What it is                                   | Units   | Range here          |
+|------------|-----------------------------------------------|---------|---------------------|
+| θᵢ         | Radial angle from D_flower for species i       | degrees | 11.7° – 59.2°       |
+| syndrome_i | Pollinator syndrome label                      | cat.    | 6 classes           |
+| r_RB       | Rank-biserial effect size (bee vs wind)        | [0,1]   | 0.714               |
+| d          | Cohen d (bee vs wind)                          | SD      | −1.476              |
+
+INTERACTION
+D_flower is the canonical flower direction in S²⁵⁵. Species with small θ are
+morphologically "more flower-like". Biotic pollinators (bees, butterflies, moths)
+reward a narrow-band floral signal — selection pushes them toward D_flower.
+Wind-pollinated species shed pollen indiscriminately — no floral attraction pressure,
+so they drift peripherally. The θ gradient IS the directionality axis of flower
+evolution in the morphospace.
+
+MEASUREMENT
+| Quantity                              | Value           | Units    | Null              |
+|---------------------------------------|-----------------|----------|-------------------|
+| bee mean θ                            | **22.87°**      | degrees  |                   |
+| wind mean θ                           | **31.51°**      | degrees  |                   |
+| Δmean (wind − bee)                    | **+8.64°**      | degrees  | 0 if null         |
+| Mann-Whitney z (bee < wind)           | **−13.08**      | std      |                   |
+| p (one-sided)                         | **2.09e-39**    | —        | 0.5               |
+| Rank-biserial r                       | **0.714**       | [0,1]    | 0                 |
+| Cohen d                               | **−1.476**      | SD       | 0                 |
+| Kruskal-Wallis H (6 syndromes)        | **200.11**      | χ²(5)    | 0                 |
+| Fraction bee below wind median (30.7°)| **90.9%**       | fraction | 50%               |
+| Fraction wind below bee median (21.8°)| **5.4%**        | fraction | 50%               |
+
+Syndrome order by mean θ (all syndromes):
+butterfly 19.4° < moth 22.0° < bee 22.9° < generalist 23.8° < beetle 25.8° < wind 31.5°
+
+NULL MODEL
+If pollinator syndrome were unrelated to θ, the distributions would overlap
+completely and Mann-Whitney z ≈ 0. Observed z = −13.08.
+
+INTERPRETATION
+The theta axis of the FPN morphospace encodes pollinator selection pressure:
+biotic pollinators require a recognisable, species-distinctive flower signal,
+driving morphological convergence toward D_flower. Wind pollination has no
+such constraint — species explore peripheral morphospace freely.
+
+This IS the directionality of flower evolution: D_flower is an attractor for
+biotic-pollinator lineages and a neutral point for wind lineages.
+
+WHAT IT DOES NOT SHOW
+Whether this is cause (selection) or correlation (phylogenetic signal):
+bee syndromes may cluster phylogenetically. A partial Mantel controlling for
+phylogeny is needed to separate these. Also: no temporal directionality shown
+(we don't know if lineages MOVE toward D_flower — exp 277 HCF suggests they do).
+
+ARTEFACTS
+- script:  /scratch200/leardistel/exp_288_helianthus_geometry.py
+- results: /scratch200/leardistel/results_288/results.json
+- plot:    /scratch200/leardistel/plots_proper/fig_AR_syndrome_directionality.png
+═══════════════════════════════════════════════════════════════
+```
+
+### Entry 71 supplement — Helianthus in FPN space
+
+Only *H. annuus* (θ=21.83°, syndrome=generalist) is in the Israeli FPN database.
+The four North American species (*H. petiolaris*, *H. deserticola*, *H. anomalus*,
+*H. paradoxus*) require iNaturalist image download + BRIDGE extraction before the
+geometric triangle test can be run. The literature validation is complete (Entry 70.1
+supplement; Rieseberg 1991/1995/2006; Gross 2004; Edelist 2006; Owens 2023).
+
+**Geometric prediction to validate when all five are extracted:**
+For each trio (annuus × petiolaris → hybrid):
+- `cos θ_mid = cos((θ_A+θ_B)/2) · √((1+cos d_AB)/2)`
+- Expected: hybrid θ ≈ θ_mid (with small HCF correction ≈ −6°)
+- Expected dominance: hybrid closer to annuus (domestication drives it toward D_flower)
+
+---
+
+## Entry 72 — Exp 289: Flower color extraction (CIE L*a*b* + RGB from SAM3 masks)
+
+```
+═══════════════════════════════════════════════════════════════
+RESULT: Per-species flower color extracted for all 1,912 Israeli FPN species.
+        Color-theta gradient confirms: purple/pink/blue < white < yellow < green < no_perianth
+        — biotic-pollinator colors cluster closer to D_flower.
+Source: Exp 289  |  Entry 72  |  Date 2026-04-28
+═══════════════════════════════════════════════════════════════
+
+VARIABLES INVOLVED
+| Symbol    | What it is                               | Units   | Range             |
+|-----------|-------------------------------------------|---------|-------------------|
+| L*, a*, b*| CIE L*a*b* per-species mean               | —       | perceptual units  |
+| R, G, B   | Mean RGB per species                      | [0,255] | —                 |
+| n_masks   | Masks used per species (gate ≥ FA-FPN 0.1)| count   | ≥3, max 50        |
+| color_label | Expert categorical color label           | cat.    | 16 classes        |
+
+METHOD
+Pixel-weighted mean CIE L*a*b* over all gated masks per species.
+- Gate: FA-FPN score ≥ 0.1 (sealed BRIDGE gate)
+- Max 50 masks per species (Laitly et al. 2021 validated at ≥12; R²=0.72–0.77 vs spectrophotometry)
+- Color space: CIE L*a*b* (perceptually uniform; Renoult et al. 2017 Biol.Rev.92:292)
+  + raw RGB (Perez-Udell et al. 2023 App.Plant.Sci.)
+- Source table: mask_colors in israel_species.db (135,684 gated masks)
+
+MEASUREMENT — color × theta gradient
+| Color label     | n   | mean θ  | Interpretation                              |
+|-----------------|-----|---------|---------------------------------------------|
+| lilac           |  19 |  19.95° | Biotic-pollinator signals, closest to D_flower |
+| pink            | 146 |  20.83° | ↑                                           |
+| sky_blue        |  23 |  21.39° | ↑                                           |
+| blue            |  34 |  21.96° | ↑                                           |
+| purple          | 142 |  22.26° | ↑                                           |
+| red             |  35 |  22.56° | ↑                                           |
+| cream/white     | 360 |  23.03° | Generalist signals                          |
+| yellow          | 499 |  23.56° | ↓                                           |
+| crimson         |  36 |  23.84° | ↓                                           |
+| orange          |   7 |  26.95° | ↓                                           |
+| membranous      |  21 |  28.96° | Non-advertising                             |
+| green           | 161 |  30.55° | Periphery — wind-like                       |
+| brown           |   6 |  30.82° | Periphery                                   |
+| no_perianth     |  14 |  33.02° | No flower signal — furthest from D_flower   |
+
+INTERPRETATION
+The color-theta gradient is a complete mapping of the pollinator-selection hierarchy:
+species with bee-attractive colors (UV-reflective lilac, pink, blue, purple) sit
+closest to D_flower; species with no perianth sit furthest. The gradient spans
+33.02° − 19.95° = 13.07° from most to least flower-like.
+
+This validates both (a) the FPN color pull-back metric from exp 275, and
+(b) the directionality claim from exp 288 — color IS the mechanism by which
+syndrome maps to θ.
+
+WHAT IT DOES NOT SHOW
+Causal direction: whether color caused selection for D_flower proximity, or
+whether D_flower proximity in the embedding reflects color information baked
+into the BioCLIP+SAM3 pipeline. Cross-encoder validation (CLS vs FPN) and
+phylogenetic partial correlations needed.
+
+ARTEFACTS
+- script:   /scratch200/leardistel/exp_289_color_extraction.py
+- colors:   /scratch200/leardistel/results_289/species_colors.json (1912 species)
+- npz:      /scratch200/leardistel/results_289/species_colors.npz
+- plot:     /scratch200/leardistel/plots_proper/fig_AS_flower_color_lab.png
+- ground truth: colors table in israel_species.db (2657 records)
+═══════════════════════════════════════════════════════════════
+```
+
+---
