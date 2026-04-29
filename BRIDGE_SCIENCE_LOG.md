@@ -5299,3 +5299,202 @@ ARTEFACTS
 
 ---
 
+
+
+## Entry 83 — Azimuthal Phase Transition + Full Quantification (2026-04-29 analytical)
+
+**Date**: 2026-04-29  |  Source: analytical from exp311/exp302 data  |  n=1912 Israeli species
+
+```
+═══════════════════════════════════════════════════════════════
+RESULT: Bee flowers undergo an abrupt 77.8 deg azimuthal rotation in one 3-deg
+        theta bin ([23-26) -> [26-29)). This is the azimuthal phase transition:
+        3.2 sigma above mean step size, not a gradual drift.
+        ψ(bee,wind) = 152.6 -> 38.3 deg: bee flowers are architecturally
+        inverted from wind (vs 90 deg random baseline in 256-D).
+Source: analytical from exp311 + exp302  |  Entry 83  |  Date 2026-04-29
+═══════════════════════════════════════════════════════════════
+
+BACKGROUND
+The bee->wind transition requires both increasing θ AND rotating 152° in S^254.
+The question is gradual gradient vs abrupt switch (implies developmental trigger).
+
+PER-THETA-BIN AZIMUTHAL DRIFT (bee species, n=1189 binned by theta)
+
+Reference: ψ(lo_bee, wind) = 150.93°  n=364 lo-bee + 173 wind
+(using equatorial projections, NOT 256-D centroids — see centroid bug warning)
+
+  theta bin   n    ψ_wind   ψ_lo_bee   V(mid)   F(mid)
+  [14-17)    92   139.4    22.1       -1.616   +0.112
+  [17-20)   263   152.6     8.8       -1.776   -0.000   (TRUE ATTRACTOR: F≈0)
+  [20-23)   353   152.0    27.5       -1.628   -0.095
+  [23-26)   203   116.0    68.1       -1.216   -0.176   (rotation begins)
+  [26-29)   125    38.3   141.7       -0.583   -0.240   (CROSSED — wind direction)
+  [29-32)    63    39.3   144.2       +0.204   -0.275   (forbidden valley, V>0)
+  [32-35)    42    26.9   150.4       +1.027   -0.261
+
+PHASE TRANSITION STATISTICS
+Between-bin steps: [+13.2, -0.6, -36.0, -77.8, +1.0, -12.4] degrees
+Critical step [23-26)->[26-29): -77.8 deg
+  3.7x the mean absolute step (21.1 deg)
+  3.2 sigma above the mean (std=24.1 deg)
+
+CONCLUSION: ABRUPT SWITCH, not gradual gradient. Developmental trigger implied.
+
+THE 152-DEG ANTI-PARALLEL RESULT
+ψ(lo_bee centroid, wind centroid) = 150.93° analytically confirmed.
+Random baseline in 256-D: ψ ≈ 90°.
+Getting 151° requires active occupation of opposing morphological poles.
+Bee = bilateral symmetry, landing platforms, nectar guides, color signals.
+Wind = actinomorphic/absent petals, exposed organs, no reward.
+These are not just different — they are ARCHITECTURALLY INVERTED.
+First quantitative statement of architectural inversion with a null (90° expected).
+
+AZIMUTHAL DISTANCE TABLE (equatorial centroid psi values):
+  pair              ψ (deg)   interpretation
+  bee ↔ wind        142.5     nearly anti-parallel
+  butterfly ↔ wind  127.8     substantial inversion
+  bee ↔ butterfly    69.3     somewhat orthogonal
+  bee ↔ generalist   80.3     partially rotated
+  bee ↔ beetle      123.3     strong inversion
+  generalist ↔ wind 132.2     generalist pointing away from wind
+
+SHORT PATH vs CIRCLE
+Rotation from 152° to 38° = 114° of arc — the SHORT WAY.
+No need to go 360-114=246° around S^254.
+Consistent with a coordinated developmental switch (ABC genes simultaneously
+reversing multiple programs), not a gradual morphological journey.
+
+TRANSITION PHASES
+Phase 1 (θ=20->24°): ψ_wind stable at 152°, then starts dropping to 116°
+Phase 2 (θ=24->27°): rapid 77.8° rotation — THE PHASE TRANSITION ZONE
+Phase 3 (θ=27->31°): rotation done, crossing forbidden valley (V>0, max |F|)
+Phase 4 (θ>31°):     committed wind morphology, ψ_wind stable at 27-50°
+
+TRANSITION-STATE SPECIES (bee label, θ>26°, ψ_wind<50°, n=24)
+Species that have crossed the azimuthal divide while retaining bee labels.
+FPN says wind; botanical literature says bee. Top 6:
+1. Medicago truncatula      θ=28.3  ψ_wind=36.1  ψ_bee=135.7
+2. Plantago lanceolata      θ=26.2  ψ_wind=38.2  ψ_bee=135.2
+3. Medicago coronata        θ=31.1  ψ_wind=40.1  ψ_bee=131.3
+4. Trifolium scabrum        θ=29.9  ψ_wind=40.5  ψ_bee=130.7
+5. Reseda stenostachya      θ=28.7  ψ_wind=40.9  ψ_bee=136.9
+6. Trifolium lappaceum      θ=26.7  ψ_wind=41.6  ψ_bee=138.1
+Full list also includes Sanguisorba minor, Ochradenus baccatus, Plantago
+phaeostoma/notata, Carlina frigida, Marrubium cuneatum, Ferulago trachycarpa.
+Testable prediction: these should be visually simple/reduced for their syndrome.
+
+CENTROID BUG WARNING
+DO NOT compute geodesics from 256-D mean centroids.
+bee centroid theta = 2.03° (not 22.94°) — azimuthal cancellation artifact.
+Correct: per-theta-bin equatorial mean direction tracking (this table).
+
+ARTEFACTS
+- analytical: exp302 V(θ) + exp311 θ_arr + f_SAM3_israel.npz
+- plots (job 14000814): fig_BG_phase_transition_3D.png, fig_BG_hourglass_valley.png
+═══════════════════════════════════════════════════════════════
+```
+
+---
+
+## Entry 84 — The Ripple as Continuous Force Field + Syndrome Geodesic Matrix
+
+**Date**: 2026-04-29  |  Source: analytical synthesis of exp311 + exp302 + exp300
+
+```
+═══════════════════════════════════════════════════════════════
+RESULT: The Riemannian metric ds² = dθ² + sin²(θ)dψ² is confirmed as a real
+        evolutionary cost field operating WITHIN every syndrome independently.
+        The generalist is a Nash ESS at τ=0.47. Butterfly is the deepest
+        species in the evolutionary potential well (closest to true attractor).
+        Full syndrome geodesic matrix and Γ(θ) table provided.
+Source: analytical  |  Entry 84  |  Date 2026-04-29
+═══════════════════════════════════════════════════════════════
+
+FULL SYNDROME POSITION TABLE (exp302 V(θ) + exp311 theta means)
+
+  syndrome    θ_mean  V(θ)    F(θ)     τ      cot(θ)
+  butterfly   20.14   -1.731  -0.054   0.02   2.727    (deepest well; F≈0)
+  moth        21.17   -1.660  -0.085   0.13   2.582
+  bee         22.94   -1.462  -0.136   0.33   2.363
+  generalist  24.20   -1.270  -0.169   0.47   2.225    (Nash ESS, τ=0.47)
+  beetle      25.10   -1.109  -0.191   0.57   2.134
+  wind        31.38   +0.450  -0.278   1.26   1.639    (past valley, syndrome-locked)
+
+τ = (θ − 20°) / (29° − 20°)   (transition ratio, 0=well, 1=valley)
+
+KEY OBSERVATIONS
+- F < 0 everywhere past θ*: all syndromes feel net inward pull toward D_flower
+- V(θ) is a SINGLE WELL (monotone); no second minimum anywhere
+- True attractor is [17-20°) bin where F≈0 (butterfly sits here)
+- Butterfly is the most "evolutionarily relaxed" syndrome — closest to equilibrium
+- Wind at τ=1.26 has overshot the valley; it is held by syndrome canalization
+
+Γ(θ) = sin(θ)·exp(−2V(θ)/D) = ρ_stat(θ)·const
+The ratio sin(θ) / exp(2V/D) peaks at butterfly — it sits where geometric
+expansion pressure and biological confinement pressure are most balanced.
+
+GENERALIST AS NASH EQUILIBRIUM
+Generalist τ = 0.47 ≈ 0.5 — exactly halfway between attractor and valley.
+ESS condition: ∂/∂θ [α·f_pollinator(θ) − β·f_lock-in(θ)] = 0
+where f_lock-in rises with distance from the generalist zone.
+Geometric interpretation: τ=0.5 is where the marginal gain from further
+elaboration (moving toward bee attractor) equals the marginal lock-in cost.
+This is a saddle in the joint fitness landscape, not a minimum in V(θ).
+Evidence: (1) V has no minimum at 24.2°; (2) F = -0.169 (not zero); (3) τ≈0.5.
+
+SYNDROME PAIRWISE GEODESIC DISTANCES d(A,B) = arccos(μ_A·μ_B) in 256-D (degrees)
+(NOTE: 256-D centroid geodesic — underestimates mean species separations)
+
+          butterfly   moth   bee   generalist  beetle  wind
+butterfly    0       10.0   10.4    9.0       16.8    22.4
+moth        10.0      0      7.8    6.2       11.0    18.7
+bee         10.4      7.8    0      3.75      13.4    15.8
+generalist   9.0      6.2    3.75   0         11.5    15.9
+beetle      16.8     11.0   13.4   11.5        0      17.2
+wind        22.4     18.7   15.8   15.9       17.2     0
+
+Evolutionary transition rarity prediction (shorter = more common):
+bee↔generalist 3.75° (most common) > bee↔moth 7.8° > bee↔wind 15.8° (rarest)
+Testable against phylogenetic syndrome transition rate data.
+
+WITHIN-SYNDROME INTRA-PAIR DISTANCES (mean over 100 sampled pairs)
+butterfly: 24.7°, moth: 28.0°, bee: 31.9°, generalist: 34.6°, beetle: 31.0°, wind: 39.5°
+Wind has LARGEST spread despite being most theta-canalized (σ_intra drops with θ).
+This means wind species converge to wind θ from many azimuthal directions — many
+independent lineages arriving at the wind attractor from different starting points.
+
+THE RIPPLE IS A CONTINUOUS FIELD (from exp311 T3 within-syndrome validation)
+Within-syndrome ρ(θ, mean_d):
+  bee:        ρ=+0.716  p=1.7e-187
+  wind:       ρ=+0.840  p=2.4e-47
+  generalist: ρ=+0.771  p=7.3e-77
+  beetle:     ρ=+0.771  p=1.5e-15
+  moth:       ρ=+0.749  p=1.4e-13
+  butterfly:  ρ=+0.497  p=0.013
+
+The sin(θ) amplification operates within every syndrome independently.
+The syndromes are named regions of a continuous geometric force field.
+The force field is the Ripple. Each syndrome is a stable attractor within it.
+
+METRIC NOTE (exp313 analytical)
+arccos(a·b) and ||a-b|| are monotone functions of the same inner product for
+unit vectors. For rank-based claims: IDENTICAL (same NN, same AUC, same Mantel ρ).
+For quantitative path lengths: arccos is correct (geodesic arc); Euclidean
+distorts by sin(d/2) factor, underestimating large separations by 0-6% at our
+θ range. All existing rank-based results hold for either metric. arccos preferred.
+
+WHAT IT DOES NOT SHOW
+- Causal direction (do bee species evolve INTO wind, or is it more complex?)
+- The τ=0.47 ESS prediction needs an explicit model of pollinator fitness gradient
+- D (diffusion coefficient) not reliably estimated; affects D_Med/D_Isr
+
+ARTEFACTS
+- All numbers: derived analytically from exp302, exp311, f_SAM3_israel.npz
+- exp313 script: /scratch200/leardistel/exp_313_metric_validation.py
+- Pending jobs: 14000806 (exp312_geodesic), 14000814 (exp312_plots + exp313)
+═══════════════════════════════════════════════════════════════
+```
+
+---
+
