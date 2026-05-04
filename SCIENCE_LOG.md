@@ -494,3 +494,76 @@ blue_purple       48.2°     40.0°    29.3°    14.6°       —
 **Output**: `fig_CC_colour_territory_map.png`  
 **Script**: `exp313_colour_territory_map.py`  
 **Results**: `/groups/itay_mayrose_nosnap/leardistel/experiments/exp313_colour_territory/`
+
+## Entry 9 — Exp314–318: Colour Anchors Validation, Hue vs ψ, Colour Distance Metric, Coverage Expansion Attempts (2026-05-04)
+
+**Status**: COMPLETED (exp314–316), FAILED as planned (exp317–318)
+
+---
+
+### Exp314 — Colour Anchors Validation
+
+**Hypothesis**: If colour centroids are genuine morphospace anchors, four geometric predictions should hold simultaneously.
+
+**Result**: All 4 predictions confirmed.
+- Spearman r(ψ_inter-centroid, Δλ_wavelength) = −0.216, p=0.549 → **wavelength does NOT organise the ψ matrix**
+- Mean ψ same-guild = 27.7°, cross-guild = 38.7° → guild geometry confirmed
+- Guild ordering (blue_purple 14.6° ↔ pink_red, green/apetalous 48.2° from blue_purple) matches pollination biology
+- Counter-example: blue/purple ↔ pink/red (Δλ=200 nm) ψ=14.6° (close); green ↔ blue/purple (Δλ≈20 nm) ψ=48.2° (far). Wavelength alone cannot explain this.
+
+**Output**: `fig_CD_colour_anchors_validation.png`
+**Script**: `exp314_colour_anchors_validation.py`
+
+---
+
+### Exp315 — Measured Hue vs ψ
+
+**Hypothesis**: If colour is meaningful in morphospace, species with similar hue should have smaller ψ.
+
+**Result**: r(Δhue_LCH, ψ) = 0.182, r(same_syndrome, ψ) = −0.079, r(Δθ, ψ) = 0.211. Hue from field photos is weakly correlated with morphological distance — consistent with guild organising morphospace, not raw spectral hue.
+
+**Output**: `fig_CE_measured_hue_vs_psi.png`
+**Script**: `exp315_measured_hue_vs_psi.py`
+
+---
+
+### Exp316 — Colour ψ as Distance Metric
+
+**Hypothesis**: The inter-centroid ψ matrix defines a biologically meaningful colour distance in morphospace units (degrees on S²⁵⁵).
+
+**Result**: r(d_colour, ψ_morph) = 0.233. Same-syndrome pairs: mean ψ = 22.7°; different-syndrome pairs: mean ψ = 28.3°, p = 3×10⁻⁵⁷. Colour is a meaningful side-chain on the spherical framework — not competing with the guild structure, complementary to it.
+
+**Output**: `fig_CF_colour_psi_metric.png`
+**Script**: `exp316_colour_psi_distance_metric.py`
+
+---
+
+### Exp317 — Colour Coverage Expansion via LCH Hue (FAILED)
+
+**Hypothesis**: LCH hue from SAM3-masked flower pixels can classify species into colour classes at >85% accuracy, enabling expansion from 12.3% to ~80% coverage.
+
+**Result**: FAILED. Accuracy = 32.7%. Root cause: LCH hue values from field photos all cluster at H=40–54° regardless of botanical colour class. Uncontrolled outdoor lighting (overexposure, shadows, background) collapses spectral differences in the LCH colour space.
+
+**Lesson**: Measured pixel colour from field photos is not a reliable proxy for botanical colour class. Spectrophotometric/botanical description sources are required.
+
+**Output**: `fig_CG_colour_expansion.png`
+**Script**: `exp317_colour_coverage_expansion.py`
+
+---
+
+### Exp318 — Colour Coverage Expansion via LAB Palette k-NN (FAILED)
+
+**Hypothesis**: The 3-cluster LAB palette (BRIDGE colour atlas, 2,342 species) provides a richer 9-D feature than 1-D LCH hue, enabling k-NN classification at >75% accuracy.
+
+**Result**: FAILED. CV accuracy = 42.8% (target 75%). Same fundamental problem: LAB centroid clusters from field photos do not discriminate colour classes reliably. Yellow is the exception (74.4%) because it has distinctive (a,b) values even under variable lighting. White (33%), pink/red (26%), green/apetalous (26%) fail completely.
+
+**Lesson**: Pixel-based colour classification from field photos is unreliable regardless of colour space (LCH, LAB) or feature dimensionality. Only 159 new species could be added from the BRIDGE palette (palette coverage of unlabelled morphospace species is only 3.2%). Total coverage remains 12.3%.
+
+**Conclusion**: The colour coverage expansion via measured photo pixels is a dead end. External text-based botanical databases (TRY trait 28, POWO morphological descriptions) are required for coverage expansion beyond the Israel DB species.
+
+**Operative decision**: Proceed with the 519-species colour dataset for downstream experiments. The findings from exp314–316 are robust and sufficient for the main scientific claims (guild organises morphospace, not wavelength; colour centroids are independent anchors).
+
+**Output**: `fig_CH_colour_lab_expansion.png`
+**Script**: `exp318_colour_lab_expansion.py`
+**Results**: `/groups/itay_mayrose_nosnap/leardistel/experiments/exp318_colour_lab_expansion/`
+
