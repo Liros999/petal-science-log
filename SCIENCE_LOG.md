@@ -1304,3 +1304,34 @@ Artefacts:
 - figures: paper1/riemann/figs/F1_kramers_sigma_sweep.png, F2_multiencoder_breeders.png,
            F3_color_vs_fpn.png, F4_selection_strength_magma.png
 - docs:    paper1/E2_STOCHASTIC_CONES_EXPLAINED.md, paper1/FITNESS_LANDSCAPE.md §51-§56
+
+---
+
+### G-spokes (2026-05-17): Radial-corridor structure of the BRIDGE cone
+
+The selection-strength map (F4_selection_strength_magma.png) shows a "flower-petal"
+pattern near D_flower. Tested three predictions:
+
+**G1 — Spokes ARE directions to peaks**:
+- 7 spokes identified as local maxima of |grad_g log W| in inner annulus (2-10 deg)
+- Median spoke-to-nearest-peak ψ offset = 11.93 deg (random baseline 22.5 deg)
+- Three spokes match within 4-6 deg: P2 ↔ ψ=58 deg, P5 ↔ ψ=123 deg, P6 ↔ ψ=267 deg
+- Verdict: spokes ARE meridians from D_flower out to each adaptive zone
+
+**G2 — Species AVOID the spokes**:
+- r(|grad|, density) = -0.44 (inner annulus), -0.40 (outer), -0.26 (global)
+- Most spokes have 3-14x sparser species density on-spoke vs off-spoke
+- Species fill the gaps BETWEEN spokes, not on them
+
+**G3 — Saddles sit ON the spokes** (corrected interpretation):
+- Mean saddle-to-spoke offset = 11.2 deg
+- Saddles are at the OUTER end of each meridian (θ ~ 18-37 deg)
+- They mark where two adjacent basins meet on the meridian
+
+The morphospace's anatomy: pole at D_flower → 8 meridian highways → saddles at outer ends → basins between meridians. Evolution from D_flower must follow one of 8 specific azimuthal directions; trajectories are DISCRETE corridors, not continuous.
+
+Artefacts:
+- scripts: paper1/riemann/scripts/G_spokes.py
+- results: paper1/riemann/data/G_spokes.json
+- figures: paper1/riemann/figs/G_spoke_geometry.png, G_density_vs_grad.png
+- docs:    paper1/FITNESS_LANDSCAPE.md §57
