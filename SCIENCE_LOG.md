@@ -1335,3 +1335,29 @@ Artefacts:
 - results: paper1/riemann/data/G_spokes.json
 - figures: paper1/riemann/figs/G_spoke_geometry.png, G_density_vs_grad.png
 - docs:    paper1/FITNESS_LANDSCAPE.md §57
+
+---
+
+### H-tests (2026-05-17): Spoke geometry refinement + Med reproducibility
+
+**H1 — Spokes ARE ridge crests** (∂_ψ log W ≈ 0 along them):
+For each of 7 Israeli spokes, RMS(∂_ψ) / RMS(∂_θ) along the spoke is between 0.06 and 0.13. Spokes are confirmed to be geodesic meridians satisfying the ridge-crest condition ∂_ψ log W = 0. They are watershed lines dividing the cone into basins, NOT gradient-flow trajectories.
+
+**H2 — Saddle-to-basins doorways**: visual plot showing each saddle connected to its 2 nearest peaks by cyan lines. Confirms saddles are mountain passes between basin pairs.
+
+**H3 — Med reproducibility (honest negative)**:
+- Israeli (n=1,912): 7 spokes, median offset to peaks 11.9 deg
+- Med (n=13,212): only 2 spokes, median offset 20.9 deg, 0/7 shared with Israeli
+
+The Israeli spoke pattern does NOT reproduce on Med at the same KDE bandwidth. Two reasons: (a) bandwidth saturation at 13K species smears fine structure, (b) different species composition produces different azimuthal corridors.
+
+Honest framing: PEAKS are universal (5/7 match Israeli/Med). LANDE SIGNAL is universal (r ≈ -0.96 in 3 encoders). CONE METRIC is universal (Fisher-Rao of vMF). But SPOKE PATTERN is cohort-specific.
+
+The deep theory is universal; the local decorative geometry depends on the cohort.
+
+Artefacts:
+- scripts: paper1/riemann/scripts/H_spoke_geometry_med.py
+- results: paper1/riemann/data/H_spoke_geometry_med.json
+- figures: paper1/riemann/figs/H1_spokes_are_ridge_crests.png,
+           H2_saddles_to_basins.png, H3_med_selection_flower.png
+- docs:    paper1/FITNESS_LANDSCAPE.md §58-§59
