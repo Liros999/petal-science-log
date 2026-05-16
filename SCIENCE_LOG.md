@@ -1225,3 +1225,37 @@ Artefacts:
 - results: paper1/riemann/data/{B_theorems,C_universal_validation}.json, universal_curves.npz
 - figures: paper1/riemann/figs/{B_voronoi_basins,C1_universal_curves,C4_family_bias}.png
 - docs:    paper1/SEPARATION_THEOREM.md, paper1/D_FLOWER_DECOMPOSED.md, paper1/FITNESS_LANDSCAPE.md (sections 32-38)
+
+---
+
+### Entry 11 final updates (2026-05-17): D + E + Literature Novelty
+
+**D — Validation suite (7 sub-tests on disk)**:
+- D1: polygon-space breeder's-equation reproduction → **r = -0.40 (vs FPN -0.97)**. Cross-encoder kappa correlation r = -0.0006 (orthogonal axes).
+- D2: scaled universal-trajectory cache from 200 → 1000 curves → median species-to-curve distance dropped 2.42° → **1.04°**.
+- D3: speed-colored universal trajectories plot (D3_universal_speed.png).
+- D4: abiotic selection strength heatmap |grad_g log W| (D4_abiotic_selection_strength.png).
+- D5: saddle-derived dendrogram = cone as a tree (D5_saddle_dendrogram.png).
+- D6: inverse problem demo (recover kappa from 2 positions). **Pearson r(log) = 1.0000**, perfect recovery.
+- D7: Med-cohort family-bias check. Med M1 = 13.0% Fabaceae / 98 families (radial-flower attractor universal at Med scale).
+
+**E — Stochastic dynamics on the cone**:
+- E1: FPN vs Polygon side-by-side speed-vs-kappa scatter (E1_FPN_vs_polygon.png).
+- E2: stochastic SDE dynamics: dμ = G·∇log W·dt + σ·√(G·dt)·dB_t. 8 representative species × 100 replicas × 200 steps each.
+  - 6/8 basins are **robust attractors** (98-100% replicas stay)
+  - **P6 and P8 are NOT true basins under stochastic dynamics** (0/100 stay)
+  - This emergent result: 2 of 8 deterministic peaks fail the stochastic test → not robust to noise
+- E3: Kramers' barrier-crossing test (E3_kramers_crossing.png) — partial fit, needs σ sweep.
+- E4: **abiotic × intrinsic decomposition plot** (E4_abiotic_intrinsic_decomposition.png): the figure that summarizes the entire Separation Theorem.
+
+**Literature novelty (parallel agent search)**:
+- 10 closest prior papers reviewed (Wenzell 2025 Mimulus, Landis 2024 Phlox, Campos 2019 hawkmoth, Blomberg 2024 G-matrix on trees, Mallard 2023 C. elegans, Klingenberg geometric morphometrics, Borowiec 2022 EvoEco DL review, Beaulieu/Caetano 2025, etc.)
+- **No prior paper combines** (i) empirical W on continuous morphospace + (ii) per-species kappa + (iii) Lande flow for 1000s of plant species + (iv) Hessian critical-point classification + (v) family-bias-controlled convergence + (vi) closed-form predictive equation.
+
+**Final unified table — 13 verified findings, no prior precedent in the surveyed literature.**
+
+Artefacts:
+- scripts: D_full_validation.py, E_stochastic_polygon.py (paper1/riemann/scripts/)
+- results: D_full_validation.json, E_stochastic_polygon.json, universal_curves_1000.npz (paper1/riemann/data/)
+- figures: D3_universal_speed.png, D4_abiotic_selection_strength.png, D5_saddle_dendrogram.png, D6_inverse_kappa.png, E1_FPN_vs_polygon.png, E2_stochastic_cones.png, E3_kramers_crossing.png, E4_abiotic_intrinsic_decomposition.png (paper1/riemann/figs/)
+- docs: paper1/SEPARATION_THEOREM_INTUITION.md (simplest version), paper1/SEPARATION_THEOREM.md (formal), paper1/FITNESS_LANDSCAPE.md §0–§50 (master).
