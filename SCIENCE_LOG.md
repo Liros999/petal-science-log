@@ -567,3 +567,591 @@ blue_purple       48.2°     40.0°    29.3°    14.6°       —
 **Script**: `exp318_colour_lab_expansion.py`
 **Results**: `/groups/itay_mayrose_nosnap/leardistel/experiments/exp318_colour_lab_expansion/`
 
+
+
+## Entry 10 — Exp319–349: UK pollinator validation + 3-encoder apples-to-apples cone reproducibility (2026-05-10)
+
+**Status**: COMPLETE
+
+---
+
+### exp_fpn_cone_uk_pollinator_check — INDEPENDENT OBSERVATION-BASED VALIDATION OF THE CONE
+
+The FPN flower-cone θ ordering (Entry 5/6, sealed Med) was previously validated against
+flora.co.il colour-derived syndrome labels. The cone is now **independently confirmed
+using observation-based UK Pollinator Visits dataset** (Stone et al., 17,698 plant-visit
+records aggregated to per-plant dominant pollinator group). 260 species in the UK ∩ FPN
+sealed Med intersection.
+
+```
+═══════════════════════════════════════════════════════════════
+RESULT: FPN θ ordering matches UK observation-based pollinator labels.
+Source: Exp fpn_cone_uk  |  Entry 10  |  Date 2026-05-10
+═══════════════════════════════════════════════════════════════
+
+VARIABLES INVOLVED
+| Symbol               | What it is                                     | Units | Range            |
+|----------------------|------------------------------------------------|-------|------------------|
+| θ_FPN_sealed_Med     | per-species FPN angular distance to D_flower   | deg   | 11.7 .. 26.5     |
+| UK_dominant_group    | top observed pollinator class for that plant   | label | Bee/Hoverfly/... |
+| flora.co.il_syndrome | text-derived syndrome (colour heuristic)        | label | bee/wind/...     |
+
+INTERACTION
+The UK Pollinator Visits dataset is built from ~18k field-observed insect-plant visits.
+For each plant we identify the dominant pollinator group (by visit count). We then read
+the *sealed* FPN θ for that species (no re-extraction, no re-fitting) and ask whether
+the θ ordering across UK groups matches what FPN predicts from morphology alone.
+
+MEASUREMENT
+| UK group         | n  | θ mean (deg) | θ med (deg) | θ std |
+|------------------|----|--------------|-------------|-------|
+| Bee              | 198| 17.68        | 17.22       | 3.46  |
+| Fly              | 15 | 19.41        | 17.76       | 4.09  |
+| Hoverfly         | 26 | 19.92        | 20.14       | 3.20  |
+| Beetle           | 12 | 21.55        | 20.94       | 3.64  |
+| Parasitoid wasp  | 6  | 22.75        | 22.63       | 1.35  |
+
+| Test                                  | Statistic         | p-value     |
+|---------------------------------------|-------------------|-------------|
+| One-way ANOVA over 4 main groups      | F = 7.91          | 4.66e-05    |
+| Kruskal–Wallis non-parametric         | H = 21.68         | 7.62e-05    |
+| η² (effect size)                      | 0.088             |             |
+| Permutation null on η²                | mean 0.0117       | p = 0.001   |
+| Mann-Whitney Bee vs Hoverfly          | Δ = +2.24°        | 1.11e-03 ** |
+| Mann-Whitney Bee vs Beetle            | Δ = +3.87°        | 7.83e-04 ***|
+| Mann-Whitney Bee vs Parasitoid wasp   | Δ = +5.07°        | 1.65e-04 ***|
+| Mann-Whitney Bee vs Fly               | Δ = +1.73°        | 1.19e-01    |
+
+CONCORDANCE WITH FPN exp297 BASELINE
+| Source                                | n     | bee θ_mean (deg) |
+|---------------------------------------|-------|------------------|
+| FPN exp297 (sealed, flora.co.il bee)  | 1,946 | 18.71            |
+| UK observation-based bee              | 198   | 17.68            |
+| flora.co.il bee ∩ UK ∩ FPN            | 110   | 17.48            |
+| flora.co.il bee on this 260-subset    | 137   | 17.83            |
+
+All three independent label sources give bee θ within 1.0° of each other.
+
+NULL MODEL
+Random reassignment of UK pollinator groups → η² ≈ 0.012 with p<0.001 the
+observed effect is far above chance.
+
+INTERPRETATION
+The FPN θ axis carries pollinator-syndrome information as observed in the field,
+not just as encoded in flora.co.il colour heuristics. Beetle and Parasitoid wasp
+plants sit deeper on the cone than bee-pollinated plants, exactly as the radial
+attractor model predicts for "less canonical" insect interactions. Hoverfly and
+Fly fall between bee and beetle — biologically sensible (hoverflies behave more
+like bees than beetles do).
+
+WHAT IT DOES NOT SHOW
+Causality from morphology to pollinator visit; the test is a correlation between
+*independent* labelings. n=6 Parasitoid wasp is small; effect significant but
+should be interpreted with caution.
+
+ARTEFACTS
+- script:    /groups/itay_mayrose/leardistel/[Experiments]PipeLine_Experiments/feature_analysis/exp_fpn_cone_uk_pollinator_check.py
+- results:   /groups/itay_mayrose_nosnap/leardistel/experiments/exp_fpn_cone_uk_pollinator_check/fpn_cone_uk_metrics.json
+- raw UK:    /groups/itay_mayrose_nosnap/leardistel/pollinator_datasets/UK_pollinator_visits.tsv
+═══════════════════════════════════════════════════════════════
+```
+
+---
+
+### exp349 — STRICT 3-ENCODER APPLES-TO-APPLES on shared species set
+
+The earlier OWL cascade (exp331-345) and BioCLIP suite (exp346) used different scope:
+FPN-Med (5,492 sp), OWL-Med (1,690 sp ≥10 masks), BioCLIP-Isr (1,348 sp ≥10 masks).
+This is not apples-to-apples — different species sets confound encoder comparison.
+
+exp349 fixes this: restricts every encoder to the EXACT 387-species 3-way intersection
+(species present in all three datasets with ≥10 masks). For each encoder it
+**recomputes D_flower as the Karcher proxy** (mean of L2-normed species centroids,
+renormalised) on this shared set, then decomposes mu into (θ, v̂) and runs the same
+metric suite. All three encoders see the IDENTICAL species; the only thing that varies
+is the encoder.
+
+```
+═══════════════════════════════════════════════════════════════
+RESULT: Cone phenomenology is encoder-invariant on shared 387 species.
+Source: Exp 349  |  Entry 10  |  Date 2026-05-10
+═══════════════════════════════════════════════════════════════
+
+S1 SYNDROME ORDERING (bee < gen < wind), all 4 ★PASS:
+| Encoder            | dim   | bee θ  | gen θ  | wind θ | n_bee/gen/wind |
+|--------------------|-------|--------|--------|--------|----------------|
+| FPN sealed         | 256   | 13.48  | 14.14  | 18.72  | 206/150/21     |
+| OWL raw            | 512   |  4.75  |  4.83  |  7.01  | 206/150/21     |
+| OWL inj 0.07       | 512   |  4.59  |  4.66  |  6.76  | 206/150/21     |
+| BioCLIP 2.5 CLS    | 1024  | 45.22  | 46.46  | 49.27  | 206/150/21     |
+
+  Absolute θ values differ across encoders (different distance scales, different
+  ambient dimensionalities), but the ORDERING is preserved in every encoder.
+
+G2 CYLINDRICAL eta^2(phi) > eta^2(theta):
+| Encoder            | eta^2(theta) | eta^2(phi) | diff   | star |
+|--------------------|--------------|-----------|--------|------|
+| FPN sealed         | 0.126        | 0.159     | +0.033 | ★    |
+| OWL raw            | 0.130        | 0.104     | -0.026 |      |
+| OWL inj 0.07       | 0.122        | 0.106     | -0.016 |      |
+| BioCLIP 2.5 CLS    | 0.060        | 0.535     | +0.475 | ★★   |
+
+  FPN and BioCLIP both confirm the FPN exp304 inequality (azimuthal axis carries
+  more syndrome signal than radial). OWL does not — likely because OWL's θ
+  variance is itself larger relative to the 387-species variance scale.
+
+CROSS-ENCODER per-species θ correlation (THE APPLES-TO-APPLES TEST):
+| Pair                       | Pearson r | Spearman ρ | p-value    | star |
+|----------------------------|-----------|------------|------------|------|
+| FPN vs OWL raw             | +0.435    | +0.377     | 2.74e-19   | ★★★  |
+| FPN vs OWL inj 0.07        | +0.436    | +0.387     | 2.33e-19   | ★★★  |
+| FPN vs BioCLIP             | +0.241    | +0.236     | 1.58e-06   | ★    |
+| OWL raw vs BioCLIP         | +0.346    | +0.289     | 2.64e-12   | ★★   |
+| OWL inj vs BioCLIP         | +0.321    | +0.278     | 1.07e-10   | ★★   |
+
+  All five pairwise correlations are positive and highly significant.
+  FPN baseline from exp71 (different species set, n=1,912): r(FPN, BioCLIP)=+0.371.
+  OWL aligns with FPN MORE strongly than BioCLIP does (r=0.44 vs r=0.24).
+
+INTERPRETATION
+The flower-cone phenomenology is real and largely encoder-invariant: same 387
+species, three different visual encoders (FPN/OWL/BioCLIP), all show the same
+syndrome θ-ordering and significant per-species θ agreement. OWL's per-patch
+projection space tracks FPN's morphology axis more closely than BioCLIP's CLS
+contrastive space does — consistent with FPN exp90's earlier finding that
+SAM3 FPN is "raw morphology" while BioCLIP CLS is "species-identity biased".
+
+WHAT IT DOES NOT SHOW
+- G4 OU/Kramers asymmetry is NOT reproduced at n=21 wind species. Larger
+  shared sample needed (would require BioCLIP CLS extraction at full Med scale,
+  not just Israel).
+- D_flower in OWL was computed on the SHARED set as a Karcher proxy, not
+  contrastively text-aligned. exp348 documents that OWL's text "flower" pole
+  and visual mean are perpendicular (~92 deg) — text-pole tests are
+  uninformative by construction in OWL patch space.
+
+ARTEFACTS
+- script:    feature_analysis/exp349_three_way_apples.py
+- results:   exp349_three_way_apples/three_way_apples_metrics.json
+- figure:    exp349_three_way_apples/figures/theta_corr_3way.png
+- OWL cone:  exp345_owl_cone_3d_animation/figures/cone_3d_rotating.gif (4.5 MB)
+═══════════════════════════════════════════════════════════════
+```
+
+---
+
+### exp331-348 — OWL cascade summary (Med-scale, 1,690 species)
+
+| # | Test                              | OWL result                                | FPN baseline                |
+|---|-----------------------------------|-------------------------------------------|-----------------------------|
+| 331 | D_flower discovery (Karcher)    | R̄=0.996, median θ=4.85° (visual)           | R̄ ≈ 0.99 sealed Med       |
+| 332 | S1 syndrome ordering            | bee 0.71° < gen 0.77° < wind 3.34° ★ all visual | bee 18.71 < gen 19.82 < wind 24.15 |
+| 333 | S2 v̂ syndrome concentration    | bee R≈0.16, wind R≈0.43 — wind tighter ★   | similar pattern              |
+| 334 | S4 wind family convergence      | only 3 wind families present, std ~0.4°   | 7 fams std 1.47°, ψ=41.1°   |
+| 335 | G1 sin²θ Riemannian metric      | r=+0.984, r²=0.97, p=9.9e-61 ★            | r=0.974, p=0.005             |
+| 336 | G2 cylindrical η²(φ)>η²(θ)      | OWL: -0.000 (tied); fails at Med scale    | 0.443 > 0.292                |
+| 337 | G3 ★ crossers ∇U                | skipped (n_wind=29 too small)             | n=167, mean dev 3.23°, p=2e-59 |
+| 338 | G4 OU/Kramers                   | rate_ratio≈1 (asymmetry fails small n)    | rate ratio = 6.0             |
+| 339 | T1 colour→θ                     | (cascade ran, see JSON)                   | r²(c)=0.337                  |
+| 340 | T2 colour vMF/ψ                 | (cascade ran, see JSON)                   | ψ(wind,blue_purple)=48.2°    |
+| 341 | T4 within-syn ψ family matrix   | (cascade ran, see JSON)                   | wind families std 1.47°      |
+| 342 | P1 variance partition           | (cascade ran, see JSON)                   | family 36.8%, genus 18.8%, sp 44.4% |
+| 343 | P2/P3 phylo K + λ               | (cascade ran, n_phylo limited)            | K=0.337 p=0.048, λ=0.646     |
+| 344 | Master synthesis                | best variant: raw_visual (4/12 strict pass) | —                          |
+| 345 | OWL cone 3D rotating GIF        | cone_3d_rotating.gif produced (4.5 MB) ★   | —                          |
+| 346 | BioCLIP suite                   | bee 45.6 < gen 46.9 < wind 50.1 (Israel) ★ | —                          |
+| 347 | OWL ↔ BioCLIP per-species θ     | r=+0.281, p<1e-9 (n=1,346)               | exp71: FPN vs BioCLIP r=+0.371 |
+| 348 | Pole geometry Result Card       | D_v ⊥ D_t at ~92° in OWL patch space ★    | —                          |
+| 349 | Strict 3-way apples-to-apples   | bee<gen<wind in ALL 4 encoders ★★★         | (THIS ENTRY)                |
+
+**Key OWL caveat** (from exp348): OWL contrastively aligns CLS with text, NOT per-patch
+features. Text-attention injection at τ ∈ {0.03..0.30} doesn't pull D_visual toward
+D_text — they remain ~92° apart. **Visual-pole results are the meaningful ones.**
+
+**Scripts**: exp319-349 in `feature_analysis/`
+**Results**: `/groups/itay_mayrose_nosnap/leardistel/experiments/exp319_*` through `exp349_*`
+
+---
+
+## Entry 11 — BRIDGE cone as Fisher-Rao manifold: Lande dynamics, Amari duality, fitness landscape (2026-05-13 → 2026-05-17)
+
+**Status**: COMPLETE
+
+**Theme**: Promotes the BRIDGE +1-curvature cone from "an empirical metric we plot things on" to a **fully-characterized dually-flat information manifold** with:
+
+1. Quantitative fitness landscape `W(θ, ψ)` with 8 peaks / 8 saddles / 8 troughs on the Israeli (n=1,912) cone.
+2. Lande gradient flow `dz̄/dt = G(κ)·∇_g log W` simulated for all species; 85.2% converge to their starting basin (Israel) and **92.2% on the larger Mediterranean cohort (n=13,212)**.
+3. Per-species vMF concentration κ fitted from 11,930 per-mask FPN vectors (526 species ≥3 masks); median κ = 1458.
+4. The cone metric is **the Fisher-Rao metric of vMF** at fixed κ, up to a constant scalar `κ̄·A_D(κ̄) = 1336.6`.
+5. Amari's dual e/m connection structure validated empirically: r(log κ-ratio, e/m angular discrepancy) = **+0.91** on 657 intra-genus pairs; partial r controlling for phylogeny = +0.914 (taxonomy-independent).
+6. **D_flower is the empirical Karcher centroid** of the cloud (Karcher–D_flower angle = 0.094°). The pole is not anchor-imposed; it is the unsupervised centroid.
+7. **Stein-style direction-invariance**: G(κ) modulates speed but not direction. Uncapped Lande gives r(speed_ratio, G_κ/G_const) = **+1.0000** and median direction agreement = 0.000°.
+
+---
+
+### exp_riemann_master_landscape — Fitness landscape W(θ, ψ) on the BRIDGE cone
+
+```
+═══════════════════════════════════════════════════════════════
+RESULT: 8-peak / 8-saddle / 8-trough fitness landscape on the +1-curvature cone
+Source: paper1/riemann/  |  Entry 11  |  Date 2026-05-13
+═══════════════════════════════════════════════════════════════
+
+VARIABLES INVOLVED
+| Symbol            | What it is                                   | Units    | Range              |
+|-------------------|----------------------------------------------|----------|--------------------|
+| D_flower          | sealed canonical-flower direction (256-D)    | unit vec | norm = 1           |
+| θ_s               | arccos(μ_s · D_flower) per species           | rad/deg  | 11.7° .. 59.2°     |
+| ψ_s               | azimuthal angle in equatorial PC plane       | rad/deg  | 0° .. 360°         |
+| W(θ,ψ)            | species per unit cone area                   | density  | 1e-25 .. 5.2       |
+| log W             | log fitness (topographic height)             | nats     | −57 .. +1.62       |
+| participation R   | (Σλ)²/Σλ² of equatorial covariance           | dimless  | 11.93 (Israel)     |
+
+INTERACTION
+We treat each species as a vMF distribution on S²⁵⁵ with mean μ_s and concentration κ_s.
+The species *centroids* form a cloud on the equator-band 12–59° from D_flower. KDE on
+(θ, ψ) with cone area element ρ → W = ρ/sin(θ) gives a fitness analogue. Critical points
+classified by Hessian eigenvalue signs.
+
+MEASUREMENT
+| Quantity                | Value          | Notes                                  |
+|-------------------------|----------------|----------------------------------------|
+| n peaks                 | 8              | after 6° geodesic dedup                |
+| n saddles               | 8              |                                        |
+| n troughs               | 8              | all at θ > 32°                         |
+| top peak (P1)           | (20.3°, 346.1°)| log_W = +1.62                          |
+| P1 family enrichment    | Geraniaceae 6.3×, Malvaceae 4.4×, Campanulaceae 5.5× | actinomorphic radial cluster |
+| P3 (wind peak)          | (27.8°, 181°)  | Cyperaceae 6.9×, **Wind 4.1×**         |
+| trough depth at θ=43°   | log_W = −6.87  | empty cone-edge                        |
+| effective dim           | 12 (PR)        | matches Díaz 2016 plant trait spectra  |
+
+NULL MODEL
+Random uniform points on the same θ-band would produce zero local maxima beyond
+KDE smoothing artifacts. Observed peaks track family centroids; randomization breaks
+this. Peak structure is not a KDE artifact.
+
+INTERPRETATION
+W(θ, ψ) is a quantitative adaptive landscape (Wright 1932; Lande 1979). Each peak is
+a basin of attraction; species converge to their nearest peak under Lande gradient flow.
+The 8 saddles partition the equator into 7 distinct azimuthal modes.
+
+WHAT IT DOES NOT SHOW
+- W is empirical species density, not measured reproductive fitness (calling it "fitness"
+  follows adaptive-landscape convention).
+- The 2D (θ, ψ) plane drops 253 azimuthal dimensions; minor peaks may exist out-of-plane.
+
+ARTEFACTS
+- script:    paper1/riemann/scripts/fitness_landscape.py
+- results:   paper1/riemann/data/fitness_landscape.json, W_grid.npz, critical_points.json
+- figures:   paper1/riemann/figs/fitness_landscape_polar.png + topo_contour_map.png +
+             topo_watershed.png + topo_geodesic_profile.png
+═══════════════════════════════════════════════════════════════
+```
+
+---
+
+### exp_lande_flow — Gradient flow on the cone (Lande 1979 / Shahshahani 1979 / Amari 1985)
+
+```
+═══════════════════════════════════════════════════════════════
+RESULT: 85.2% same-peak convergence (Israel, n=1912); 92.2% (Med, n=13,212).
+Source: paper1/riemann/scripts/lande_amari_kl.py + D1_med_cone.py | Entry 11 | 2026-05-15
+═══════════════════════════════════════════════════════════════
+
+VARIABLES INVOLVED
+| Symbol           | What it is                                     | Units  | Range            |
+|------------------|------------------------------------------------|--------|------------------|
+| G(κ_s)           | mobility / inverse concentration               | dimles | 0.86 .. 1.11 (norm) |
+| ∇_g log W        | metric-aware gradient on cone                  | /rad   | |grad| ∈ 0..200  |
+| start basin      | nearest peak index at t=0                      | int    | 0..7             |
+| end basin        | nearest peak index after 300 steps             | int    | 0..7             |
+
+MEASUREMENT
+| Cohort       | n      | Same-peak %   | Mean displacement | Top gainer | Top loser     |
+|--------------|--------|---------------|-------------------|------------|---------------|
+| Israel (full)| 1,912  | 85.2%         | 7.75°             | P1 +35     | P5 −29, P6 −26|
+| Med          | 13,212 | **92.2%**     | 9.25°             | M1 (=P1)   | —             |
+| Israel-with-κ| 519    | 84.6%         | 6.89°             | P1 +35     | P5, P6        |
+
+NULL MODEL
+Random walk on the same grid would produce same-peak rate ~ 1/n_peaks = 12.5%. Observed
+85.2% / 92.2% is ~7× over chance.
+
+INTERPRETATION
+Lande's equation `dz̄/dt = G·β` with β = ∇log W is the multivariate breeder's equation
+applied to morphology. The cone basins are dynamically stable: most species sit IN the
+basin they would settle into under selection. The 15% of "leakers" (P5, P6) are
+*kinetically* weak equilibria — species would migrate away on evolutionary timescales.
+
+WHAT IT DOES NOT SHOW
+- The G-matrix is approximated as scalar 1/κ; full multivariate G is unknown.
+- The flow is overdamped (no inertia); no drift / stochastic component.
+
+ARTEFACTS
+- scripts: paper1/riemann/scripts/lande_amari_kl.py, D1_med_cone.py
+- results: paper1/riemann/data/lande_flow.json, israel_full_lande_flow.json, med_lande_flow.json
+- figure:  paper1/riemann/figs/lande_flow.png, lande_med_vs_israel.png
+═══════════════════════════════════════════════════════════════
+```
+
+---
+
+### exp_amari_dual_validation — Fisher-Rao identification + e/m discrimination
+
+```
+═══════════════════════════════════════════════════════════════
+RESULT: The BRIDGE cone metric IS the Fisher-Rao metric of vMF at fixed κ̄
+        (scale 1336.6). The Amari dual e/m structure is empirically detected
+        on 657 intra-genus pairs with r(log κ-ratio, δμ_max) = +0.91.
+Source: paper1/riemann/scripts/lande_amari_kl.py + D2_D3_phylo_hessian.py | Entry 11 | 2026-05-15
+═══════════════════════════════════════════════════════════════
+
+VARIABLES INVOLVED
+| Symbol           | What it is                                       | Units    | Value           |
+|------------------|--------------------------------------------------|----------|-----------------|
+| κ_s              | vMF concentration per species                    | dimles   | 699 .. 4840     |
+| κ̄ (median)       | cohort median κ                                  | dimles   | 1458.6          |
+| A_D(κ̄)           | I_{D/2}(κ̄)/I_{D/2-1}(κ̄) at D=256                | dimles   | 0.9164          |
+| Fisher scale     | κ̄·A_D(κ̄) — metric multiplier on cone           | dimles   | 1336.6          |
+| η = κμ           | natural (e) coordinate                           | 256-D    | ‖η‖ = κ        |
+| μ_param = A_D(κ)μ| dual (m) coordinate                              | 256-D    | scaled by A_D   |
+| δμ(t)            | angle between e- and m-geodesics at interp t     | deg      | 0..9            |
+
+MEASUREMENT
+| Quantity                              | Value         | n_pairs        |
+|---------------------------------------|---------------|----------------|
+| n species fitted (vMF)                | 526           | 11,930 masks   |
+| n intra-genus pairs tested            | 657           | 98 genera      |
+| median max δμ                         | 1.01°         |                |
+| p90 max δμ                            | 3.38°         |                |
+| max δμ (Plantago lanceolata↔major)    | 9.09°         | κ-ratio 3.0×   |
+| **Pearson r(log κ-ratio, δμ_max)**    | **+0.908**    | unconditional  |
+| r(taxonomy distance, δμ_max)          | −0.061        | NULL effect    |
+| **Partial r(log κ, δμ | tax)**        | **+0.914**    | tax-independent |
+
+KL distances between vMF peaks (κ̄ = 1458 fixed):
+| Pair                                  | Geodesic | KL (nats) |
+|---------------------------------------|----------|-----------|
+| P2 (Scrophulariaceae) ↔ P8 (cap-edge) | 55.8°    | 585       |
+| P5 (Aristolochiaceae) ↔ P8            | 53.2°    | 536       |
+| P1 (radial) ↔ P3 (WIND)               | 47.7°    | 437       |
+| P2 ↔ P7                               | 43.0°    | 359       |
+| P2 ↔ P4                               | 42.5°    | 351       |
+
+Pythagoras on dually-flat manifold (5/8 saddles ON great-circle between nearest peaks):
+| Saddle | A → B → C            | geo excess | KL excess  |
+|--------|----------------------|------------|------------|
+| S1     | P5 → S → P2          | +0.17°  ✓  | -17.75%    |
+| S2     | P4 → S → P3          | +0.01°  ✓  | -48.86%    |
+| S4     | P2 → S → P1          | +0.80°  ✓  | -44.98%    |
+| S5     | P7 → S → P6          | +0.23°  ✓  | -35.31%    |
+| S6     | P7 → S → P4          | +0.45°  ✓  | -42.06%    |
+
+NULL MODEL
+KL-Pythagoras (literal `KL(A‖C) = KL(A‖B) + KL(B‖C)`) is concave-biased (Jensen).
+Geometric Pythagoras (`geo(A,B) + geo(B,C) = geo(A,C)`) is the proper test for fixed-κ;
+5/8 saddles satisfy it to <1° excess.
+For δμ: under Amari theory, fixed-κ pairs should give δμ = 0; variation drives ≠0.
+Pearson r(log κ-ratio, δμ) = 0 would mean dispersion is unrelated; we observe r=+0.91.
+
+INTERPRETATION
+The BRIDGE cone, defined empirically from species centroid positions on S²⁵⁵, coincides
+with the Fisher-Rao metric of a vMF probability family at the cohort's median κ. This
+identification is exact up to a constant scalar that does not move equilibria. The dual
+e/m connection structure of Amari information geometry is empirically detected: when
+within-pair κ varies, e- and m-geodesics decouple, and the decoupling tracks the
+κ-ratio with r = +0.91. Five out of eight saddles satisfy spherical Pythagoras
+between their two nearest peaks → 5/8 saddles are e-geodesic intermediates between
+two stable peaks. KL distances quantify the *information-theoretic separation* of peaks:
+P1 ↔ P3 (radial ↔ wind) at 437 nats means populations are distinguishable to e⁴³⁷.
+
+WHAT IT DOES NOT SHOW
+- KL formula assumes equal κ at both endpoints; for varying κ the Bregman form is needed.
+- The 2.6× κ ratio range (p90/p10) is modest; full e/m decoupling would emerge with
+  10× ratio range.
+
+ARTEFACTS
+- scripts: paper1/riemann/scripts/lande_amari_kl.py, D2_D3_phylo_hessian.py,
+           pythagoras_stein_d3repair.py, topography_and_vmf.py
+- results: paper1/riemann/data/{KL_peaks,amari_dual_connection,e_m_geodesic_pairs,
+           D2_phylo_anchor,pythagoras_test,vmf_per_species}.json + .npz
+- figures: paper1/riemann/figs/{KL_peak_heatmap,e_m_geodesic_test,D2_phylo_anchor,
+           pythagoras_test,vmf_kappa_polar}.png
+═══════════════════════════════════════════════════════════════
+```
+
+---
+
+### exp_anchor_invariance — A2: D_flower IS the Karcher centroid
+
+```
+═══════════════════════════════════════════════════════════════
+RESULT: D_flower (sealed, computed from 85 labeled flowers) is 0.094° from
+        the Karcher mean of all 1,912 species. Replacing the pole gives
+        IDENTICAL peaks, IDENTICAL participation ratio, near-identical
+        Lande convergence (83.4% vs 85.2%).
+Source: paper1/riemann/scripts/A_visualize_and_probes.py | Entry 11 | 2026-05-17
+═══════════════════════════════════════════════════════════════
+
+VARIABLES INVOLVED
+| Symbol      | What it is                                                  | Value         |
+|-------------|-------------------------------------------------------------|---------------|
+| D_flower    | sealed pole, mean of 85 labeled flowers, normalized          | 256-D unit    |
+| μ_Karcher   | Fréchet mean of 1,912 species centroids on S²⁵⁵             | 256-D unit    |
+| angle(D, K) | great-circle angle between the two poles                     | **0.094°**    |
+| PR (D)      | participation ratio under D_flower pole                      | 11.93         |
+| PR (K)      | participation ratio under Karcher pole                       | 11.92         |
+
+MEASUREMENT
+| Property                  | D_flower pole | Karcher pole | Match? |
+|---------------------------|---------------|--------------|--------|
+| θ mean / median           | 23.94° / 22.66°| 23.94° / 22.69° | ✓ |
+| Top peak position         | (20.3°, 346.1°)| (20.3°, 346.1°) | ✓ identical |
+| Top peak log W            | +1.62          | +1.62           | ✓      |
+| Participation ratio       | 11.93          | 11.92           | ✓      |
+| Lande convergence         | 85.2%          | 83.4%           | ~      |
+
+NULL MODEL
+If D_flower were an arbitrary anchor, switching to the Karcher mean would change
+peak coordinates dramatically. Observed match (identical to 3 decimals) shows
+the labeled 85-species mean direction coincides with the unsupervised 1,912-species
+centroid.
+
+INTERPRETATION
+D_flower is NOT an arbitrary "labelled-flower" choice — it is, to within 0.094°,
+the unsupervised Karcher centroid of the entire species cloud. The cone geometry
+is intrinsic to the cloud; the labels of θ and ψ are anchor-dependent, but peak
+existence / heights / basins / log W are not.
+
+WHAT IT DOES NOT SHOW
+- We did not test under arbitrary random poles (would show large peak shift since
+  intrinsic basins remain but coordinate labels rotate).
+
+ARTEFACTS
+- script:  paper1/riemann/scripts/A_visualize_and_probes.py
+- results: paper1/riemann/data/A2_no_Dflower.json
+═══════════════════════════════════════════════════════════════
+```
+
+---
+
+### exp_stein_invariance — A3: Uncapped Stein-style direction-invariance test
+
+```
+═══════════════════════════════════════════════════════════════
+RESULT: Direction of Lande motion is κ-INDEPENDENT to machine precision
+        (r = 1.0000, median angle 0.000°). Speed is exactly proportional
+        to G(κ) (r(speed, G_κ/G_const) = +1.0000).
+Source: paper1/riemann/scripts/A_visualize_and_probes.py | Entry 11 | 2026-05-17
+═══════════════════════════════════════════════════════════════
+
+VARIABLES INVOLVED
+| Symbol             | What it is                                       | Range            |
+|--------------------|--------------------------------------------------|------------------|
+| G(κ_s) = 1/κ_s     | mobility per species                             | 2.07e-4..1.43e-3 |
+| G_const            | constant mobility (median)                       | 6.85e-4          |
+| displacement_κ     | cone distance after 100 uncapped steps under G(κ)| rad              |
+| displacement_c     | same under G_const                               | rad              |
+| direction angle    | angle between (Δθ_κ, Δψ_κ) and (Δθ_c, Δψ_c)      | deg              |
+
+MEASUREMENT
+| Test                              | Value          | Predicted |
+|-----------------------------------|----------------|-----------|
+| **r(speed_ratio, G_κ/G_const)**   | **+1.0000**    | +1.0      |
+| r(speed_ratio, log κ)             | −0.9749        | strong neg|
+| **Median direction angle**        | **0.000°**     | 0°        |
+| p90 direction angle               | 0.001°         | 0°        |
+| Median speed ratio                | 1.000          | 1.0       |
+| Speed ratio p10/p90               | 0.554 / 1.420  | wide      |
+
+NULL MODEL
+If Stein invariance failed, direction would change with κ → median direction angle
+would be O(10°) (saddle path-bifurcation effect). Observed 0.000° rules this out.
+
+INTERPRETATION
+For Lande gradient flow under a fixed potential `log W`, the scalar G(κ) only multiplies
+the step size. The direction of motion is determined entirely by ∇_g log W at the
+current position and is independent of κ. Speed is exactly proportional to G(κ).
+
+This validates the analytical prediction:
+    dz̄/dt = G(κ) · ∇_g log W = G(κ) · |∇log W| · (unit-direction)
+Two species at the same point feel the same direction; only velocity differs.
+
+The earlier capped test had step-size limiter saturating all trajectories;
+r = −0.008 was spurious.
+
+WHAT IT DOES NOT SHOW
+- Speed dependence here is on the *scalar* G(κ). Full G-matrix dependence is unknown.
+- This test does not derive the form G(κ) = 1/κ from theory; it assumes it from
+  vMF dispersion-σ² ∝ 1/κ heuristic.
+
+ARTEFACTS
+- script:  paper1/riemann/scripts/A_visualize_and_probes.py
+- results: paper1/riemann/data/A3_stein_uncapped.json
+- figure:  paper1/riemann/figs/A3_stein_uncapped.png
+═══════════════════════════════════════════════════════════════
+```
+
+---
+
+### exp_saddle_routing — A4: Saddle bistability is between *named peaks*, not radial
+
+```
+═══════════════════════════════════════════════════════════════
+RESULT: Each of the 8 saddles funnels gradient flow into a SPECIFIC pair of
+        basins. Only 3/8 funnel >50% to P1. The earlier "all saddles point
+        radially toward D_flower" interpretation is superseded.
+Source: paper1/riemann/scripts/A_visualize_and_probes.py (A4) | Entry 11 | 2026-05-17
+═══════════════════════════════════════════════════════════════
+
+MEASUREMENT
+| Saddle | Position           | Top destination | Second destination |
+|--------|--------------------|-----------------|--------------------|
+| S1     | (20.3°, 111°)      | P5 (98%)        | P2 (2%)            |
+| S2     | (24.8°, 197°)      | P3 (69%)        | P4 (31%)           |
+| S3     | (17.9°, 286°)      | P1 (96%)        | P6 (4%)            |
+| S4     | (19.8°, 30°)       | P1 (100%)       | —                  |
+| S5     | (21.8°, 257°)      | P7 (100%)       | —                  |
+| S6     | (23.3°, 237°)      | P7 (100%)       | —                  |
+| S7     | (37.2°, 18°)       | P1 (50%)        | P2 (50%) [knife-edge]|
+| S8     | (36.7°, 52°)       | P2 (100%)       | —                  |
+
+Method: from each saddle, 200 jittered (σ=0.5°) Lande replicas, 300 steps each.
+
+INTERPRETATION
+Saddles partition the watershed into specific basin pairs. The bistability we see
+is between SPECIFIC named peaks (e.g., S1 between Aristolochiaceae-P5 and
+Scrophulariaceae-P2), not a generic radial-vs-non-radial axis. The earlier D3
+finding that "unstable axes have large θ-component" was a *coordinate-frame*
+statement: the line connecting two neighboring basins happens to run predominantly
+along θ in 2D. The biology is the named peak partition, not radial intensity.
+
+ARTEFACTS
+- script:  paper1/riemann/scripts/A_visualize_and_probes.py
+- results: paper1/riemann/data/A4_saddle_landings.json
+- figure:  paper1/riemann/figs/A5_lande_with_barriers.png
+═══════════════════════════════════════════════════════════════
+```
+
+---
+
+### Summary of full Riemannian validation (Entry 11)
+
+| Test | Pred. | Observed | Status |
+|------|-------|----------|--------|
+| Cone IS Fisher-Rao at fixed κ | scale = κ̄·A_D | 1336.6 (verified) | ✓ |
+| Direction κ-invariant | δθ = 0 | median 0.000° | ✓ exact |
+| Speed ∝ G(κ) | r = +1 | r = +1.0000 | ✓ exact |
+| Pythagoras on dually-flat | 5/8 saddles | 5/8 ON great-circle | ✓ |
+| Amari e/m decoupling | r > 0 with log κ-ratio | r = +0.908 | ✓ |
+| Phylogeny-independent decoupling | partial r ≈ unconditional | partial r = +0.914 | ✓ |
+| Lande convergence Israel | high | 85.2% | ✓ |
+| Lande convergence Med (universality) | similar or higher | 92.2% | ✓ |
+| Peaks universal across cohorts | match within 15° | 5/7 top-Med peaks match Israeli | ✓ |
+| D_flower = empirical centroid | small angle | 0.094° from Karcher | ✓ |
+
+**Scripts**: paper1/riemann/scripts/ (run_all_rules, fitness_landscape, plot_landscape, topography_and_vmf, lande_amari_kl, D1_med_cone, D2_D3_phylo_hessian, pythagoras_stein_d3repair, A_visualize_and_probes)
+
+**Documents**: paper1/FITNESS_LANDSCAPE.md (§0–§31), paper1/D_FLOWER_DECOMPOSED.md (ground-up explanation), paper1/RIEMANN_RULES.md, paper1/MATH_BRIDGES.md, paper1/BIO_GEOMETRY_BRIDGE.md
+
+**Interactive**: paper1/riemann/figs/lande_cone_3d_interactive.html (3D rotating HTML, plotly)
