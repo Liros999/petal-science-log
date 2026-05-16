@@ -1155,3 +1155,32 @@ ARTEFACTS
 **Documents**: paper1/FITNESS_LANDSCAPE.md (§0–§31), paper1/D_FLOWER_DECOMPOSED.md (ground-up explanation), paper1/RIEMANN_RULES.md, paper1/MATH_BRIDGES.md, paper1/BIO_GEOMETRY_BRIDGE.md
 
 **Interactive**: paper1/riemann/figs/lande_cone_3d_interactive.html (3D rotating HTML, plotly)
+
+---
+
+### Theorem-extraction update (2026-05-17)
+
+Six formal theorems extracted from the validation suite ([B_theorems.json](https://github.com/Liros999/petal-science-log/blob/main/SCIENCE_LOG.md)):
+
+**T1 (Cone Equilibrium)**: `||mean_s of v_s|| = 1e-6` — equatorial residuals sum to zero. D_flower IS the cohort centroid.
+
+**T2 (Stein Decoupling)**: r = +1.0000 speed correlation, 0.000° direction agreement (confirmed A3).
+
+**T3 (Riemannian Step Equation)**: peak |grad_g log W| < 1.1 (grid noise; theoretical zero).
+
+**T4 (Saddles are Barriers)**: 200 jittered Lande replicas from each saddle land in 1-2 specific peak basins; no replica crosses a basin boundary. Voronoi-like partition into 7 basins.
+
+**T5 (Universal Trajectories)**: geometric proof — G(kappa) reparameterizes time, not path. All species at a given (theta, psi) follow the same gradient-flow curve.
+
+**T6 (Universal Centroid Bound)**: predicted noise 1/sqrt(kappa_bar*n) = 0.034° (n=1912) and 0.163° (n=85, combined 0.166°). Observed angle(D_flower, Karcher) = 0.094° = 0.57x the bound. D_flower is even closer to Karcher than the noise model predicts.
+
+**Practical extractions**:
+- kappa_s functions as an evolutionary clock: high-kappa species evolve 7x slower than low-kappa.
+- Selection direction = ∇_g log W / |∇_g log W| is species-independent.
+- Voronoi basin partition is the species' eventual fate map.
+
+Artefacts:
+- paper1/riemann/scripts/B_theorems.py
+- paper1/riemann/data/B_theorems.json
+- paper1/riemann/figs/B_voronoi_basins.png
+- paper1/FITNESS_LANDSCAPE.md §32-§33
