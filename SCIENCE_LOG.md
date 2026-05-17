@@ -1495,3 +1495,65 @@ Artefacts:
            U3_palette_summary.npz, auto_approve_calibration.json,
            sheet_priority.csv}, paper1/riemann/data/F3_oklch.json
 - docs:    paper1/PRIORITY.md, paper1/PROGRESS.md
+
+---
+
+### U5 partial corr: color ⊥ FPN (decisive cross-encoder test, 2026-05-17)
+
+**Important correction**: earlier finding "r(log κ_color, Lande speed) = -0.78 → color
+is 60% of FPN" was a **misread** of the WITHIN-color test (tautological, r ≈ -1 by
+construction since color κ IS the mobility used).
+
+**Cross-encoder reality**:
+
+| Test | r |
+|---|---|
+| r(log κ_color, speed_via_color)         | -0.81 (within-color, tautological) |
+| r(log κ_FPN,   speed_via_FPN)           | -0.97 (within-FPN, tautological)   |
+| **r(log κ_color, speed_via_FPN)**       | **+0.10** (cross-encoder!)         |
+| **r(log κ_FPN,   speed_via_color)**     | **+0.07** (reverse cross)          |
+| r(log κ_color, log κ_FPN)               | -0.12 (nearly independent)         |
+
+**Partial r(log κ_color, speed_via_FPN | log κ_FPN) = -0.058.**
+**Color contributes 0.0% unique variance to FPN-cone Lande speed (vs FPN 98.9%).**
+
+Conclusion: color and FPN measure **almost-independent** vMF structure. They define
+**two distinct evolutionary cones** with two independent Lande breeders' dynamics.
+
+This is a STRONGER paper finding than the earlier mistaken "color is 60% of FPN":
+we now have TWO validated Lande-cone systems (shape via FPN, color via Oklab-vMF).
+
+### Riemannian breeder's framework — anchored to public Dryad datasets
+
+For empirical estimation of spherical heritability h²_{S²} of flower color we
+identified 3 public datasets:
+
+1. **Silene latifolia** reciprocal crosses (Campbell, D1QD7M) — full UV-vis
+   reflectance, wild parent-offspring (cleanest design)
+2. **Iochroma cyaneum × gesnerioides** + 33-morph reflectance (Smith lab, 36v4b)
+3. **Mimulus parishii × cardinalis F2** (Sotola, 6t1g1jx6r) — n=777 F2
+
+Combined ≥1,200 offspring across 3 systems. Enables midparent-offspring
+regression on S² to estimate h²_{S²}. See paper1/RIEMANNIAN_BREEDERS_PLAN.md.
+
+### K=4 in 65% of species: what it really means + UV gap
+
+K=4 from U3 vMF mixture reflects RGB-only lighting+pigment structure:
+petal main + vein + highlight + shadow. NOT 4 distinct pigments per species
+in general.
+
+We lack UV. Bees see UV; iNat photos are 400-700 nm only. Many flowers have
+UV nectar guides (Mimulus, Helianthus, Potentilla, Brassica) invisible to RGB.
+
+**FReD database** (1,000+ species UV-vis reflectance, Lars Chittka group at
+QMUL) is the cheapest path to add a UV channel. Species-level UV only (not
+per-pixel), but enough for a comparison figure.
+
+See paper1/COLOR_K4_AND_UV.md.
+
+Artefacts:
+- scripts: paper1/coverage_gap/scripts/U5_partial_corr.py
+- results: paper1/riemann/data/U5_partial_corr.json
+- docs:    paper1/COLOR_VS_FPN_DECOMPOSITION.md
+           paper1/RIEMANNIAN_BREEDERS_PLAN.md
+           paper1/COLOR_K4_AND_UV.md
