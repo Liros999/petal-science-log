@@ -1387,3 +1387,34 @@ Artefacts:
 - results: paper1/riemann/data/I_autocorrelation_tests.json
 - figures: paper1/riemann/figs/I1_random_pole_control.png, I2_dev_module_per_peak.png, I3_cross_encoder_petal.png
 - docs:    paper1/FITNESS_LANDSCAPE.md §60
+
+---
+
+### J-geography (2026-05-17): no allopatric signal at Israel scale (NEGATIVE)
+
+Used pre-cached `inat_polygon_obs.npz` (21.7M global iNat obs; 89,788 in Israel bbox).
+1,040 cone species have ≥3 Israeli observations.
+
+**J2 — Per-basin K-S test** (vs cohort latitude/longitude distribution):
+- All 8 basins: K-S p > 0.05 for both lat and lon
+- Closest to significance: P4 (KS_lon p=0.074), P5 (KS_lat p=0.066)
+- **NO basin is significantly spatially differentiated**
+
+**J3 — Mantel morpho vs geo**: r = -0.009, perm p = 0.326. **No correlation.**
+
+**Interpretation**: Israeli flora basins are not geographically separated. P1
+(radial), P2 (Scrophulariaceae), P3 (wind), etc. all co-occur across Israel.
+The cone is detecting morphology, not biogeography. To find allopatric signals
+would need much larger geographic extent (Med-wide, global).
+
+**Memory discipline**: peak RSS 5.7 GB on 24 GB allocation. No leak. Job ran in
+~2 min using pre-cached NPZ instead of 95 GB SQLite full-scan.
+
+Infrastructure note: the global iNat NPZ has 21.7M obs worldwide. Future
+geographic-extent experiments (Med/global) just change the bbox filter.
+
+Artefacts:
+- scripts: paper1/riemann/scripts/J_geography_v2.py
+- results: paper1/riemann/data/J_geography.json
+- figures: paper1/riemann/figs/J4_geography_overlay.png, J_geo_basin_scatter.png
+- docs:    paper1/FITNESS_LANDSCAPE.md §61
