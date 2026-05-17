@@ -1557,3 +1557,60 @@ Artefacts:
 - docs:    paper1/COLOR_VS_FPN_DECOMPOSITION.md
            paper1/RIEMANNIAN_BREEDERS_PLAN.md
            paper1/COLOR_K4_AND_UV.md
+
+---
+
+### U4, U6, U7 (2026-05-17): Robertson-Price + Dryad blocked + UV from Zenodo
+
+**U4 — Robertson-Price color × pollinator (DONE)**
+
+For each species: per-mask Oklab → vMF S² fit → μ_color. Group by dominant pollinator (Med pollinator labels, exp356). Compute pairwise spherical angular separation of group means.
+
+Results (510 species in common):
+- Bees: n=346, R̄=0.877, κ=8.47, μ=[+0.137, +0.224, +0.965]
+- Wind: n=52, R̄=0.914, κ=12.0
+- Butterflies: n=27, R̄=0.862, κ=7.5
+- Beetles, Flies, Hoverflies: small (n=13-30)
+
+Pairwise separations (most distinct):
+- Butterflies ↔ Wind: 17.63°
+- Flies ↔ Wind: 15.83°
+- Butterflies ↔ Hoverflies: 13.27°
+- Bees ↔ Wind: 12.52°
+
+**Observed mean group-pair separation: 9.60°**
+**Permutation null (999 perms): 6.33° ± 1.62°**
+**z = 2.02σ, p = 0.033** → **significant at α = 0.05**
+
+Pollinator groups have distinct color signatures (modest effect, ~2σ). Wind-pollinated species are most separated (lowest color signaling, as predicted by anemophily theory).
+
+**U6 — Dryad parent-offspring downloads BLOCKED**
+
+Cloudflare bot protection on Dryad (as of 2026-05-17). Plain urllib → 401; cloudscraper 1.2.71 → HTTP 202 (Cloudflare "Just a moment..." challenge page). The four target datasets (Silene D1QD7M, Iochroma 36v4b, Mimulus 6t1g1jx6r + v6wwpzh1m) are blocked from automated retrieval.
+
+Workarounds (not yet attempted): Dryad API token (manual signup), Selenium/Playwright with real browser headers, contact authors directly. Pending decision.
+
+**U7 — UV-visible reflectance from Zenodo (DONE, 9/9 downloaded)**
+
+FReD (reflectance.co.uk) is DEAD: SSL cert mismatch + DNS unresolved. Pivot to Zenodo, which has CC0 mirrors. All 9 downloads succeeded via plain urllib (<10s total, 7.4 MB):
+
+| Dataset | Size | Coverage |
+|---|---|---|
+| Shrestha Macquarie | 753 kB | ~50 Macquarie Island species |
+| LeCroy serpentine | 1777 kB | ~70 California serpentine community |
+| Dyer/Garcia 2018 | 1243 kB (zip) | 100+ cross-continental species |
+| Garcia 2024 insect-pollinated | 576 kB (zip) | hundreds, insect-only |
+| Garcia 2024 bird-pollinated | 259 kB (zip) | hundreds, bird-only |
+| Shrestha Himalaya hexagon | 19 kB | ~80 (derived hexagon coords, not raw) |
+| Mimulus guttatus UV | 1177 kB | UV-polymorphism, single species |
+| Hemerocallis bullseye | 1664 kB | bullseye UV pattern |
+| Hage sunflower UV QTL | 108 kB | UV QTL data |
+
+Saved to `/groups/itay_mayrose_nosnap/leardistel/external_datasets_raw/uv_zenodo/`.
+
+Next: write parser to unify into per-species `(species, wavelength_grid, reflectance)` NPZ. Plan ~1 day to handle heterogeneous CSV formats (some are wide with wavelength as columns, some with metadata-header blocks to skip).
+
+Artefacts:
+- scripts: paper1/coverage_gap/scripts/{U4_robertson_price.py, U6_dryad_cloudscraper.py, U7_zenodo_uv_fetch.py}
+- results: paper1/coverage_gap/data/U4_robertson_price.json
+- raw:     external_datasets_raw/uv_zenodo/ (9 CSVs + manifest.json)
