@@ -1418,3 +1418,38 @@ Artefacts:
 - results: paper1/riemann/data/J_geography.json
 - figures: paper1/riemann/figs/J4_geography_overlay.png, J_geo_basin_scatter.png
 - docs:    paper1/FITNESS_LANDSCAPE.md §61
+
+---
+
+### Coverage-gap pipeline COMPLETE (2026-05-17)
+
+K7 done. The 1,779 → 2,417 species expansion pipeline finished end-to-end.
+
+**Pipeline state (all phases on disk before this session)**:
+- Phase 10 (identify gap species): 2,269 with valid taxon_id
+- Phase 11 (iNat manifest): 33,454 rows / 2,251 species
+- Phase 12 (S3 download): 33,284 photos = 99.5% success
+- Phase 13 (sealed BRIDGE V5 detection): 540,996 masks across 33,055 images
+- Phase 14 (INSERT into production_masks_v2.db): 33,055 images + 540,996 masks with label=NULL; integrity ok pre+post
+
+**This session's work**:
+- K1: diagnosed earlier "499 photos / Phase 14 pending" report as STALE — pipeline had already completed
+- Rewrote Phase 15 with local /tmp DB caching + sequential scans → ran in 32s (was 15+ min before)
+- Re-ran Phase 16 validation: **40/42 pass, 0 hard failures**
+- Wrote PROGRESS.md
+
+**Coverage breakdown after pipeline (2,417 species)**:
+| Status | n_species |
+|---|---|
+| approved ≥ 20 masks (publishable) | 194 |
+| approved 5–19 (almost there) | 744 |
+| approved 1–4 (started) | 841 |
+| zero approved but queued (pending in sheet) | 621 |
+| zero approved and zero queued (still uncovered) | 17 |
+
+**Bottleneck**: 662,084 NULL-label masks awaiting human sheet-mode approval at https://citadel-leardistel.serveo.net/sheet.
+
+Artefacts:
+- scripts: paper1/coverage_gap/scripts/15_check_progress_fast.py (NEW, real-time prints)
+- results: paper1/PROGRESS.md, paper1/coverage_gap/data/gap_validation_report.json
+- docs:    paper1/OPEN_HOLES.md (Z-section marked COMPLETE)
