@@ -1361,3 +1361,29 @@ Artefacts:
 - figures: paper1/riemann/figs/H1_spokes_are_ridge_crests.png,
            H2_saddles_to_basins.png, H3_med_selection_flower.png
 - docs:    paper1/FITNESS_LANDSCAPE.md §58-§59
+
+---
+
+### I-tests (2026-05-17): retraction of flower-shape metaphor, positive developmental-module signal
+
+**I1 — Random-pole control (RETRACTION)**: 30 random poles vs D_flower. D_flower petal strength = 0.214; random-pole mean = 0.823 ± 0.024. Random poles give SHARPER near-pole patterns. t = 134.5, p = 4e-42.
+
+The "morphospace is flower-shaped" metaphor is INCORRECT. The bright near-pole pattern is the Jacobian sin(theta) blow-up effect, not a flower anatomy. D_flower IS geometrically special (Karcher centroid) but gives a SMOOTHER near-pole pattern, not a more-flower-like one.
+
+**I2 — Developmental-module enrichment (POSITIVE biological signal)**:
+- P3 = wind-reduced (Cyperaceae/Poaceae) 3.46x enrichment
+- P5 = composite-5 (Asteraceae) 2.82x enrichment
+- P8 = 3-monocot (Liliales/Asparagales) 3.23x enrichment
+- P1, P2, P4, P6, P7 = generic 5-radial (1.0-1.4x enrichment, weakly differentiated)
+
+Three peaks correspond to clear developmental specializations (wind, composite, 3-monocot). The remaining peaks are graded variants of generic radial flowers.
+
+**I3 — Cross-encoder robustness**: OWL raw_visual gives petal strength 0.211 vs FPN 0.214 (ratio 1.013x). The near-pole pattern is morphology-intrinsic, not FPN-specific. But it's the Jacobian blow-up effect either way.
+
+**J — Geography test (in progress)**: full-scan of 95GB iNat snapshot for Israel-bbox observations is intractable. Pending alternative: pre-cache israel_obs.pkl in a separate one-time job.
+
+Artefacts:
+- scripts: paper1/riemann/scripts/I_autocorrelation_tests.py, J_geography.py
+- results: paper1/riemann/data/I_autocorrelation_tests.json
+- figures: paper1/riemann/figs/I1_random_pole_control.png, I2_dev_module_per_peak.png, I3_cross_encoder_petal.png
+- docs:    paper1/FITNESS_LANDSCAPE.md §60
