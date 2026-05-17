@@ -1614,3 +1614,26 @@ Artefacts:
 - scripts: paper1/coverage_gap/scripts/{U4_robertson_price.py, U6_dryad_cloudscraper.py, U7_zenodo_uv_fetch.py}
 - results: paper1/coverage_gap/data/U4_robertson_price.json
 - raw:     external_datasets_raw/uv_zenodo/ (9 CSVs + manifest.json)
+
+---
+
+### U8 — Mediterranean per-mask color extraction (in progress)
+
+To expand U4 Robertson-Price beyond 510 species, extracting color for the full Med cohort (13,212 species).
+
+**Validation done before launch**:
+- 105 Med sealed shards exist at `/groups/.../BRIDGE/results/123_mediterranean_extract_2026-04-23/`
+- NPZ has bbox + FPN; JSONL has full polygon_xy + RLE per mask
+- JSONL is filtered to passed-gate masks only (~140K rows per shard)
+- Photos NOT cached on disk (only shard_069 has 928 MB; others empty)
+- iNat S3 photo URL manifest exists at `/groups/itay_mayrose/leardistel/[Pipeline]iNaturalist_Scale/data/mediterranean_batch/mediterranean_photo_urls.csv` (1,048,818 URLs)
+
+**Strategy**: top-30 highest-combo masks per species → 395,511 mask rows from 13,212 species. Unique photos: 254,603 (~12 GB), ETA ~3.7h S3 download.
+
+**U8a done**: manifest built in 1 min. 13,212 species (not 5,492 — earlier number was pollinator-labeled subset).
+
+**U8b**: downloading 254,603 photos to /scratch200/leardistel/med_color_photos/. ~3.5h wall.
+
+**U8c (queued afterok U8b)**: per-mask Oklab + vMF extraction reusing oklab_utils.py. Outputs 16-channel features per mask.
+
+**Next: U4v3** — Robertson-Price on full Med cohort. Expected ~4,000+ pollinator-labeled species in intersection (vs 510 before).
