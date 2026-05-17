@@ -1453,3 +1453,45 @@ Artefacts:
 - scripts: paper1/coverage_gap/scripts/15_check_progress_fast.py (NEW, real-time prints)
 - results: paper1/PROGRESS.md, paper1/coverage_gap/data/gap_validation_report.json
 - docs:    paper1/OPEN_HOLES.md (Z-section marked COMPLETE)
+
+---
+
+### Color framework upgrade + priority manifest (2026-05-17)
+
+**Upgrade #1 — OKLCh + vMF re-extraction (U1)**: replaced exp376's 20-D entangled
+color features with 16 channels (9 Oklab/OKLCh marginals + 3 vMF-S¹ hue + 4
+vMF-S² full chromaticity). 130,936 masks in 124s on 255 workers. Output:
+paper1/coverage_gap/data/oklab_per_mask.npz (26.7 MB).
+
+**Upgrade #2 — F3 cross-encoder rerun (U2)**:
+- r(log κ_FPN, log κ_color_OKLCh) = -0.118 on 523 species (vs old -0.043 with 20-D entangled color)
+- r(log κ_color_OKLCh, Lande speed on FPN cone) = -0.7795 on 1874 species
+  → color carries ~60% of the Lande breeders' signal that FPN carries (-0.96)
+  → color is a major but not dominant ingredient
+
+**Upgrade #3 — vMF mixture color unmixing (U3)**: 1874 species with K∈{1,2,3,4}
+BIC-selected components on Oklab S² embedding. Distribution:
+  K=1: 13 species (0.7%)
+  K=2: 118 (6.3%)
+  K=3: 518 (27.6%)
+  K=4: 1225 (65.4%)
+Most flowers are multicolored (petal+vein+highlight+background).
+
+**Phase 18 — Auto-approval calibration**: combo-precision sweep on production_v2
+labeled set. 12,097 TP + 3 FP (label bias caveat). At combo≥0.70: 118,056 masks
+(18% of queue), 1,558 species reach ≥20, 109 species lifted from uncovered.
+
+**Phase 19 — Sheet-mode priority manifest**: greedy ranking by leverage
+(threshold-crossing combo). 2,223 species need approvals, 35,102 masks flagged.
+At 1000 approvals/session: 50 species cross ≥20 (user's target).
+At 50,000 approvals: all 2,223 species cross ≥20.
+Output: paper1/coverage_gap/data/sheet_priority.csv + paper1/PRIORITY.md.
+
+Artefacts:
+- scripts: paper1/coverage_gap/scripts/{oklab_utils.py, U1_oklab_extract.py,
+           U2_f3_oklch_rerun.py, U3_color_unmix.py, 18_auto_approve_calibrate.py,
+           19_priority_manifest.py}
+- results: paper1/coverage_gap/data/{oklab_per_mask.npz, U3_color_unmix.json,
+           U3_palette_summary.npz, auto_approve_calibration.json,
+           sheet_priority.csv}, paper1/riemann/data/F3_oklch.json
+- docs:    paper1/PRIORITY.md, paper1/PROGRESS.md
