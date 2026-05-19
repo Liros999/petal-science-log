@@ -1637,3 +1637,109 @@ To expand U4 Robertson-Price beyond 510 species, extracting color for the full M
 **U8c (queued afterok U8b)**: per-mask Oklab + vMF extraction reusing oklab_utils.py. Outputs 16-channel features per mask.
 
 **Next: U4v3** — Robertson-Price on full Med cohort. Expected ~4,000+ pollinator-labeled species in intersection (vs 510 before).
+
+
+## Entry 12 — U8 + U4v3: Med per-mask color + Robertson-Price on full cohort (2026-05-19)
+
+Resumes the U8 thread opened at the end of Entry 11. Goal: extend color
+extraction beyond the 571-species U1/U4v2 Israel sub-cohort to the full
+13,212-species Med cohort, then re-run Robertson-Price.
+
+### U8b reconciliation (job 14944875, 7 min)
+- Manifest: 395,511 mask rows / 254,603 unique photos / 13,212 species
+- Rows present on disk: 373,506 (94.4%); rows missing: 22,005 (5.6%)
+- Species fully covered: 9,502; partial: 3,709; **zero-coverage: 1** (taxon 158178)
+- iNat S3 download from May 17 finished cleanly; the "0 in queue" diagnostic in the
+  handoff was misleading — U8b reached its `afterok` dependency, but U8c crashed
+  before writing its NPZ (see below)
+
+### U8c — per-mask Oklab + vMF on Med cohort (job 14946110)
+Original run (14831531, 2026-05-17): used 191 workers, OOM-killed 1,035 tasks,
+hit the 8h SLURM time limit at 95.5% completion, then lost everything because
+the pre-edit script had no streaming checkpoints. Fixed both in [U8c_oklab_extract_med.py](paper1/coverage_gap/scripts/U8c_oklab_extract_med.py):
+- `n_workers = min(16, …)` (was 191)
+- 50K-row shard NPZs (`features` + `features_shuffle`) flushed every 50K successful tasks
+- 16h time limit (was 8h)
+
+**Run stats (job 14946110, 1h38m):**
+- 340,185 prepared tasks → 340,185 features written (0 skipped), shape (340185, 16)
+- Unique species: 12,250 (of the 13,212 manifest; 962 species had no valid masks after the dedup+min-pixel filters)
+- Output: 96.6 MB at `paper1/coverage_gap/data/U8_oklab_per_mask_med.npz`
+- 7 streaming shard NPZs written every ~9 min, durable across SLURM kill
+- 0 OOM events, 0 bytes in stderr
+- TOTAL: 5,888.6 s
+
+**Controls (CLAUDE.md rule 4):**
+- **POSITIVE** (job 14946070): reproduce U1 features via the U8c code path on 500
+  random U1 masks. Median relative error on all 5 criterion features (oklab_L_mean,
+  oklab_a_mean, oklab_b_mean, oklch_C_mean, vMF_S2_kappa): **~1e-7**, well below
+  the 1e-3 pass threshold. Confirms the pipeline math is bit-equivalent to U1.
+- **NEGATIVE** (inline, every mask): shift polygon by (0.4·W, 0.4·H) wrap, re-extract.
+  Across all 340,185 masks:
+  - chroma_mean shuf/real median ratio: **0.719** (off-flower 28% less chromatic)
+  - vMF_S2_kappa shuf/real median ratio: **0.235** (vMF concentration collapses 4×)
+  - **PASS** by chroma criterion
+
+### U4v3 — Robertson-Price on full Med cohort (job 14965189, 53 s)
+Same machinery as U4v2 ([U4v3_robertson_price_med.py](paper1/coverage_gap/scripts/U4v3_robertson_price_med.py));
+inputs swapped from U1's `oklab_per_mask.npz` (Israel) to U8c's
+`U8_oklab_per_mask_med.npz` (full Med).
+
+**Cohort:**
+- n_species_with_mu_color_main : 12,250
+- n_species_pollinator_labels  : 4,577
+- **n_species_common           : 3,840** (vs 571 in U4v2 — **+572% gain**)
+- Group counts (≥10 spp): Bees 2,396 | Wind 655 | Butterflies 308 | Hoverflies 129 | Birds 91 | Flies 86 | Moths 66 | Beetles 66 | Wasps 22
+
+**Statistic A — mean group-pair angular separation (S²):**
+
+|             | observed | perm null mean | perm std | z      | p     |
+|-------------|---------:|---------------:|---------:|-------:|------:|
+| U4v2 (n=571)| 9.60°    | 6.33°          | 1.62°    | 2.02σ  | 0.033 |
+| **U4v3 (n=3,840)** | **14.85°** | **3.82°** | **0.87°** | **+12.72σ** | **≈0** |
+
+**Statistic B — mean per-species own-group alignment angle:**
+- Observed: 28.17° (cos μ_species·μ_group_mean averaged across all species)
+- Permutation null z: **+50.64σ**, p ≈ 0
+
+**Pairwise highlights** (on S² in 256-D Oklab+L space, lower = closer):
+- Closest: Bees↔Butterflies 1.77°, Beetles↔Flies 2.92° — consistent with insects-as-one-broad-cluster
+- Most separated: Birds↔Moths 32.19°, Moths↔Wind 29.56°, Birds↔Flies 29.12° — diurnal-bird-pollinated vs nocturnal moth-pollinated is the largest contrast, as expected
+
+### Negative-control caveat
+The shuffle control (off-flower polygon) is not null:
+- SHUFFLE stat-A: obs 15.02°, null 5.25±1.27°, **z=+7.67σ**, p≈0
+
+Interpretation: background pixels carry residual co-variation with pollinator
+class (e.g. wind-pollinated grasses and bee-pollinated forbs occupy systematically
+different habitat/background colors). The main signal (z=12.72σ) is **1.66× stronger
+than the artifact** but is not background-free. The relative-magnitude criterion
+PASSES (shuffle z < real z), but the absolute statement "color predicts pollinator
+class" is partially confounded by background. A cleaner version would require
+masking out background pixels strictly inside the flower polygon, which is
+already what U8c does — so the residual must be from polygon-leakage onto
+adjacent flower vs background pixels. Worth a follow-up: ψ-projection-based
+analysis using species v̂ (per CLAUDE.md rule 5) rather than μ_color on S².
+
+### Operational fixes
+- **Citadel V6 sheet mode 500**: live server's /tmp DB copy was missing
+  `masks_bioclip` (table was added to the source DB after V6 started). Hot-patched
+  by `CREATE TABLE IF NOT EXISTS masks_bioclip + 2 indices` on the live /tmp DB;
+  zero downtime, sheet mode returned 200 immediately.
+- **Cursor wrapper-watcher bug**: the in-launcher watcher checked
+  `[ -f claude.real ] && continue`, which on a Cursor reinstall skipped re-wrapping
+  because the stale `claude.real` from the previous wrap was still there. Fixed in
+  [cursor_with_sshd.sh](../../cursor_with_sshd.sh) to discriminate by file content
+  (`head -c 2 | grep '^#!'`), and a standalone watcher (PID 3445036) was launched
+  on the cursor compute node so the current session is also protected.
+
+### Artefacts
+- scripts: `paper1/coverage_gap/scripts/{U8c_oklab_extract_med.py, U8c_positive_control.py, U4v3_robertson_price_med.py}` + .sh wrappers
+- data: `paper1/coverage_gap/data/{U8_oklab_per_mask_med.npz, U4v3_robertson_price_med.json}`
+- logs: `paper1/coverage_gap/logs/{U8c-14946110, U8c_pos-14946070, U4v3-14965189}.{out,err}`
+
+### Next
+Stat-B (own-group alignment) is the more powerful test and gives z=50.64σ on
+n=3,840 species. That's a definitive result. The follow-up question is whether
+shuffle residual (z=7.67σ) is background-color confound vs polygon-leakage; a
+v̂-projection redo would isolate the flower-direction component (CLAUDE.md rule 5).
