@@ -2329,3 +2329,57 @@ partly constrained.
 
 **Script**: `pollinator_raw_detect.py`  **Data**: `pollinator_raw_detect.json`  **Figure**:
 `pollinator_raw_detect.png`  **Log**: job 17030788
+
+> **⚠️ METRIC CORRECTION (Entry 22).** Entry 21 led with **IoU**, which is the WRONG metric:
+> IoU scores boundary/delineation (is it a good *segmenter*) and conflates "the eye can't see
+> the flower" with "the eye lit up the background". The biologically-correct question is
+> "does the flower STAND OUT from the background to this eye?" = flower-vs-background AUC
+> (threshold-free, = the Vorobyev-Osorio/Spaethe detection model). Under AUC the signal is far
+> CLEANER (Entry 22): bee on blue/violet AUC 0.96–0.97 (IoU had said 0.10 — a thresholding
+> artifact). Use Entry 22's AUC as the headline detection metric, not Entry 21's IoU.
+
+---
+
+## Entry 22 — Flower-vs-background AUC: the correct detection metric (IoU was wrong) (2026-06-05)
+
+**Question** (user L. Distel): is IoU the right metric for "can the pollinator find the
+flower?" — No. IoU is a segmentation/boundary score and conflates "eye blind to flower" with
+"eye lit up the background". The right, biologically-grounded metric is **flower-vs-background
+AUC**: does the per-pixel pollinator detectability RANK flower pixels above background pixels?
+(0.5 = invisible, 1.0 = fully stands out). Threshold-free, boundary-free; this IS the
+Vorobyev-Osorio / Spaethe 2001 detection model.
+
+**Method**: Per raw image, per-pixel pollinator JND over the whole frame; label flower (inside
+true SAM3 mask) vs background; AUC = P(JND[flower] > JND[background]). Bee LOCKED to validated
+(sanity red=5.83/blue=24.03); bird=+red LWS receptor. Require flower-frac ∈ (0.02,0.85) so a
+real background exists. 500 images, by color. (`pollinator_auc.py`, job 17031077.)
+
+**Results** — flower-vs-background AUC [pollinator × color]:
+
+| pollinator | violet | blue | pink | white | yellow | orange | **red** |
+|---|---|---|---|---|---|---|---|
+| **bee**  | 0.97 | 0.96 | 0.91 | 0.88 | 0.54 | 0.55 | **0.64** |
+| fly      | 0.71 | 0.22 | 0.94 | 0.68 | 0.81 | 0.94 | 0.97 |
+| **bird** | 0.97 | 0.95 | 0.94 | 0.86 | 0.71 | 0.88 | **0.96** |
+
+**CROSS-OVER on RED (n=74): bee AUC = 0.64 (near-invisible) vs bird AUC = 0.96. Bee on its
+own blue/violet flowers = 0.96–0.97 (near-perfect stand-out).**
+
+**Key Finding**: Under the correct metric the optics→ecology result is clean and strong: a
+bee's blue/violet flowers stand out almost perfectly (AUC 0.97), red/yellow are near-invisible
+to the bee (~0.5–0.64), and the bird's red receptor recovers red (0.96). IoU had hidden this
+— it reported bee-blue IoU 0.10 (a boundary/threshold artifact) for a flower that is in fact
+near-perfectly separable (AUC 0.96). The flower-vs-background AUC is the metric for "does this
+eye see this flower," and it confirms the cross-over decisively.
+
+**Implications**: Replace IoU (Entry 21) with AUC as the headline detection metric. The
+standalone pollinator-vision result is now: each eye's flowers stand out to it
+(AUC→1), the others don't, and the bee/bird red cross-over is 0.64→0.96. Physics only, no
+training.
+
+**What it does NOT show**: AUC uses the TRUE mask only to LABEL pixels (not to compute the
+score — the score is mask-free over the whole image); it measures separability, not a
+delivered segmentation. Receptor matrices still coarse sRGB projections; fly's low blue (0.22)
+is a real fly-receptor feature worth a look.
+
+**Script**: `pollinator_auc.py`  **Data**: `pollinator_auc.json`  **Figure**: `pollinator_auc.png`  **Log**: job 17031077
