@@ -6173,21 +6173,21 @@ ARTEFACTS
 ## Entry 90 — Field-standard metrics: COCO Mask AP + mIoU + Dice (sealed BRIDGE, full validated set)
 
 **Date**: 2026-05-26
-**Status**: Complete. Pred-centric recompute (8 GPU array shards, job 16174012) over the full validated TP set — 22,316 images, 44,434 GT flower polygons, 428,523 candidate predictions — enabling true COCO-protocol Mask AP (greedy pred→GT assignment, unmatched preds = FP). NOTE: our prior per-mask data was GT-keyed (sufficient for recall/precision in Entry 89, NOT for AP). This entry uses the prediction-centric view AP requires.
-**Headline**: Reported in the metrics the field ranks on — **Mask AP@[0.50:0.95] = 0.363, AP50 = 0.585, AP30 = 0.652, mIoU = 0.701, Dice = 0.782, detection rate (IoU>0) = 94.5%** — zero-shot, species-blind, on a 289-species flower benchmark.
+**Status**: Complete. Pred-centric recompute (8 GPU array shards, job 16174012) over the full validated TP set — 22,832 images, 45,658 GT flower polygons, 440,385 candidate predictions — enabling true COCO-protocol Mask AP (greedy pred→GT assignment, unmatched preds = FP). NOTE: our prior per-mask data was GT-keyed (sufficient for recall/precision in Entry 89, NOT for AP). This entry uses the prediction-centric view AP requires.
+**Headline**: Reported in the metrics the field ranks on — **Mask AP@[0.50:0.95] = 0.365, AP50 = 0.588, AP30 = 0.653, mIoU = 0.703, Dice = 0.784, detection rate (IoU>0) = 94.6%** — zero-shot, species-blind, on a 289-species flower benchmark.
 
 ═══════════════════════════════════════════════════════════════
-RESULT 90.1 — COCO Mask AP (single class = flower), 44,434 GT
+RESULT 90.1 — COCO Mask AP (single class = flower), 45,658 GT
 ═══════════════════════════════════════════════════════════════
 
 | metric | value |
 |---|---|
-| AP@[0.50:0.95] (COCO primary) | **0.363** |
-| AP50 | 0.585 |
-| AP75 | 0.378 |
-| AP30 | 0.652 |
+| AP@[0.50:0.95] (COCO primary) | **0.365** |
+| AP50 | 0.588 |
+| AP75 | 0.380 |
+| AP30 | 0.653 |
 
-Per-IoU-threshold AP: 0.50→0.584, 0.55→0.555, 0.60→0.523, 0.65→0.483, 0.70→0.435, 0.75→0.377, 0.80→0.307, 0.85→0.221, 0.90→0.121, 0.95→0.023. The cliff above IoU 0.75 (0.12 @0.90, 0.02 @0.95) is the mask-boundary vs hand-drawn-polygon mismatch (per-floret human polygons vs per-inflorescence pipeline masks), NOT detection failure — same effect documented in Entry 89's recall forensics and corroborated independently by the 2025 SAM3-vs-YOLO IoU-sensitivity study (arXiv 2512.11884).
+Per-IoU-threshold AP: 0.50→0.588, 0.55→0.558, 0.60→0.526, 0.65→0.485, 0.70→0.437, 0.75→0.380, 0.80→0.309, 0.85→0.223, 0.90→0.122, 0.95→0.024. The cliff above IoU 0.75 (0.12 @0.90, 0.02 @0.95) is the mask-boundary vs hand-drawn-polygon mismatch (per-floret human polygons vs per-inflorescence pipeline masks), NOT detection failure — same effect documented in Entry 89's recall forensics and corroborated independently by the 2025 SAM3-vs-YOLO IoU-sensitivity study (arXiv 2512.11884).
 
 ═══════════════════════════════════════════════════════════════
 RESULT 90.2 — AP is ROBUST to over-coverage (gating/dedup do not change it)
@@ -6198,11 +6198,11 @@ over-coverage (conf=0.001, TOP_K=20 → ~19 masks/img) deflates AP:
 
 | variant | preds/img | AP@[.50:.95] | AP50 | AP30 |
 |---|---|---|---|---|
-| V1 RAW (all candidates) | 19.3 | 0.3634 | 0.585 | 0.652 |
-| V2 GATED (combo≥0.30) | 17.0 | **0.3634** | 0.585 | 0.652 |
-| V3 GATED+DEDUP (1 per flower) | 9.4 | 0.3523 | 0.573 | 0.655 |
+| V1 RAW (all candidates) | 19.3 | 0.3652 | 0.588 | 0.653 |
+| V2 GATED (combo≥0.30) | 17.0 | **0.3652** | 0.588 | 0.653 |
+| V3 GATED+DEDUP (1 per flower) | 9.4 | 0.3543 | 0.575 | 0.656 |
 
-**AP is identical raw vs gated (0.3634 = 0.3634); dedup slightly LOWERS it (0.352).** Because COCO AP ranks predictions by score, the low-confidence / duplicate masks sit at the bottom of the ranking and contribute ≈0 to the PR curve — AP is by construction insensitive to over-coverage. So the 0.363 is a GENUINE number that cannot be inflated by gating tricks. The real ceiling is high-IoU boundary precision (90.1/90.2), not FP flooding. (Tested because over-coverage was hypothesised to punish AP on "uninteresting" masks — it does not.)
+**AP is identical raw vs gated (0.3652 = 0.3652); dedup slightly LOWERS it (0.354).** Because COCO AP ranks predictions by score, the low-confidence / duplicate masks sit at the bottom of the ranking and contribute ≈0 to the PR curve — AP is by construction insensitive to over-coverage. So the 0.363 is a GENUINE number that cannot be inflated by gating tricks. The real ceiling is high-IoU boundary precision (90.1/90.2), not FP flooding. (Tested because over-coverage was hypothesised to punish AP on "uninteresting" masks — it does not.)
 
 ═══════════════════════════════════════════════════════════════
 RESULT 90.3 — Semantic-seg / medical metrics: mIoU, Dice, detection rate
@@ -6210,10 +6210,10 @@ RESULT 90.3 — Semantic-seg / medical metrics: mIoU, Dice, detection rate
 
 | metric | value |
 |---|---|
-| mIoU over ALL GT (undetected=0) | **0.701** |
-| mIoU over DETECTED GT (IoU>0) | 0.742 |
-| mean Dice (= F1) over ALL GT | **0.782** |
-| detection rate (IoU>0) | **94.5%** (41,802/44,243) |
+| mIoU over ALL GT (undetected=0) | **0.703** |
+| mIoU over DETECTED GT (IoU>0) | 0.743 |
+| mean Dice (= F1) over ALL GT | **0.784** |
+| detection rate (IoU>0) | **94.6%** (43,177/45,658) |
 
 INTERPRETATION: mIoU 0.70 / Dice 0.78 / 94.5% detection are strong for a zero-shot, species-blind pipeline — comparable to good supervised semantic segmentation. For context, vanilla SAM zero-shot instance-seg mask AP on COCO/LVIS sits ~0.30–0.46 depending on prompting; BRIDGE's 0.363 on a 289-species flower benchmark is competitive, with AP50 0.585 / AP30 0.652 the task-appropriate operating points given annotation granularity.
 
@@ -6223,6 +6223,7 @@ ARTEFACTS
 - scripts: BRIDGE/paper1/intrinsic_geometry/scripts/{predcentric_coco.py, coco_ap_aggregate.py, coco_ap_variants.py}
 - data: BRIDGE/paper1/intrinsic_geometry/data/{predcentric/, coco_ap_summary.json, coco_ap_variants.json}
 - field-metric conventions researched: COCO Mask AP (Picsellia/SoftwareMill), mIoU (Cityscapes/ADE20K), Dice=F1 (medical), SAM zero-shot (mIoU+AP+AR+human)
+- FINALIZED on full 8-shard data (was 98% preview at first write; updated to 100% 2026-05-26)
 ═══════════════════════════════════════════════════════════════
 
 ---

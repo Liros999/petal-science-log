@@ -1851,3 +1851,387 @@ in the 255-D shape direction of the FPN representation, not just in color.
 - Decompose the v̂ signal: which v̂ subspace dimensions carry the group separation? (linear discriminant or simple projection onto inter-group-centroid directions — *not* PCA, per CLAUDE.md rule 2)
 - Test whether known colour syndromes (D_yellow, D_white, D_pink_red from the colour-atlas v2) lie within or orthogonal to the v̂ group-separation subspace
 - Cross-check with U4v3 μ_color on n=3,840 — does adding v̂ as a regressor extinguish μ_color's residual signal, confirming v̂ subsumes the (background-confounded) colour signal?
+
+---
+
+## Entry 14 — Perceptual inner-mask segmentation: SLIC in bee/fly-RNL space moves region boundaries (2026-06-05)
+
+**Question**: Can the inner-mask color segmentation itself be *defined by pollinator
+physiology*? Standard SLIC clusters pixels in CIELAB — a **human** perceptual space.
+We test running the SAME SLIC on per-pixel **RNL (bee / fly)** coordinates, so that
+superpixel boundaries fall where a pollinator's chromatic contrast is high. The
+regions that emerge would be *what the bee/fly sees as distinct*, not what a human/Lab
+draws. This operationalizes L. Distel's idea: "use [the JND/RNL space] for the inner
+mask segmentation … defined by pollinator physiology."
+
+**Method**: For each human-validated mask (tp+TP), map masked pixels into linear RGB
+(sealed `srgb_to_linear`), then into **RNL** via the sealed `bee_catches` + `rnl_L`
+whitening (verbatim from `jnd_rigor.py`), separately for bee `E=[0.13,0.06,0.12]` and
+fly `E=[0.20,0.10,0.10]` (sealed across vmf/gmm/binner pipelines). Run SLIC
+(`n_segments=4`, compactness=10, z-scored channels) THREE ways — on Lab (baseline),
+on bee-RNL, on fly-RNL — and measure: (i) max pairwise **between-region sliced-
+Wasserstein JND** under each segmentation; (ii) **boundary disagreement** = fraction
+of mask pixels reassigned to a different region between two partitions (greedy
+best-overlap label match); (iii) bee-vs-fly partition disagreement. 8 species × 15
+masks, NO mean (full per-pixel region distributions), seed 0. CPU/SLURM (job 17024130).
+
+**Results** (per-species medians; JND = bee metric):
+
+| Species              | Lab-SLIC JND | bee-SLIC JND | bee gain | reassigned (Lab↔bee) |
+|----------------------|-------------:|-------------:|---------:|---------------------:|
+| Gaillardia pulchella |         5.75 |       **8.94** |  **+3.56** |                 0.55 |
+| Dactylorhiza fuchsii |         3.63 |         5.33 |    +1.27 |                 0.41 |
+| Echium vulgare       |         5.94 |         6.72 |    +1.10 |                 0.20 |
+| Echinacea purpurea   |         8.93 |        13.38 |    +0.97 |                 0.44 |
+| Centaurium erythraea |         2.40 |         2.94 |    +0.83 |                 0.32 |
+| Plantago lanceolata  |         2.68 |         3.52 |    +0.47 |                 0.22 |
+| Asphodelus ramosus   |         4.40 |         5.23 |    +0.13 |                 0.36 |
+| Lobelia cardinalis   |         4.64 |         4.94 |  **−2.09** |               **0.03** |
+
+| Cohort metric                          | Value   |
+|----------------------------------------|--------:|
+| bee_gain (median)                      | **+0.90** JND |
+| fly_gain (median)                      | +0.19 JND |
+| boundary disagreement **Lab ↔ bee**    | **0.339** (~34% of pixels reassigned) |
+| boundary disagreement **bee ↔ fly**    | **0.014** (~1.4%) |
+
+**Key Finding**: Segmenting the inner mask in bee-RNL space rather than Lab reassigns
+**~34% of mask pixels** to different regions and yields **more bee-separated** regions
+(+0.90 JND median) — the boundaries a pollinator would draw genuinely differ from the
+human/Lab ones, so inner-mask segmentation IS perceptually contingent; bee and fly draw
+nearly identical partitions (1.4% disagreement).
+
+**Implications**: (1) "Pollinator-perceptual segmentation" is a real, non-cosmetic
+operation, not a relabeling of Lab-SLIC — a third of the flower partitions differently.
+(2) It is **largely one shared pollinator partition** (bee≈fly), so "report both" mostly
+collapses to a single perceptual segmentation — robustness, not a fork. (3) The gain is
+**pattern-dependent**: patterned flowers (Gaillardia +3.56, Dactylorhiza +1.27) gain;
+the near-uniform red Lobelia *inverts* (−2.09, 3% reassigned) — consistent with the
+sealed within-flower-K finding that perceptual segmentation helps patterned flowers and
+ties/hurts uniform ones. (4) UV channel = 0 here (visible-receptor only); the UV-interval
+floor is the next layer.
+
+**What it does NOT show**: not validated against real UV (FReD) or an external
+ground-truth of "regions a bee resolves"; the JND gain is a within-method comparison
+(more-separated regions under the same metric), not an external accuracy gain.
+
+**Next**:
+- UV-interval version: segment under the UV-robust JND floor (Entry-equivalent of the
+  provable lower bound), not just UV=0.
+- FReD real-UV cross-check (URL scheme cracked: `indivresults1.php?id=`; each record
+  carries a categorical Bee-Colour/UV label, e.g. *Echium vulgare* = "UV-blue").
+- Figure: Lab-SLIC vs bee-SLIC boundary overlays on Gaillardia/Dactylorhiza (geometric,
+  no banned plot types).
+
+**Script**: `BRIDGE/paper1/seg_compare/scripts/perceptual_seg.py`
+**Data**: `BRIDGE/paper1/seg_compare/data/perceptual_seg.json`
+**Logs**: `BRIDGE/paper1/seg_compare/logs/perc_seg-17024130.{out,err}`
+
+> **⚠️ CORRECTION (see Entry 15, controls job 17024195).** Two claims here were
+> over-stated: (i) **bee≈fly (1.4%) is MECHANICAL, not biological** — bee and fly RNL
+> are an exact affine rescale (R²=1.000), so the agreement is an identity, not two
+> pollinators independently agreeing. (ii) The RNL-**SLIC** partition is **shape-driven,
+> not color-driven** — shuffling pixels within the mask leaves the partition ~98%
+> unchanged (bee-vs-scramble disagreement 0.021), i.e. SLIC's compactness prior tiles
+> the mask shape and color barely moves boundaries; RNL-SLIC only ~ties Lab-SLIC on
+> neutral metrics (edge-recall +0.011). The "boundaries move 34%" is real but is mostly
+> Lab-vs-RNL channel-scaling, not pollinator perception finding structure. **Superseded
+> by Entry 15's pure color-zone segmentation** (no spatial term), which IS color-driven
+> (flatfill→1 zone) and carries a calibrated bee-attraction measure.
+
+---
+
+## Entry 15 — Inner-mask color ZONES + calibrated bee-attraction (controls correct Entry 14) (2026-06-05)
+
+**Question**: (a) Was Entry-14's perceptual RNL-SLIC really reading pollinator color, or
+an artifact? (b) Can we "segment the inner parts of the mask according to color" and
+measure, per flower/zone, **how likely it attracts a bee** — E2E, no shortcuts?
+
+**Method**:
+- *Controls* (`perceptual_seg_controls.py`, job 17024195): scramble (shuffle pixels in
+  mask) + flatfill negative controls; bee-vs-fly affine-R² diagnosis; neutral "segments
+  better?" metrics (boundary-recall vs independent color edges; within-region variance).
+- *Color zones* (`inner_color_zones.py`, job 17024210): cluster interior pixels **purely
+  by color** (k-means, NO spatial term; K by 5%-inertia elbow) in bee-RNL **and** Lab.
+- *Bee-attraction* (`bee_attraction.py`, job 17024318): per zone/flower, three grounded
+  bee-JND measures — **detectability** = canonical Vorobyev-Osorio (1998) dichromat
+  dS^2=(df_B-df_G)^2/(e_B^2+e_G^2) vs a green-foliage locus (Spaethe 2001); **pattern** =
+  max between-zone dS; **blue-bias** (Giurfa 1995, UV unmeasured => lower bound). E2E
+  controls (pos blue / neg green). **50 top-`score` masks/species** (score col fully
+  populated; sam3_confidence is NULL in unified.db), 8 species.
+
+**Results**:
+
+| Diagnostic (controls)              | Value  | Reading |
+|------------------------------------|-------:|---------|
+| bee-vs-fly affine R^2              | 1.000  | bee=fly is MECHANICAL (exact rescale), not biology |
+| bee-vs-scramble disagreement       | 0.021  | SLIC partition is SHAPE-driven (color barely moves it) |
+| bee-vs-flatfill disagreement       | 0.486  | only a flat image segments differently |
+| RNL-SLIC edge-recall gain vs Lab   | +0.011 | ~tie; RNL-SLIC not "better" by neutral metrics |
+
+| Color zones (pure color clustering)| Value  | Reading |
+|------------------------------------|-------:|---------|
+| n_zones flatfill control           | 1.0    | flat flower -> 1 zone (control PASSES; color-driven) |
+| zone disagreement bee-RNL vs Lab   | 0.285  | pollinator vs human draw different color zones on ~28% |
+| n_zones bee vs Lab                  | 4 vs 4 (some 3-vs-4) | bee merges/splits zones differently than human |
+
+| Bee-attraction (calibrated V-O dS, JND) | detect_max | reading |
+|-----------------------------------------|-----------:|---------|
+| Echium vulgare (blue/violet)            | **20.2**   | blue = most bee-conspicuous (OK) |
+| Centaurium / Echinacea / Dactylorhiza   | 12-13      | pink/magenta, strongly detectable |
+| Asphodelus / Plantago / Lobelia         | 9-10       | white/green/red, moderate |
+| **Gaillardia (red/orange)**             | **7.2**    | **red poorly seen vs foliage — reproduces bee red-blindness (OK)** |
+| controls: blue / green                  | 24.0 / 0.05| PASS |
+| cohort detect_max median                | **11.0**   | all 8 species clear bee threshold (~2.3 JND) |
+
+**Key Finding**: Segmenting the mask interior purely by color (no spatial term) yields
+color zones that differ between pollinator (bee-RNL) and human (Lab) space on ~28% of
+pixels, and a **calibrated** Vorobyev-Osorio bee-detectability per zone reproduces known
+bee vision — blue flowers most conspicuous (20 JND), **red flowers least (7 JND, bee
+red-blindness)** — with every top-quality flower clearing the bee detection threshold.
+
+**Implications**: (1) Entry 14's SLIC result is corrected — that partition was
+shape/compactness-driven and bee=fly was an algebraic identity. (2) Pure color-zone
+segmentation is the right primitive: control-clean (flatfill->1 zone) and genuinely
+pollinator-vs-human-different. (3) The bee-attraction measure is now literature-
+calibrated (red~3-7, blue~16-24 JND; leaf-self~0), not raw RNL units — the earlier
+~39-94 JND values were a degenerate-UV-axis + over-whitening artifact, fixed by using
+the measured (B,G) plane + canonical V-O dS. (4) The red-blindness reproduction is a
+free built-in validation of the whole pipeline.
+
+**What it does NOT show**: UV unmeasured (detectability is visible-receptor only; blue
+bias is a lower bound); green-leaf reference is a literature locus, not each image's own
+foliage; 8 species (not full cohort yet).
+
+**Next**: scale to the full color-cohort; UV-interval version of detectability; FReD
+real-UV cross-check; per-image-foliage vs literature-leaf sensitivity.
+
+**Scripts**: `BRIDGE/paper1/seg_compare/scripts/{perceptual_seg_controls,inner_color_zones,bee_attraction}.py`
+**Data**: `BRIDGE/paper1/seg_compare/data/{perceptual_seg_controls,inner_color_zones,bee_attraction}.json`
+**Figures**: `BRIDGE/paper1/seg_compare/figures/{inner_color_zones,bee_attraction_zones}.png`
+**Logs**: jobs 17024195, 17024210, 17024318
+
+### Entry 15 addendum — luminance-bias audit + reproducibility fix (job 17024373, 17024400)
+
+User asked to validate the figure numbers and check for luminance bias. Audit
+(`bee_attr_validate.py`) found:
+- **Luminance-invariance: CONFIRMED CLEAN.** Grey ramp (brightness 40→240, zero chroma)
+  gives ΔS spread = **0.000 JND**; scaling real zone brightness ±40% *without* gamut
+  clipping gives leak = **0.000 JND**. The (B−G) opponent ΔS cancels intensity exactly,
+  as Vorobyev-Osorio requires. (An apparent 1.5–2.1 JND "leak" under naive ×1.667 scaling
+  was a GAMUT-CLIPPING artifact of the test, not the metric.)
+- **Zones are real, not kmeans noise**: K stable across 5 seeds, detect_max seed-spread ~0.
+- **Two bugs found & FIXED** (job 17024400): (1) figure numbers were non-reproducible —
+  random pixel subsampling + a *separate* re-clustering for the map made figure labels ≠
+  recompute. Fixed: deterministic single path (no RNG; fixed stride; one clustering feeds
+  both JSON and map). (2) Saturated red/blue flowers are **gamut-clipped** (Lobelia 21%,
+  Gaillardia 13%, Echinacea 10% of pixels vs Echium/Asphodelus ~1%), where sRGB cannot
+  separate brightness from chroma. Fixed: clipped pixels EXCLUDED from ΔS; **`clip_frac`
+  now a reported per-species data-quality column** (cohort median 0.053).
+- Post-fix numbers (gamut-clean, deterministic): cohort detect_max 11.1 JND, Echium 20.2
+  (blue) → Gaillardia 5.4 (red); biology unchanged, figure==recompute.
+
+**Verdict**: the bee-detectability ΔS has **no luminance bias**; the figure is now
+reproducible and gamut-clean. Honest caveat retained: saturated flowers carry a
+clip_frac to flag where the estimate is lower-confidence.
+
+**Scripts/Data**: `bee_attr_validate.py` → `bee_attr_validate.json`; `bee_attraction.py` (rev) | jobs 17024373, 17024400
+
+---
+
+## Entry 16 — External validation of bee-detectability: COLOR yes, syndrome-label no (2026-06-05)
+
+**Question**: Is the per-mask bee-detectability (Entry 15) (a) a camera/exposure artifact,
+and (b) aligned with the pollinator-vision literature? Tested 3 ways, EXISTING masks only
+where possible (no shortcuts).
+
+**Method & Results**:
+
+1. **De-confound (`bee_confound_litval.py`, job 17024503)** — per-image detect_max vs
+   image brightness across 3,987 images: r(mask V)=−0.06, r(background V)=+0.08,
+   r(whole-image V)=+0.09 — all ≈0. Per-species CV ~0.10–0.22 across ~50 photos each.
+   **Detectability is a stable FLOWER property, NOT a camera/exposure artifact.**
+
+2. **COLOR contrast (`bee_color_litval.py`, job 17024548)** — dominant color zone's hue
+   from OUR OWN pixels, 120 species:
+
+   | hue | n | detect_median (JND) |
+   |---|---|---|
+   | blue | 6 | 18.8 |
+   | violet | 10 | 15.8 |
+   | pink | 15 | 12.7 |
+   | white | 49 | 9.9 |
+   | red | 11 | 9.4 |
+   | yellow | 25 | 5.9 |
+
+   blue/violet (16.1) vs red/orange (9.3): Mann-Whitney **p = 3.9×10⁻⁵**. **Reproduces
+   Giurfa 1995 bee blue-preference + Raven 1972 red-poor-discrimination.** (Yellow lowest
+   is correct: yellow ≈ yellow-green foliage in bee *chromatic* space — yellow flowers
+   rely on the achromatic/green channel, not chromatic contrast.)
+
+3. **SYNDROME-label contrast — HONEST NEGATIVE.** Mediterranean `test.db` carries 388 bee
+   / **9 bird** / 99 wind / 38 hoverfly… labeled species with EXISTING sealed masks (vs
+   unified.db's 1 bird). Ran bee-vs-bird on existing masks (`med_bird_contrast.py`, job
+   17027493; RLE-decoded, `passed_gate_clean` honored, NO SAM3, NO download): 39 bee vs 9
+   bird → **U=174, p=0.97, effect≈0**. Bee-vs-non-bee (224 sp): p=0.29. The earlier
+   unified.db pooled p=0.023 did **not** replicate.
+
+**Key Finding**: Bee-detectability tracks the flower's **pixel-derived COLOR** (blue≫red,
+p=4×10⁻⁵) but is **independent of the ecological "pollinator-syndrome" LABEL** (bee vs bird
+p=0.97) — because that label is a poor proxy for color: the labelset's "bird" group is
+Kalanchoe/Agave/Phoenix/Melia/Delonix/Grevillea (generalist passerine-visited yellow/cream
+ornamentals), NOT red hummingbird-syndrome flowers (Erythrina/Aloe/Penstemon are absent).
+
+**Implications**: This *is* the paper's thesis as evidence — the physical pixel measurement
+carries the bee-vision signal; the text/category annotation does not. Report the COLOR
+result as the external validation; report the syndrome-null as proof that color ≠ label.
+Do NOT claim a bee-vs-bird effect.
+
+**What it does NOT show**: the sharp Raven-1972 prediction (RED hummingbird flowers
+specifically are bee-poor) is untested here because those species aren't in the cohort.
+Queued: SAM3 (full sealed gate, no fallbacks) on downloaded Erythrina/Aloe/Kniphofia/
+Penstemon/Mimulus/etc. (`sam3_redbird_sealed.py`, job 17027765) to test it directly.
+
+**Scripts**: `bee_confound_litval.py`, `bee_color_litval.py`, `med_bird_contrast.py`, `sam3_redbird_sealed.py`
+**Data**: `bee_confound_litval.json`, `bee_color_litval.json`, `med_bird_contrast.json`
+**Figures**: `bee_vs_nonbee_strip.png`, `med_bird_strip.png`
+**Logs**: jobs 17024503, 17024548, 17027493, 17027765
+
+---
+
+## Entry 17 — Bee-detectability is a closed-form, illuminant-invariant, non-invertible operator (2026-06-05)
+
+**Question**: Is bee-detectability a closed-form function of the pixel? Does it depend on
+the light? Can we recover "where the light came from"? (User intuition: "detectability
+tracks color — sounds like we can detect where the light came from.")
+
+**Method**: Three claims, each PROVED numerically on 40 real flower zone-means
+(`closed_form_proofs.py`, job 17028055).
+
+**Results**:
+
+1. **Single closed-form operator (no free parameters).**
+   ΔS(c) = |[1,−1]·(ln(M c) − ln(M c_leaf))| / ‖e‖,  with the FIXED 2×3 bee operator
+   M = [[0,.10,.90],[.17,.78,.05]], noise e=(0.06,0.12). Step-pipeline vs single-operator
+   ΔS: **max|diff| = 0.0 (bit-identical)**. "Detectability tracks color" = ΔS is this
+   parameter-free function of the pixel.
+
+2. **Brightness/intensity invariance — exact.** Scaling the light c→αc gives
+   ln(αE_i)=ln α + ln E_i; the common ln α **cancels in the (f_B−f_G) opponent**. Numerically
+   over α∈[0.3,3]: **max ΔS drift = 7.1×10⁻¹⁵ (= 0 to float precision)**. A *colored*
+   illuminant shift (per-channel gains) is NOT a scalar → moves ΔS only **0.79 JND median**
+   (the small residual seen in Entry 15's illuminant test, now explained by algebra).
+
+3. **Non-invertibility — "recover the light" is impossible.** The pixel is a projection
+   R^∞→R³ with infinite kernel (metamerism). Constructed an explicit **metamer line** (move
+   along f_B+f_G, fix f_B−f_G): **all yield ΔS = 9.9855 (spread 0.0)** — a whole family of
+   distinct physical stimuli the bee cannot tell apart, sharing one detectability. RGB→spectrum
+   has infinite preimage; there is **no closed form for the light source**.
+
+**Key Finding**: Bee-detectability is a **single, parameter-free, closed-form operator on
+the pixel**, provably invariant to overall light intensity (intensity cancels in the
+opponent) and stable to illuminant color (~0.8 JND) — but the inverse (recover the
+spectrum/illuminant) is **provably non-unique** (metamerism). We measure the only thing
+that survives the projection: what a fixed observer sees.
+
+**Implications**: (1) This is a clean Methods/Theory section — the operator + the two
+proofs. (2) It justifies WHY the method is reproducible (deterministic function, not a fit)
+and WHY median≈mean (Entry 15). (3) It is the same wall as UV: we never invert the unknown,
+we BOUND over it (the UV-interval theorem, Entry 15). (4) The illuminant-robustness is now
+analytic, not empirical luck.
+
+**What it does NOT claim**: we do NOT recover the illuminant or spectrum (impossible); the
+operator is for a FIXED assumed illuminant and the stated bee receptor model.
+
+**Script**: `closed_form_proofs.py`  **Data**: `closed_form_proofs.json`  **Log**: job 17028055
+
+---
+
+## Entry 18 — Sharp red-hummingbird-flower prediction CONFIRMED (the test the syndrome label couldn't do) (2026-06-05)
+
+**Question**: Entry 16's syndrome-label bee-vs-bird was null (p=0.97) because the labelset's
+"bird" group = generalist ornamentals, not red hummingbird flowers. Do the ACTUAL red
+hummingbird-syndrome flowers (Raven 1972) score LOW in bee-detectability?
+
+**Method**: Downloaded 16 red hummingbird species from iNat (no fallbacks); masked through
+the **FULL SEALED canonical gate** (`sam3_redbird_sealed.py`: score_cone=True, combo≥0.30,
+α=2.0, rank by combo, NO `or masks` fallback, gate-fail images DROPPED) → **586 gate-passing
+masks** (32 imgs dropped). Calibrated V-O bee-detectability per mask (Entry 15), gamut-clean,
+every mask kept; species as the statistical unit. Compared to the 120-species color cohort
+(`redbird_detect.py`, job 17028079).
+
+**Results**:
+
+| Group                    | n species | median bee-detect (JND) |
+|--------------------------|-----------|-------------------------|
+| All flowers (cohort)     | 120       | **9.90**                |
+| RED hummingbird flowers  | 16        | **8.33**  (lower)       |
+
+Mann-Whitney **U=549, p=0.0055, rank-biserial=0.43**. Per-species: Castilleja 5.9, Grevillea
+5.9, Aloe vera 6.6, Kniphofia 7.3, Penstemon 7.9, Ipomopsis 7.8 (low, as predicted); the few
+higher ones are pink/magenta-leaning (Fuchsia 11.2, Epilobium 9.9) — correct, pink has more
+bee-blue than pure red.
+
+**Key Finding**: RED hummingbird flowers are **significantly less bee-detectable** than the
+cohort (p=0.0055), confirming Raven 1972 (red = bird-syndrome, escaping bee detection) — the
+sharp prediction the noisy syndrome label could NOT test (Entry 16 p=0.97). Every species
+sits where its COLOR predicts.
+
+**Implications**: Completes the validation arc — detectability tracks the **photon-level
+color**, reproduces (i) bee blue-preference (Entry 16, p=4e-5), (ii) bee red-poor-
+discrimination at the *flower* level (this entry, p=0.0055), via a closed-form operator
+(Entry 17). The pipeline is externally validated against three independent literature
+predictions. Run PROPERLY: sealed gate, no shortcuts, no fallbacks, no collapse.
+
+**What it does NOT show**: per-mask high tail exists (red-bird flowers contain green sepals /
+yellow throats that score high per mask) — that's why species-median is the unit; the tail is
+shown (strip plot), not hidden.
+
+**Script**: `sam3_redbird_sealed.py`, `redbird_detect.py`  **Data**: `nonbee_redbird_masks.json`,
+`redbird_detect.json`  **Figure**: `redbird_strip.png`  **Logs**: jobs 17027812 (GPU sealed masks), 17028079
+
+---
+
+## Entry 19 — FULL-COHORT (2,532 species): color→bee-detectability is categorical (2026-06-05)
+
+**Question**: Does the color→bee-detectability relation (validated on 120 species, Entry 16)
+hold at FULL flora scale, with maximum statistical power?
+
+**Method**: Ran the calibrated V-O detectability + UV-interval floor + dominant-hue on the
+ENTIRE test.db Mediterranean cohort — **2,532 species ≥10 masks** — via an 8-shard array
+(`full_cohort_color.py`, job 17029773), EXISTING sealed masks (RLE-decoded,
+`passed_gate_clean` honored, NO SAM3, NO download, NO fallback), gamut-clean, every per-mask
+value kept. Merged (`full_cohort_merge.py`, job 17029806); species = median of its masks.
+
+**Results**:
+
+| hue | n | detect_median (JND) | | hue | n | detect_median |
+|---|---|---|---|---|---|---|
+| violet | 62 | **15.82** | | red | 94 | 9.29 |
+| blue | 57 | 15.63 | | orange | 347 | 7.21 |
+| pink | 174 | 12.95 | | green | 185 | 6.48 |
+| white | 801 | 9.69 | | **yellow** | 785 | **6.14** |
+
+- **blue/violet (n=119) vs red/orange (n=441): 15.71 vs 7.50 JND, Mann-Whitney p≈0
+  (underflow), rank-biserial = 0.953** — near-total separation (vs p=4e-5 at n=120).
+- **UV-robust fraction = 100%** of 2,532 species clear the bee threshold for ANY UV.
+- Spearman(detect, hue-ordinal) = **0.123** (weak) — because YELLOW (785 sp) sits LOWEST,
+  below red, breaking the simple monotone ordinal. This is correct biology: yellow ≈
+  yellow-green foliage in bee *chromatic* space (yellow flowers use the achromatic channel).
+
+**Key Finding**: At full flora scale the color→bee-detectability separation is **categorical,
+not just significant** (rank-biserial 0.95): blue/violet flowers are essentially always more
+bee-detectable than red/orange. The UV-robust lower bound holds for 100% of 2,532 species.
+The bee blue-preference + red-poor-discrimination (Giurfa 1995 / Raven 1972) is reproduced
+from raw pixels across an entire flora.
+
+**Implications**: Maximum-power confirmation before writing. The weak Spearman is itself a
+finding (yellow's chromatic-vs-achromatic split) — report the blue-vs-red CONTRAST (rbc 0.95)
+not a monotone correlation. This is the headline external validation for the color paper.
+
+**Honest scope**: hue is a coarse 10-bin label from our own pixels (a convenience axis, not
+the measurement); the measurement is the continuous JND. Species = median of its masks (the
+full per-mask distributions are saved in the shards, no collapse at the data level).
+
+**Scripts**: `full_cohort_color.py`, `full_cohort_merge.py`  **Data**: `full_cohort/shard_*.json`,
+`full_cohort_summary.json`  **Figure**: `full_cohort_color.png`  **Logs**: jobs 17029773 (array), 17029806
