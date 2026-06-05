@@ -2383,3 +2383,77 @@ delivered segmentation. Receptor matrices still coarse sRGB projections; fly's l
 is a real fly-receptor feature worth a look.
 
 **Script**: `pollinator_auc.py`  **Data**: `pollinator_auc.json`  **Figure**: `pollinator_auc.png`  **Log**: job 17031077
+
+---
+
+## Entry 23 — Threshold-free detection is the correct choice (ΔS-threshold is contested) (2026-06-05)
+
+**Question** (user L. Distel): should we set ANY detection threshold? — No, and the literature
+supports this.
+
+**Finding**: The Vorobyev-Osorio ΔS=1 "just-noticeable" limit and field cutoffs (~2.3 JND,
+Dyer & Neumeyer 2005) are NOT a universal constant — measured bee thresholds depend on training,
+motivation, and detection-vs-discrimination task (Dyer 2006; Garcia et al. 2018 argue against
+hard ΔS cutoffs for field prediction). Therefore our **flower-vs-background AUC** (Entry 22) is
+the more defensible metric precisely BECAUSE it is **threshold-free** — it measures separability
+(does the eye's per-pixel ΔS rank flower above background?) with no cutoff, sidestepping the
+contested-threshold debate entirely. The 2.3 line on our plots is a REFERENCE annotation, never
+a decision boundary.
+
+**Implication**: Report all detection results as threshold-free AUC. State explicitly that we
+avoid a ΔS cutoff because none is biologically universal. (Citable: Dyer 2006; Dyer & Neumeyer
+2005; Garcia, Dyer et al. 2018; Vorobyev & Osorio 1998.)
+
+**Doc**: `POLLINATOR_VISION/docs/HOW_PIXEL_BECOMES_METRIC.md`
+
+---
+
+## Entry 24 — Artificial-pollination vision: synthetic eye beats biology; but RESTORATION not replacement (2026-06-05)
+
+**Question** (user L. Distel): could a robot use this vision model for artificial pollination —
+and which eye should it have? And what is the ecologically responsible framing?
+
+**Method**: Per-image flower-vs-background AUC under bee / fly / bird / UNION (max ΔS across
+eyes) / a tuned SYNTHETIC 2-receptor eye (grid search over receptor mixes), broken by flower
+color, with a crop-relevant white+yellow breakdown. Report = FRACTION of flower images that
+STAND OUT (AUC>0.7) — a count of real images, not a mean. 500 images / 105 species.
+(`POLLINATOR_VISION/scripts/artificial_pollinator.py`, job 17031247.)
+
+**Results** — fraction of flowers that stand out (AUC>0.7):
+
+| detector | ALL colors | crop-relevant (white+yellow) |
+|---|---|---|
+| bee | 0.68 | **0.56** ← naive bee-robot weak on crops |
+| fly | 0.69 | 0.56 |
+| bird | 0.79 | 0.65 |
+| union (max of eyes) | 0.78 | 0.64 |
+| **tuned synthetic eye** | **0.97** | **0.94** |
+
+**Key Finding**: A naive bee-vision robot finds only **56% of crop (white/yellow) flowers**
+(bees see those poorly — Entry 22), but a **tuned synthetic receptor finds 94% of crop flowers
+/ 97% overall** — far better than any biological eye, and better than the union of eyes
+(0.78). **"The best artificial-pollinator eye is NOT a copy of a real pollinator's eye"** is
+CONFIRMED; the receptor must be TUNED, not borrowed.
+
+**ECOLOGICAL-ETHICS PRINCIPLE (user L. Distel, load-bearing):** a synthetic super-pollinator
+used to REPLACE / outcompete biological pollinators would be ecologically DESTRUCTIVE
+(competitive exclusion → ecosystem collapse; a better eye makes this WORSE). The defensible use
+is **deficit-targeted ECOLOGICAL SUPPORT/RESTORATION**: deploy ONLY where biological pollinators
+are absent/insufficient, pollinate the UNVISITED flowers to rebuild floral resources and
+RECOVER the biological pollinator population, then withdraw. Success = recovery of the
+biological system, not robot throughput. Constraints: deficit-detection gate, reward-preserving
+mechanism, explicit withdrawal criterion, coverage-of-unvisited (not maximal harvesting).
+
+**Implications**: A real, fundable, non-hype direction — the power of the 97% detector is
+dangerous if used to compete and valuable if used to RESTORE; the difference is a deployment
+POLICY, not a vision change. Self-contained in the POLLINATOR_VISION repo (decoupled from
+BRIDGE/Paper 1).
+
+**What it does NOT show**: feasibility is on iNat photos, NOT field/orchard imagery (Q3 open);
+the pollination MECHANISM and agronomy are out of scope (vision only); receptor matrices are
+coarse sRGB projections.
+
+**Scripts**: `POLLINATOR_VISION/scripts/artificial_pollinator.py`, `auc_nocollapse_fig.py`
+**Data**: `POLLINATOR_VISION/data/artificial_pollinator.json`  **Figure**:
+`POLLINATOR_VISION/figures/auc_nocollapse.png`  **Docs**: `ARTIFICIAL_POLLINATION.md`,
+`HOW_PIXEL_BECOMES_METRIC.md`  **Log**: job 17031247  **Repo**: POLLINATOR_VISION (git, decoupled)
